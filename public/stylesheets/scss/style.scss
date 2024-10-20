@@ -1,0 +1,32 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 10px;
+}
+
+.photo-item {
+  margin: 10px;
+  text-align: center;
+}
+
+.photo-item img {
+  max-width: 300px;
+  height: auto;
+  border: 1px solid #ccc;
+}
+
+.photo-item p {
+  margin-top: 5px;
+}

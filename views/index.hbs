@@ -1,0 +1,14 @@
+<!-- ./views/index.hbs -->
+
+<h1>Top {{photos.length}} Photos</h1>
+<div class="photo-grid">
+  {{#each photos}}
+    <div class="photo-item">
+      <img
+        src="/images/{{this.original_filename}}"
+        alt="{{this.original_filename}}"
+      />
+      <p>Score: {{this.score.overall}}</p>
+    </div>
+  {{/each}}
+</div>
