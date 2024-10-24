@@ -1,4 +1,4 @@
-// ./controllers/photoController.js
+// ./controllers/photo-controller.js
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -102,7 +102,7 @@ async function runOsxphotosExportData(osxphotosPath, outputPath) {
 
 // Helper function to run osxphotos export
 async function runOsxphotosExportImages(osxphotosPath, uuidsFile, outputDir) {
-  const command = `"${osxphotosPath}" export "${outputDir}" --uuid-from-file "${uuidsFile}" --original-name --skip-original-if-missing`;
+  const command = `"${osxphotosPath}" export "${outputDir}" --uuid-from-file "${uuidsFile}" --filename "{original_name}" --skip-original-if-missing`;
   await execCommand(command, "Error exporting images:");
 }
 

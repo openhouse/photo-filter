@@ -6,12 +6,12 @@ The **Photo Filter Application** is a locally running Node.js web application de
 
 ## Features
 
-- **Album Selection**: Select specific albums from your Photos library for filtering.
-- **Interactive Querying**: Compose queries using attributes like aesthetic scores, dates, keywords, people, and more.
-- **Faceted Filtering**: Use facets to refine photo selections based on various metadata.
-- **Dynamic Sorting**: Sort photos by aesthetic scores and other subjective evaluation attributes.
+- **Album Navigation and Selection**: Navigate through and select specific albums from your Photos library within the web app.
+- **Interactive Sorting and Filtering**: Sort and filter photos using attributes like aesthetic scores, dates, keywords, and people.
+- **Symlinked Photo Export**: Export filtered photos as symlinks to avoid taking up extra disk space.
+- **Export Directory Structure**: Exports are organized under `exports/yyyy-mm-dd/named_export/` for easy management.
+- **Photoshop Integration**: The export directories are compatible with Adobe Photoshop's Photomerge automation.
 - **Web Interface**: View and interact with filtered photos in a user-friendly web interface.
-- **Photo Export**: Export or copy filtered photos to a local directory for use in external applications like Adobe Photoshop's Photomerge.
 - **Privacy-Focused**: Personal data and photos are kept locally and are not included in the git repository.
 
 ## Technologies Used
@@ -86,10 +86,13 @@ The **Photo Filter Application** is a locally running Node.js web application de
 
 ## Usage
 
-- **Album Selection**: Choose an album from your Photos library to begin filtering.
-- **Interactive Querying**: Use the web interface to apply filters and sort photos based on your preferences.
-- **Viewing Results**: The filtered photos will be displayed in a responsive grid layout.
-- **Exporting Photos**: Export the selected photos to a local directory for use in other applications.
+- **Album Navigation**: Browse and select albums from your Photos library within the app.
+- **Sorting and Filtering**: Apply various filters and sorting options to refine your photo selection.
+- **Exporting Photos**:
+
+  - **Create Named Exports**: After filtering, create a named export that symlinks the selected photos.
+  - **Export Directory Structure**: Exports are saved under `exports/yyyy-mm-dd/named_export/`.
+  - **Photoshop Integration**: Point Photoshop's Photomerge automation to the export directory for seamless integration.
 
 **Note**: The first time you run the application, it may take some time to export data from the Photos library.
 
@@ -98,9 +101,9 @@ The **Photo Filter Application** is a locally running Node.js web application de
 ### **Current Status**
 
 - **Data Extraction**: Successfully extracts photo metadata and images using `osxphotos`.
-- **Interactive Querying**: In progress.
-- **Album Selection**: Pending implementation.
-- **Photo Export**: Pending implementation.
+- **Interactive Album Navigation**: Pending implementation.
+- **Enhanced Sorting and Filtering**: Pending implementation.
+- **Symlinked Photo Export**: Pending implementation.
 - **Web Interface**: Basic version displaying photos and scores.
 - **Styling**: Initial styling applied using SCSS.
 

@@ -38,6 +38,7 @@
   - **stylesheets/**: CSS and SCSS files.
   - **images/**: Image files served to the client.
 - **data/**: Data files and temporary caches (excluded from git).
+- **exports/**: Symlinked export directories (excluded from git).
 - **scripts/**: Utility scripts (e.g., `generate-overview.sh`).
 - **tests/**: Automated tests.
 
@@ -65,25 +66,39 @@
 ## Collaboration Guidelines
 
 - **Communication**:
+
   - Provide clear and concise messages when collaborating.
   - Use full file contents for any file to be modified or created to ensure verifiability.
   - Include all necessary information in the project overview for effective collaboration.
+
+- **Code Provisioning**:
+
+  - **Full File Replacements**: Always provide full files for any code changes to facilitate copy-paste replacement.
+  - **Project Organization**: Organize the project into smaller, manageable files to support this method.
+
 - **Version Control**:
+
   - Commit small, logical changes with clear commit messages.
   - Use branches for new features or bug fixes.
+
 - **Code Review**:
+
   - Review and test contributions thoroughly before merging.
   - Encourage collaborative problem-solving.
+
 - **Issue Tracking**:
+
   - Use issue tracking to manage tasks and bugs.
+
 - **Best Practices**:
+
   - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
 
 ## Environment and Dependency Management
 
 - Use `.nvmrc` to specify Node.js versions.
 - Keep dependencies up to date; use `yarn` consistently.
-- Exclude unnecessary files and directories using `.gitignore` (e.g., `node_modules/`, `public/images/`, `data/`).
+- Exclude unnecessary files and directories using `.gitignore` (e.g., `node_modules/`, `public/images/`, `data/`, `exports/`).
 - **Integrate External Tools**: Manage calls to external tools (like `osxphotos`) within the Node.js application.
 
 ## Error Handling and Logging

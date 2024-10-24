@@ -14,32 +14,39 @@ Develop a locally running web application that interfaces with the user's macOS 
 
 ## New Objectives
 
-- **Interactive Querying**: Enable users to compose queries using various photo attributes and metadata.
-- **Album Selection**: Allow users to select specific albums from their Photos library for filtering.
-- **Attribute Facets**: Provide facets for attributes like aesthetic scores, date ranges, keywords, people, and more.
-- **Photo Export**: Facilitate exporting or copying filtered photos to a local directory.
+- **Interactive Album Navigation**: Enable users to navigate and select albums from their Photos library within the web app.
+- **Enhanced Sorting and Filtering**: Allow sorting and filtering of photos by attributes like aesthetic scores, dates, keywords, and people.
+- **Symlinked Photo Export**: Facilitate exporting filtered photos as symlinks to a structured directory compatible with Photoshop's Photomerge.
+- **Export Directory Structure**: Organize exports under `exports/yyyy-mm-dd/named_export/`, containing symlinks to the original images.
 - **Privacy Considerations**: Ensure personal data and photos are not included in the git repository.
 
 ## Pending Tasks and Priorities
 
 1. **High Priority**
 
-   - **Album Selection Interface**:
+   - **Interactive Album Navigation**:
 
-     - Implement a UI component to select albums from the Photos library.
-     - Modify the backend to handle album-specific queries.
+     - Implement a UI component to display and select albums from the Photos library.
+     - Modify the backend to fetch and serve album-specific data.
 
-   - **Interactive Query Builder**:
+   - **Enhanced Sorting and Filtering**:
 
-     - Develop a query builder interface allowing users to filter photos using facets.
-     - Include attributes like aesthetic scores, dates, keywords, and people.
+     - Develop sorting and filtering mechanisms based on photo attributes.
+     - Update the frontend to allow users to apply these filters interactively.
 
-   - **Dynamic Photo Export**:
+   - **Symlinked Photo Export**:
 
-     - Implement functionality to export or copy filtered photos to a user-specified local directory.
-     - Ensure compatibility with applications like Adobe Photoshop's Photomerge.
+     - Implement functionality to create symlinks of filtered photos in a user-defined export directory.
+     - Ensure the symlinks point to the original images in the Photos library without copying files.
+     - Handle potential issues with iCloud Photo Library and ensure symlinks work correctly.
+
+   - **Export Directory Structure**:
+
+     - Automate the creation of export directories following the `exports/yyyy-mm-dd/named_export/` format.
+     - Provide a UI for users to name their exports.
 
    - **Enhanced Error Handling**:
+
      - Improve error messages and handling throughout the application.
      - Provide informative feedback to the user in case of failures.
 
@@ -51,6 +58,7 @@ Develop a locally running web application that interfaces with the user's macOS 
      - Use media queries and flexible layouts.
 
    - **Caching and Performance**:
+
      - Implement caching mechanisms for photo metadata to reduce load times.
      - Optimize queries and data processing for large datasets.
 
@@ -59,31 +67,34 @@ Develop a locally running web application that interfaces with the user's macOS 
    - **Advanced Filtering Options**:
 
      - Include additional filters like location, camera model, and EXIF data.
-     - Allow sorting by subjective evaluation attributes from Apple's enhanced attributes.
+     - Allow sorting by other subjective evaluation attributes from Apple's enhanced attributes.
 
    - **User Preferences**:
 
      - Save user settings and preferences for queries and interface configurations.
 
    - **Internationalization (i18n)**:
+
      - Prepare the application for localization and support multiple languages.
 
 ## Next Steps
 
 - **Backend Enhancements**:
 
-  - Modify `photoController.js` to handle album-specific queries and dynamic filtering.
-  - Integrate additional metadata attributes into the querying mechanism.
+  - Modify `photo-controller.js` to handle album-specific queries and dynamic filtering.
+  - Implement functions to create symlinks in the specified export directory.
+  - Ensure compatibility with the Photos library structure and handle any symlink limitations.
 
 - **Frontend Development**:
 
-  - Update `index.hbs` and `main.hbs` to include interactive query builder components.
+  - Update `index.hbs` and `main.hbs` to include album navigation and filtering UI components.
+  - Add forms or dialogs to allow users to specify export names.
   - Use AJAX or Fetch API for dynamic content loading without full page refreshes.
 
 - **Export Functionality**:
 
-  - Implement a feature to export filtered photos to a local directory.
-  - Ensure the exported photos retain necessary metadata for external applications.
+  - Implement the export feature to create symlinked directories as per the specified structure.
+  - Ensure the exported directories are compatible with Photoshop's Photomerge automation.
 
 - **Privacy and Data Management**:
 
@@ -91,15 +102,21 @@ Develop a locally running web application that interfaces with the user's macOS 
   - Ensure temporary caches and exported data are stored securely on the user's local machine.
 
 - **Documentation Updates**:
+
   - Update `README.md` and `project-guidelines.md` to reflect new features and usage instructions.
   - Include information about privacy considerations and data handling.
 
 ## Collaboration Notes
 
-- Any changes to the core functionality should be documented in `CHANGELOG.md`.
-- Follow the **Project Guidelines** outlined in `project-guidelines.md`.
-- Use descriptive commit messages and maintain code quality.
-- Ensure that all critical information is included within project files for continuity.
+- **Code Provisioning**:
+
+  - Provide full files for any code changes to facilitate copy-paste replacement.
+  - Organize the project into smaller files if necessary to improve manageability.
+
+- **Communication**:
+
+  - Include all critical information within project files for continuity.
+  - Document any architectural decisions and code changes thoroughly.
 
 ---
 
