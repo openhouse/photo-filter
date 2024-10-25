@@ -27,12 +27,12 @@ def main():
     # Include score information
     photos_data = []
     for photo in photos:
-        photo_dict = photo.json_dict()
+        photo_dict = photo.asdict()
         photo_dict['score'] = photo.score.asdict()
         photos_data.append(photo_dict)
     
-    # Output as JSON
-    print(json.dumps(photos_data, indent=2))
+    # Output as JSON, handling non-serializable objects
+    print(json.dumps(photos_data, indent=2, default=str))
 
 if __name__ == "__main__":
     main()
