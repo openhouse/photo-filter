@@ -1,0 +1,10 @@
+<!-- ./views/albums.hbs -->
+
+<h1>Select an Album</h1>
+<div class="album-list">
+  {{#each albums}}
+    <div class="album-item">
+      <a href="/album/{{this.uuid}}">{{this.title}}</a>
+    </div>
+  {{/each}}
+</div>

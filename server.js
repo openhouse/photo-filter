@@ -18,11 +18,19 @@ app.set("views", path.join(__dirname, "views"));
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
-// Serve images from data/images-source
-app.use(
-  "/images",
-  express.static(path.join(__dirname, "data", "images-source"))
-);
+// Dynamic image serving middleware
+app.use("/images/:albumUUID/:imageName", (req, res) => {
+  const { albumUUID, imageName } = req.params;
+  const imagePath = path.join(
+    __dirname,
+    "data",
+    "albums",
+    albumUUID,
+    "images",
+    imageName
+  );
+  res.sendFile(imagePath);
+});
 
 // Use routes
 app.use("/", routes);

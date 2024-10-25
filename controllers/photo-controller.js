@@ -11,99 +11,99 @@ const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const getPhotos = async (req, res) => {
+// Function to get the list of albums
+export const getAlbums = async (req, res) => {
   try {
-    // Paths
     const dataDir = path.join(__dirname, "..", "data");
-    const dataPath = path.join(dataDir, "photos.json");
-    const imagesDir = path.join(dataDir, "images-source");
+    const albumsPath = path.join(dataDir, "albums.json");
     const venvDir = path.join(__dirname, "..", "venv");
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
-
-    console.log("Data path:", dataPath);
-    console.log("Images directory:", imagesDir);
 
     // Ensure data directory exists
     await fs.ensureDir(dataDir);
 
-    // Check if osxphotos is installed in the virtual environment
-    if (!(await fs.pathExists(osxphotosPath))) {
-      console.error("osxphotos is not installed in the virtual environment.");
-      res.status(500).send(`
-        <h1>osxphotos is not installed.</h1>
-        <p>Please run <code>yarn setup</code> to install osxphotos.</p>
-      `);
-      return;
+    // Check if albums.json exists
+    if (!(await fs.pathExists(albumsPath))) {
+      console.log("albums.json not found. Exporting albums using osxphotos...");
+
+      // Export albums using osxphotos
+      await runOsxphotosExportAlbums(osxphotosPath, albumsPath);
     }
 
-    // Check if photos.json exists
-    if (!(await fs.pathExists(dataPath))) {
-      console.log(
-        "photos.json not found. Exporting metadata using osxphotos..."
-      );
+    // Read albums data
+    const albumsData = await fs.readJson(albumsPath);
 
-      // Export metadata using osxphotos
-      await runOsxphotosExportData(osxphotosPath, dataPath);
-    }
-
-    // Read photos data
-    const photosData = await fs.readJson(dataPath);
-
-    // Filter and sort photos with score.overall
-    const photosWithScores = photosData.filter(
-      (photo) =>
-        photo.score &&
-        photo.score.overall !== null &&
-        photo.score.overall !== undefined
-    );
-
-    const sortedPhotos = photosWithScores.sort(
-      (a, b) => b.score.overall - a.score.overall
-    );
-
-    // Select the top N photos
-    const topN = 500; // Adjust as needed
-    const topPhotos = sortedPhotos.slice(0, topN);
-
-    // Generate top_photo_uuids.txt
-    const uuidsFilePath = path.join(dataDir, "top_photo_uuids.txt");
-    const topPhotoUUIDs = topPhotos.map((photo) => photo.uuid);
-    await fs.writeFile(uuidsFilePath, topPhotoUUIDs.join("\n"), "utf-8");
-    console.log("UUIDs saved to top_photo_uuids.txt");
-
-    // Check if images-source directory exists and has files
-    const imagesExist =
-      (await fs.pathExists(imagesDir)) &&
-      (await fs.readdir(imagesDir)).length > 0;
-
-    if (!imagesExist) {
-      console.log("Images not found. Exporting images using osxphotos...");
-
-      // Ensure images-source directory exists
-      await fs.ensureDir(imagesDir);
-
-      // Export images using osxphotos
-      await runOsxphotosExportImages(osxphotosPath, uuidsFilePath, imagesDir);
-    }
-
-    // Pass the top photos to the view
-    res.render("index", { photos: topPhotos });
+    // Render albums view
+    res.render("albums", { albums: albumsData });
   } catch (error) {
-    console.error("Error processing photos:", error);
+    console.error("Error fetching albums:", error);
     res.status(500).send("Internal Server Error");
   }
 };
 
-// Helper function to run osxphotos export-data
-async function runOsxphotosExportData(osxphotosPath, outputPath) {
-  const command = `"${osxphotosPath}" export-data --json "${outputPath}"`;
-  await execCommand(command, "Error exporting metadata:");
+// Function to get photos by album UUID
+export const getPhotosByAlbum = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+
+    // Paths
+    const dataDir = path.join(__dirname, "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+    const imagesDir = path.join(photosDir, "images");
+    const venvDir = path.join(__dirname, "..", "venv");
+    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+
+    // Ensure directories exist
+    await fs.ensureDir(photosDir);
+    await fs.ensureDir(imagesDir);
+
+    // Check if photos.json exists
+    if (!(await fs.pathExists(photosPath))) {
+      console.log(
+        `photos.json not found for album ${albumUUID}. Exporting photos using osxphotos...`
+      );
+
+      // Export photos for the album using osxphotos
+      await runOsxphotosExportAlbumPhotos(
+        osxphotosPath,
+        albumUUID,
+        photosPath,
+        imagesDir
+      );
+    }
+
+    // Read photos data
+    const photosData = await fs.readJson(photosPath);
+
+    // Pass the photos to the view
+    res.render("index", { photos: photosData, albumUUID });
+  } catch (error) {
+    console.error("Error fetching photos for album:", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+// Helper function to run osxphotos to export albums
+async function runOsxphotosExportAlbums(osxphotosPath, outputPath) {
+  const command = `"${osxphotosPath}" albums --json "${outputPath}"`;
+  await execCommand(command, "Error exporting albums:");
 }
 
-// Helper function to run osxphotos export
-async function runOsxphotosExportImages(osxphotosPath, uuidsFile, outputDir) {
-  const command = `"${osxphotosPath}" export "${outputDir}" --uuid-from-file "${uuidsFile}" --filename "{original_name}" --skip-original-if-missing`;
-  await execCommand(command, "Error exporting images:");
+// Helper function to export photos for a specific album
+async function runOsxphotosExportAlbumPhotos(
+  osxphotosPath,
+  albumUUID,
+  outputPath,
+  imagesDir
+) {
+  // Export metadata
+  const commandData = `"${osxphotosPath}" export-data --album-uuid "${albumUUID}" --json "${outputPath}"`;
+  await execCommand(commandData, "Error exporting album photos metadata:");
+
+  // Export images
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --album-uuid "${albumUUID}" --filename "{original_name}" --skip-original-if-missing`;
+  await execCommand(commandImages, "Error exporting album images:");
 }
 
 // Helper function to execute shell commands
