@@ -3,7 +3,7 @@
 import { execCommand } from "./exec-command.js";
 import fs from "fs-extra";
 
-// Helper function to run Python scripts
+// Helper function to run Python scripts and handle output
 export async function runPythonScript(
   pythonPath,
   scriptPath,
@@ -11,14 +11,14 @@ export async function runPythonScript(
   outputPath
 ) {
   const command = `"${pythonPath}" "${scriptPath}" ${args.join(" ")}`;
-  await execCommand(command, `Error executing Python script ${scriptPath}:`);
+  const { stdout } = await execCommand(
+    command,
+    `Error executing Python script ${scriptPath}:`
+  );
 
-  // If an output path is specified, read the output
+  // Write stdout to outputPath
   if (outputPath) {
-    if (await fs.pathExists(outputPath)) {
-      console.log(`Output written to ${outputPath}`);
-    } else {
-      throw new Error(`Expected output not found at ${outputPath}`);
-    }
+    await fs.writeFile(outputPath, stdout, "utf-8");
+    console.log(`Output written to ${outputPath}`);
   }
 }

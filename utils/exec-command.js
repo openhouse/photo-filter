@@ -2,22 +2,36 @@
 
 import { spawn } from "child_process";
 
-// Helper function to execute shell commands
+// Helper function to execute shell commands and capture stdout
 export function execCommand(command, errorMessage) {
   return new Promise((resolve, reject) => {
     console.log(`Executing command:\n${command}`);
 
+    let stdoutData = "";
+    let stderrData = "";
+
     const child = spawn(command, {
-      stdio: "inherit",
       shell: true,
       env: process.env, // Ensure the environment variables are passed
     });
 
+    child.stdout.on("data", (data) => {
+      stdoutData += data;
+    });
+
+    child.stderr.on("data", (data) => {
+      stderrData += data;
+    });
+
     child.on("close", (code) => {
       if (code === 0) {
-        resolve();
+        resolve({ stdout: stdoutData, stderr: stderrData });
       } else {
-        reject(new Error(`${errorMessage} Exit code: ${code}`));
+        reject(
+          new Error(
+            `${errorMessage} Exit code: ${code}\n${stderrData || stdoutData}`
+          )
+        );
       }
     });
 
