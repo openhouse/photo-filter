@@ -35,6 +35,7 @@ project-overview.txt
 
 # Data and cache directories
 data/
+data/**/uuids.txt
 top_photo_uuids.txt
 cache/
 
