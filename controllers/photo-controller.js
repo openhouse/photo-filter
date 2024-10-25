@@ -86,8 +86,10 @@ export const getPhotosByAlbum = async (req, res) => {
 
 // Helper function to run osxphotos to export albums
 async function runOsxphotosExportAlbums(osxphotosPath, outputPath) {
-  const command = `"${osxphotosPath}" albums --json "${outputPath}"`;
-  await execCommand(command, "Error exporting albums:");
+  const command = `"${osxphotosPath}" albums --json`;
+  const { stdout } = await execCommand(command, "Error exporting albums:");
+  // Write the stdout to the outputPath
+  await fs.writeFile(outputPath, stdout, "utf-8");
 }
 
 // Helper function to export photos for a specific album
@@ -98,8 +100,13 @@ async function runOsxphotosExportAlbumPhotos(
   imagesDir
 ) {
   // Export metadata
-  const commandData = `"${osxphotosPath}" export-data --album-uuid "${albumUUID}" --json "${outputPath}"`;
-  await execCommand(commandData, "Error exporting album photos metadata:");
+  const commandData = `"${osxphotosPath}" export-data --album-uuid "${albumUUID}" --json`;
+  const { stdout: dataStdout } = await execCommand(
+    commandData,
+    "Error exporting album photos metadata:"
+  );
+  // Write metadata to outputPath
+  await fs.writeFile(outputPath, dataStdout, "utf-8");
 
   // Export images
   const commandImages = `"${osxphotosPath}" export "${imagesDir}" --album-uuid "${albumUUID}" --filename "{original_name}" --skip-original-if-missing`;
@@ -112,11 +119,10 @@ async function execCommand(command, errorMessage) {
     const { stdout, stderr } = await execAsync(command);
     if (stderr) {
       console.error(errorMessage, stderr);
-    } else {
-      console.log(stdout);
     }
+    return { stdout, stderr };
   } catch (error) {
-    console.error(errorMessage, error);
+    console.error(errorMessage, error.stderr || error);
     throw error;
   }
 }
