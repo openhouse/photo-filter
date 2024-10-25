@@ -147,8 +147,16 @@ async function runOsxphotosExportImages(
   // Write UUIDs to uuids.txt
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
-  // Corrected command with the proper filename template
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_filename}" --skip-original-if-missing --download-missing`;
+  // Path to the template functions script
+  const templateFunctionPath = path.join(
+    __dirname,
+    "..",
+    "scripts",
+    "template_functions.py"
+  );
+
+  // Use the custom template function to match filenames in photos.json
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{uuid}{function:${templateFunctionPath}::get_extension}" --download-missing --verbose`;
 
   await execCommand(commandImages, "Error exporting album images:");
 }
@@ -156,6 +164,7 @@ async function runOsxphotosExportImages(
 // Helper function to execute shell commands
 async function execCommand(command, errorMessage) {
   try {
+    console.log(`Executing command:\n${command}`);
     const { stdout, stderr } = await execAsync(command);
     if (stdout) {
       console.log(`Command output:\n${stdout}`);
