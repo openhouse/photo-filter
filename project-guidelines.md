@@ -10,6 +10,10 @@
 - **Performance**: Optimize for handling large datasets efficiently.
 - **Scalability**: Design the application architecture to accommodate future growth and additional features.
 
+## Ensuring Complete Project Overviews
+
+Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The `generate-overview.sh` script should be dynamically modified as needed to provide insight into any relevant files, balancing the need for completeness with the practicality of input constraints in collaborative tools like ChatGPT.
+
 ## Coding Standards
 
 - Use consistent indentation (2 spaces).
