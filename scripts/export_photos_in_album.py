@@ -28,7 +28,7 @@ def main():
     photos_data = []
     for photo in photos:
         photo_dict = photo.json()
-        photo_dict['score'] = photo.score._asdict()
+        photo_dict['score'] = photo.score.asdict()
         photos_data.append(photo_dict)
     
     # Output as JSON
