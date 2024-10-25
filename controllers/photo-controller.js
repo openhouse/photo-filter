@@ -17,7 +17,13 @@ export const getAlbums = async (req, res) => {
     const dataDir = path.join(__dirname, "..", "data");
     const albumsPath = path.join(dataDir, "albums.json");
     const venvDir = path.join(__dirname, "..", "venv");
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+    const pythonPath = path.join(venvDir, "bin", "python3");
+    const scriptPath = path.join(
+      __dirname,
+      "..",
+      "scripts",
+      "export_albums.py"
+    );
 
     // Ensure data directory exists
     await fs.ensureDir(dataDir);
@@ -26,8 +32,8 @@ export const getAlbums = async (req, res) => {
     if (!(await fs.pathExists(albumsPath))) {
       console.log("albums.json not found. Exporting albums using osxphotos...");
 
-      // Export albums using osxphotos
-      await runOsxphotosExportAlbums(osxphotosPath, albumsPath);
+      // Export albums using the Python script
+      await runPythonExportAlbums(pythonPath, scriptPath, albumsPath);
     }
 
     // Read albums data
@@ -84,9 +90,9 @@ export const getPhotosByAlbum = async (req, res) => {
   }
 };
 
-// Helper function to run osxphotos to export albums
-async function runOsxphotosExportAlbums(osxphotosPath, outputPath) {
-  const command = `"${osxphotosPath}" albums --uuid --json`;
+// Helper function to run the Python script to export albums
+async function runPythonExportAlbums(pythonPath, scriptPath, outputPath) {
+  const command = `"${pythonPath}" "${scriptPath}"`;
   const { stdout } = await execCommand(command, "Error exporting albums:");
   // Write the stdout to the outputPath
   await fs.writeFile(outputPath, stdout, "utf-8");
