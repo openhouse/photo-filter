@@ -86,7 +86,7 @@ export const getPhotosByAlbum = async (req, res) => {
 
 // Helper function to run osxphotos to export albums
 async function runOsxphotosExportAlbums(osxphotosPath, outputPath) {
-  const command = `"${osxphotosPath}" albums --json`;
+  const command = `"${osxphotosPath}" albums --uuid --json`;
   const { stdout } = await execCommand(command, "Error exporting albums:");
   // Write the stdout to the outputPath
   await fs.writeFile(outputPath, stdout, "utf-8");

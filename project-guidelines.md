@@ -75,6 +75,7 @@
 
   - **Full File Replacements**: Always provide full files for any code changes to facilitate copy-paste replacement.
   - **Project Organization**: Organize the project into smaller, manageable files to support this method.
+  - **Include Git Commit Messages**: When making changes to project files, always include a clear and descriptive git commit message in replies.
 
 - **Version Control**:
 
@@ -91,7 +92,6 @@
   - Use issue tracking to manage tasks and bugs.
 
 - **Best Practices**:
-
   - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
 
 ## Environment and Dependency Management

@@ -17,7 +17,7 @@ echo "## Project Structure" >> $OUTPUT_FILE
 echo "" >> $OUTPUT_FILE
 
 # Exclude specified directories
-EXCLUDE_DIRS='node_modules|.git|venv|public/*images*|public/uploads|public/cache|public/*export*|dist|build|data|cache'
+EXCLUDE_DIRS='node_modules|.git|venv|public/*images*|public/uploads|public/cache|public/*export*|dist|build|cache'
 
 # Generate the directory tree
 echo "\`\`\`" >> $OUTPUT_FILE
@@ -42,13 +42,22 @@ FILES=$(find . -type f \( -name "*.js" -o -name "*.mjs" -o -name "*.scss" -o -na
 -not -path "./public/*export*/*" \
 -not -path "./dist/*" \
 -not -path "./build/*" \
--not -path "./data/*" \
 -not -path "./cache/*")
 
 for FILE in $FILES; do
-  echo "### **$FILE**" >> $OUTPUT_FILE
-  echo "\`\`\`" >> $OUTPUT_FILE
-  cat "$FILE" >> $OUTPUT_FILE
-  echo "\`\`\`" >> $OUTPUT_FILE
-  echo "" >> $OUTPUT_FILE
+  # For JSON files in the data directory, include only the first 20 lines
+  if [[ "$FILE" == ./data/*.json ]]; then
+    echo "### **$FILE**" >> $OUTPUT_FILE
+    echo "\`\`\`json" >> $OUTPUT_FILE
+    head -n 20 "$FILE" >> $OUTPUT_FILE
+    echo "..." >> $OUTPUT_FILE
+    echo "\`\`\`" >> $OUTPUT_FILE
+    echo "" >> $OUTPUT_FILE
+  else
+    echo "### **$FILE**" >> $OUTPUT_FILE
+    echo "\`\`\`" >> $OUTPUT_FILE
+    cat "$FILE" >> $OUTPUT_FILE
+    echo "\`\`\`" >> $OUTPUT_FILE
+    echo "" >> $OUTPUT_FILE
+  fi
 done
