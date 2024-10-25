@@ -148,7 +148,7 @@ async function runOsxphotosExportImages(
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
   // Corrected command with the proper filename template
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_filename}" --skip-original-if-missing --verbose`;
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_filename}" --skip-original-if-missing --download-missing`;
 
   await execCommand(commandImages, "Error exporting album images:");
 }
