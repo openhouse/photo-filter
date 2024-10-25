@@ -7,10 +7,11 @@ Develop a locally running web application that interfaces with the user's macOS 
 ## Current State
 
 - **Data Extraction**: Implemented using `osxphotos` via a Python virtual environment.
-- **Image Export**: Top N photos are exported and stored in `data/images-source`.
-- **Backend**: Express.js server with routes that handle data processing and querying.
-- **Frontend**: Handlebars templates displaying photos and scores.
+- **Image Export**: Functioning correctly after resolving export issues.
+- **Backend**: Express.js server with routes handling album and photo data.
+- **Frontend**: Handlebars templates displaying albums and photos.
 - **Styling**: Basic CSS styling using SCSS.
+- **Issue Tracking**: `ISSUES.md` added for documenting issues and resolutions.
 
 ## New Objectives
 
@@ -22,66 +23,77 @@ Develop a locally running web application that interfaces with the user's macOS 
 
 ## Pending Tasks and Priorities
 
-1. **High Priority**
+### 1. High Priority
 
-   - **Interactive Album Navigation**:
+- **Interactive Album Navigation**:
 
-     - Implement a UI component to display and select albums from the Photos library.
-     - Modify the backend to fetch and serve album-specific data.
+  - Implement a UI component to display and select albums from the Photos library.
+  - Modify the backend to fetch and serve album-specific data.
 
-   - **Enhanced Sorting and Filtering**:
+- **Enhanced Sorting and Filtering**:
 
-     - Develop sorting and filtering mechanisms based on photo attributes.
-     - Update the frontend to allow users to apply these filters interactively.
+  - Develop sorting and filtering mechanisms based on photo attributes.
+  - Update the frontend to allow users to apply these filters interactively.
 
-   - **Symlinked Photo Export**:
+- **Symlinked Photo Export**:
 
-     - Implement functionality to create symlinks of filtered photos in a user-defined export directory.
-     - Ensure the symlinks point to the original images in the Photos library without copying files.
-     - Handle potential issues with iCloud Photo Library and ensure symlinks work correctly.
+  - Implement functionality to create symlinks of filtered photos in a user-defined export directory.
+  - Ensure the symlinks point to the original images in the Photos library without copying files.
+  - Handle potential issues with iCloud Photo Library and ensure symlinks work correctly.
 
-   - **Export Directory Structure**:
+- **Export Directory Structure**:
 
-     - Automate the creation of export directories following the `exports/yyyy-mm-dd/named_export/` format.
-     - Provide a UI for users to name their exports.
+  - Automate the creation of export directories following the `exports/yyyy-mm-dd/named_export/` format.
+  - Provide a UI for users to name their exports.
 
-   - **Enhanced Error Handling**:
+- **Enhanced Error Handling**:
+  - Improve error messages and handling throughout the application.
+  - Provide informative feedback to the user in case of failures.
 
-     - Improve error messages and handling throughout the application.
-     - Provide informative feedback to the user in case of failures.
+### 2. Medium Priority
 
-2. **Medium Priority**
+- **Responsive Design**:
 
-   - **Responsive Design**:
+  - Update the frontend to be fully responsive and mobile-friendly.
+  - Use media queries and flexible layouts.
 
-     - Update the frontend to be fully responsive and mobile-friendly.
-     - Use media queries and flexible layouts.
+- **Caching and Performance**:
+  - Implement caching mechanisms for photo metadata to reduce load times.
+  - Optimize queries and data processing for large datasets.
 
-   - **Caching and Performance**:
+### 3. Low Priority
 
-     - Implement caching mechanisms for photo metadata to reduce load times.
-     - Optimize queries and data processing for large datasets.
+- **Advanced Filtering Options**:
 
-3. **Low Priority**
+  - Include additional filters like location, camera model, and EXIF data.
+  - Allow sorting by other subjective evaluation attributes from Apple's enhanced attributes.
 
-   - **Advanced Filtering Options**:
+- **User Preferences**:
 
-     - Include additional filters like location, camera model, and EXIF data.
-     - Allow sorting by other subjective evaluation attributes from Apple's enhanced attributes.
+  - Save user settings and preferences for queries and interface configurations.
 
-   - **User Preferences**:
-
-     - Save user settings and preferences for queries and interface configurations.
-
-   - **Internationalization (i18n)**:
-
-     - Prepare the application for localization and support multiple languages.
+- **Internationalization (i18n)**:
+  - Prepare the application for localization and support multiple languages.
 
 ## Next Steps
 
+- **Implement Interactive Sorting and Filtering**:
+
+  - Allow users to sort photos by aesthetic score, date, etc.
+  - Update the frontend to include sorting/filtering UI components.
+
+- **Symlinked Photo Export**:
+
+  - Develop functionality to export selected photos as symlinks.
+  - Ensure compatibility with Photoshop's Photomerge.
+
+- **Enhance Documentation**:
+
+  - Keep `ISSUES.md` updated with any new issues.
+  - Continue refining `project-guidelines.md` as the project evolves.
+
 - **Backend Enhancements**:
 
-  - Modify `photo-controller.js` to handle album-specific queries and dynamic filtering.
   - Implement functions to create symlinks in the specified export directory.
   - Ensure compatibility with the Photos library structure and handle any symlink limitations.
 
@@ -91,20 +103,14 @@ Develop a locally running web application that interfaces with the user's macOS 
   - Add forms or dialogs to allow users to specify export names.
   - Use AJAX or Fetch API for dynamic content loading without full page refreshes.
 
-- **Export Functionality**:
-
-  - Implement the export feature to create symlinked directories as per the specified structure.
-  - Ensure the exported directories are compatible with Photoshop's Photomerge automation.
-
 - **Privacy and Data Management**:
 
   - Update `.gitignore` to exclude any personal data or photo files.
   - Ensure temporary caches and exported data are stored securely on the user's local machine.
 
-- **Documentation Updates**:
-
-  - Update `README.md` and `project-guidelines.md` to reflect new features and usage instructions.
-  - Include information about privacy considerations and data handling.
+- **Testing and Quality Assurance**:
+  - Write unit tests for new features.
+  - Perform thorough testing to ensure stability.
 
 ## Collaboration Notes
 
@@ -118,6 +124,5 @@ Develop a locally running web application that interfaces with the user's macOS 
   - Include all critical information within project files for continuity.
   - Document any architectural decisions and code changes thoroughly.
 
----
-
-_This development plan should be updated as tasks are completed and new priorities emerge._
+- **Issue Tracking**:
+  - Utilize `ISSUES.md` for logging problems and tracki

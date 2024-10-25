@@ -44,6 +44,7 @@ Including all relevant files in the project overview helps maintain transparency
 - **data/**: Data files and temporary caches (excluded from git).
 - **exports/**: Symlinked export directories (excluded from git).
 - **scripts/**: Utility scripts (e.g., `generate-overview.sh`).
+- **utils/**: Utility functions and helpers.
 - **tests/**: Automated tests.
 
 ## Documentation Practices
@@ -66,6 +67,16 @@ Including all relevant files in the project overview helps maintain transparency
 - **Portability**: Ensure the project's state is fully contained within the project files for new collaborators or assistants.
 - **Agile State Documentation**: Include the current project state, pending tasks, and future plans within the project files.
 - **Self-Containment**: The project should be self-contained, requiring no external context to understand its current state and next steps.
+
+## Issue Tracking and Debugging
+
+- Use `ISSUES.md` to log open issues, steps taken to resolve them, and their eventual resolutions.
+- When an issue is identified:
+  - **Describe** the problem clearly.
+  - **Document** the steps you've taken to diagnose and attempt to fix it.
+  - **Collaborate** by inviting input from others, including role-playing as experts or utilizing AI assistants.
+  - **Update** the issue log with any new findings or solutions.
+- This practice ensures transparency and helps prevent redundant work.
 
 ## Collaboration Guidelines
 
@@ -91,9 +102,13 @@ Including all relevant files in the project overview helps maintain transparency
   - Review and test contributions thoroughly before merging.
   - Encourage collaborative problem-solving.
 
-- **Issue Tracking**:
+- **Problem-Solving Approach**:
 
-  - Use issue tracking to manage tasks and bugs.
+  - **Identify** the issue and document it in `ISSUES.md`.
+  - **Brainstorm** potential solutions, possibly involving role-play or consulting experts.
+  - **Test** each solution systematically, noting outcomes.
+  - **Conclude** with the solution that resolves the issue.
+  - **Reflect** on the process to improve future problem-solving efforts.
 
 - **Best Practices**:
   - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.

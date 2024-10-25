@@ -1,6 +1,6 @@
 # ./scripts/template_functions.py
 
-def get_extension(photo):
+def get_extension(photo, options=None, args=None):
     """
     Returns the lowercased file extension of the photo's original filename.
     """
