@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import exphbs from "express-handlebars";
 import routes from "./routes/index.js";
+import fs from "fs-extra";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -19,17 +20,27 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 
 // Dynamic image serving middleware
-app.use("/images/:albumUUID/:imageName", (req, res) => {
-  const { albumUUID, imageName } = req.params;
-  const imagePath = path.join(
-    __dirname,
-    "data",
-    "albums",
-    albumUUID,
-    "images",
-    imageName
-  );
-  res.sendFile(imagePath);
+app.use("/images/:albumUUID/:imageBaseName", async (req, res) => {
+  const { albumUUID, imageBaseName } = req.params;
+  const imagesDir = path.join(__dirname, "data", "albums", albumUUID, "images");
+
+  try {
+    const files = await fs.readdir(imagesDir);
+    const matchingFile = files.find((file) => {
+      const baseName = path.parse(file).name;
+      return baseName === imageBaseName;
+    });
+
+    if (matchingFile) {
+      const imagePath = path.join(imagesDir, matchingFile);
+      res.sendFile(imagePath);
+    } else {
+      res.status(404).send("Image not found");
+    }
+  } catch (error) {
+    console.error("Error serving image:", error);
+    res.status(500).send("Internal Server Error");
+  }
 });
 
 // Use routes

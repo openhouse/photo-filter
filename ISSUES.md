@@ -113,3 +113,21 @@ When attempting to view photos in an album, the application throws `ENOENT` erro
 
 - When exporting images, ensure that the filenames align with how the application expects to reference them.
 - Consider potential filename conflicts if multiple images share the same name; in such cases, additional uniqueness may be necessary.
+
+---
+
+## Issue 5: Image Serving Errors Due to Filename Mismatch with `{original_name}-{shortuuid}`
+
+**Opened By:** Jamie on Oct 25, 2024
+
+**Description:**
+
+Images were not loading because the filenames in `photos.json` didn't match the exported image filenames, which use the `{original_name}-{shortuuid}` template.
+
+**Resolution:**
+
+- Modified `export_photos_in_album.py` to include `shortuuid`.
+- Updated `index.hbs` to construct image filenames using `original_filename` and `shortuuid`.
+- Adjusted `server.js` to dynamically find the image file regardless of extension.
+
+**Status:** Resolved on Oct 25, 2024
