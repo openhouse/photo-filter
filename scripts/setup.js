@@ -14,8 +14,8 @@ const execAsync = promisify(exec);
     const venvPip = path.join(venvDir, "bin", "pip");
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Use python3.12 explicitly
-    const pythonExecutable = "python3.12";
+    // Use python3 explicitly
+    const pythonExecutable = "python3";
 
     // Check if virtual environment exists
     const venvExists = await fs.pathExists(venvPython);
@@ -30,16 +30,12 @@ const execAsync = promisify(exec);
       console.log("Virtual environment already exists.");
     }
 
-    // Check if osxphotos is installed in the virtual environment
-    const osxphotosExists = await fs.pathExists(osxphotosPath);
-
-    if (!osxphotosExists) {
-      console.log("Installing osxphotos in the virtual environment...");
-      await execAsync(`"${venvPip}" install osxphotos`);
-      console.log("osxphotos installed successfully.");
-    } else {
-      console.log("osxphotos is already installed in the virtual environment.");
-    }
+    // Install or upgrade osxphotos
+    console.log(
+      "Installing or upgrading osxphotos in the virtual environment..."
+    );
+    await execAsync(`"${venvPip}" install --upgrade osxphotos`);
+    console.log("osxphotos installed or upgraded successfully.");
 
     console.log("Setup completed successfully.");
   } catch (error) {
