@@ -4,21 +4,16 @@
 
 import osxphotos
 import json
-import sys
 
 def main():
     photosdb = osxphotos.PhotosDB()
-    albums = photosdb.album_info
+    albums = photosdb.albums
 
     album_list = []
     for album in albums:
-        album_list.append({
-            "title": album.title,
-            "uuid": album.uuid
-        })
+        album_list.append({"title": album.title, "uuid": album.uuid})
 
-    # Output JSON to stdout
-    json.dump(album_list, sys.stdout, indent=2)
+    print(json.dumps(album_list, indent=2))
 
 if __name__ == "__main__":
     main()
