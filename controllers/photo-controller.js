@@ -147,8 +147,9 @@ async function runOsxphotosExportImages(
   // Write UUIDs to uuids.txt
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
-  // Export images using osxphotos
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --skip-original-if-missing`;
+  // Corrected command with the proper filename template
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_filename}" --skip-original-if-missing --verbose`;
+
   await execCommand(commandImages, "Error exporting album images:");
 }
 
@@ -156,12 +157,15 @@ async function runOsxphotosExportImages(
 async function execCommand(command, errorMessage) {
   try {
     const { stdout, stderr } = await execAsync(command);
+    if (stdout) {
+      console.log(`Command output:\n${stdout}`);
+    }
     if (stderr) {
-      console.error(errorMessage, stderr);
+      console.error(`${errorMessage}\n${stderr}`);
     }
     return { stdout, stderr };
   } catch (error) {
-    console.error(errorMessage, error.stderr || error);
+    console.error(`${errorMessage}\n${error.stderr || error}`);
     throw error;
   }
 }
