@@ -105,8 +105,8 @@ async function runOsxphotosExportAlbumPhotos(
   outputPath,
   imagesDir
 ) {
-  // Export metadata
-  const commandData = `"${osxphotosPath}" export-data --album-uuid "${albumUUID}" --json`;
+  // Export metadata using osxphotos query
+  const commandData = `"${osxphotosPath}" query --album-uuid "${albumUUID}" --json --include-score`;
   const { stdout: dataStdout } = await execCommand(
     commandData,
     "Error exporting album photos metadata:"
