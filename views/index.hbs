@@ -6,8 +6,8 @@
   {{#each photos}}
     <div class="photo-item">
       <img
-        src="/images/{{../albumUUID}}/{{this.original_filename}}-{{this.shortuuid}}"
-        alt="{{this.filename}}"
+        src="/images/{{../albumUUID}}/{{this.original_filename}}"
+        alt="{{this.original_filename}}"
       />
       <p>Score: {{this.score.overall}}</p>
     </div>

@@ -9,6 +9,7 @@
 - **Privacy and Security**: Handle sensitive user data responsibly, ensuring personal data remains private.
 - **Performance**: Optimize for handling large datasets efficiently.
 - **Scalability**: Design the application architecture to accommodate future growth and additional features.
+- **Embrace Iterative Understanding**: Recognize that solutions are provisional and open to revision. Document and revisit solutions over time, framing them as hypotheses effective under current understanding but adaptable as new insights emerge.
 
 ## Ensuring Complete Project Overviews
 
@@ -55,6 +56,7 @@ Including all relevant files in the project overview helps maintain transparency
 - Include inline documentation in code files using JSDoc comments where appropriate.
 - Maintain a changelog (`CHANGELOG.md`) to track changes over time.
 - Document any architectural decisions in an `ARCHITECTURE.md` file.
+- **Incorporate "Questions to Consider"**: In documentation and code comments, include open-ended questions that highlight potential uncertainties or areas for further exploration. This invites contributors to approach the project with a proactive, questioning mindset.
 
 ## Privacy and Data Handling
 
@@ -71,11 +73,14 @@ Including all relevant files in the project overview helps maintain transparency
 ## Issue Tracking and Debugging
 
 - Use `ISSUES.md` to log open issues, steps taken to resolve them, and their eventual resolutions.
+- **Introduce an Uncertainty Tag**: For issues with aspects that remain unclear or unresolved, add an "Uncertain" status or tag. This encourages documenting both what's known and unknown, creating a rich context that invites collective problem-solving.
 - When an issue is identified:
   - **Describe** the problem clearly.
   - **Document** the steps you've taken to diagnose and attempt to fix it.
   - **Collaborate** by inviting input from others, including role-playing as experts or utilizing AI assistants.
+  - **Reflect** on the solution by asking, "What assumptions did we rely on?" or "What could still be unclear?"
   - **Update** the issue log with any new findings or solutions.
+- **Resolutions as Provisional Truths**: Frame issue resolutions as effective under current tests but open to improvement. This perspective respects the unknown and encourages team members to share doubts or questions.
 - This practice ensures transparency and helps prevent redundant work.
 
 ## Collaboration Guidelines
@@ -107,8 +112,8 @@ Including all relevant files in the project overview helps maintain transparency
   - **Identify** the issue and document it in `ISSUES.md`.
   - **Brainstorm** potential solutions, possibly involving role-play or consulting experts.
   - **Test** each solution systematically, noting outcomes.
-  - **Conclude** with the solution that resolves the issue.
   - **Reflect** on the process to improve future problem-solving efforts.
+  - **Embrace Iteration and Learning**: Recognize that being unsure is a natural part of the process and an opportunity for growth.
 
 - **Best Practices**:
   - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
@@ -152,4 +157,4 @@ Including all relevant files in the project overview helps maintain transparency
 
 ---
 
-**Note:** These guidelines should be reviewed and updated regularly as the project evolves.
+**Note:** These guidelines should be reviewed and updated regularly as the project evolves, embracing uncertainty and adapting to new insights.

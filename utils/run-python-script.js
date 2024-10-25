@@ -1,12 +1,8 @@
 // ./utils/run-python-script.js
 
 import { exec } from "child_process";
-import { promisify } from "util";
 import fs from "fs-extra";
 
-const execAsync = promisify(exec);
-
-// Helper function to run Python scripts
 export async function runPythonScript(
   pythonPath,
   scriptPath,
@@ -15,27 +11,25 @@ export async function runPythonScript(
 ) {
   const command = `"${pythonPath}" "${scriptPath}" ${args.join(" ")}`;
   console.log(`Executing command:\n${command}`);
-  try {
-    // Execute the command and capture stdout and stderr
-    const result = await execAsync(command, {
-      env: process.env,
+
+  return new Promise((resolve, reject) => {
+    exec(command, async (error, stdout, stderr) => {
+      if (error) {
+        console.error(
+          `Error executing Python script ${scriptPath}:\n${stderr}`
+        );
+        reject(error);
+        return;
+      }
+      // Write stdout to the outputPath
+      try {
+        await fs.writeFile(outputPath, stdout, "utf-8");
+        console.log(`Output written to ${outputPath}`);
+        resolve();
+      } catch (writeError) {
+        console.error(`Error writing output to ${outputPath}:\n${writeError}`);
+        reject(writeError);
+      }
     });
-
-    const { stdout, stderr } = result;
-
-    if (stderr) {
-      console.error(`Error executing Python script ${scriptPath}:\n${stderr}`);
-    }
-
-    // Write the stdout to the outputPath
-    if (outputPath) {
-      await fs.writeFile(outputPath, stdout, "utf-8");
-      console.log(`Output written to ${outputPath}`);
-    }
-  } catch (error) {
-    console.error(
-      `Error executing Python script ${scriptPath}:\n${error.stderr || error}`
-    );
-    throw error;
-  }
+  });
 }
