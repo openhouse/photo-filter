@@ -1,75 +1,64 @@
-# Photo Filter Application
+# Photo Filter Application: Weaving Stories Through Images
 
 ## Overview
 
-The **Photo Filter Application** is a locally running Node.js web application designed to help photographers interactively filter and export their top photos based on Apple's aesthetic scores and other metadata from the macOS Photos library.
+The **Photo Filter Application** is more than just a tool—it's a narrative journey that empowers photographers to explore and curate their visual stories. By interfacing with the macOS Photos library, this application allows you to delve into the aesthetic qualities of your photographs, uncovering hidden patterns and meanings that reflect both personal and collective experiences.
+
+## The Story Behind the Application
+
+In a world inundated with images, finding the threads that connect our photos becomes a way of understanding ourselves and our culture. This application was born out of a desire to bridge the gap between technology and storytelling, enabling users to navigate their photo libraries not just as collections of files, but as evolving narratives that capture moments, emotions, and relationships.
 
 ## Features
 
-- **Album Navigation and Selection**: Navigate through and select specific albums from your Photos library within the web app.
-- **Interactive Sorting and Filtering**: Sort and filter photos using attributes like aesthetic scores, dates, keywords, and people.
-- **Symlinked Photo Export**: Export filtered photos as symlinks to avoid taking up extra disk space.
-- **Export Directory Structure**: Exports are organized under `exports/yyyy-mm-dd/named_export/` for easy management.
-- **Photoshop Integration**: The export directories are compatible with Adobe Photoshop's Photomerge automation.
-- **Web Interface**: View and interact with filtered photos in a user-friendly web interface.
-- **Privacy-Focused**: Personal data and photos are kept locally and are not included in the git repository.
+- **Narrative Album Navigation**: Seamlessly browse through your albums, each representing a chapter in your visual story.
+- **Semantic Sorting and Filtering**: Use meaningful criteria like aesthetic scores, dates, keywords, and people to find connections between images.
+- **Symlinked Photo Export**: Create exports that are more than directories—they're curated exhibitions of your chosen narratives.
+- **Cultural Context Integration**: The application acknowledges and integrates the cultural and semantic contexts of your photos, offering a richer experience.
 
 ## Technologies Used
 
-- **Node.js**: Server-side JavaScript runtime.
-- **Express.js**: Web framework for handling routes and middleware.
-- **Express Handlebars**: Template engine for rendering dynamic content.
-- **SCSS/Sass**: CSS preprocessor for styling.
-- **osxphotos**: External tool for exporting photos and metadata from the macOS Photos library.
+- **Node.js**: Serving as the backbone of the application, facilitating communication between different components.
+- **Express.js**: Managing routes and server logic in a way that mirrors the pathways users take through their photo narratives.
+- **Express Handlebars**: Rendering dynamic content that adapts to the unfolding story of the user's interaction.
+- **SCSS/Sass**: Styling the application to provide an immersive and aesthetically pleasing experience.
+- **osxphotos**: Acting as a bridge between the application's narrative intent and the raw data of the Photos library.
 
-## Setup Instructions
+## Installation and Setup
 
-### **Prerequisites**
+_The installation process is a journey that prepares your environment for the stories you're about to uncover._
 
-- **macOS 15.0.1** or later.
-- **Node.js** (version specified in `.nvmrc`)
-- **Yarn** package manager
-- **Python 3** installed on macOS
-- **osxphotos** installed via the setup script.
-
-### **Installation**
-
-1. **Clone the repository**:
+1. **Clone the Repository**:
 
    ```bash
    git clone https://github.com/yourusername/photo-filter.git
    cd photo-filter
    ```
 
-2. **Install dependencies**:
+2. **Install Dependencies**:
 
    ```bash
    yarn install
    ```
 
-3. **Set up the project**:
+3. **Set Up the Project**:
 
    ```bash
    yarn setup
    ```
 
-   This will create a Python virtual environment and install `osxphotos` into it.
-
-4. **Set up Node.js version**:
+4. **Set Node.js Version**:
 
    ```bash
    nvm use
    ```
 
-### **Running the Application**
+## Running the Application
 
 - **Development Mode**:
 
   ```bash
   yarn dev
   ```
-
-  This will start the server with nodemon and watch for SCSS changes.
 
 - **Production Mode**:
 
@@ -78,54 +67,20 @@ The **Photo Filter Application** is a locally running Node.js web application de
   yarn start
   ```
 
-### **Accessing the Application**
-
-- Open your browser and navigate to `http://localhost:3000` to view the application.
-
-**Note**: The application uses the `osxphotos` executable from the virtual environment. You do not need to activate the virtual environment manually.
+Access the application at `http://localhost:3000` and begin your narrative exploration.
 
 ## Usage
 
-- **Album Navigation**: Browse and select albums from your Photos library within the app.
-- **Sorting and Filtering**: Apply various filters and sorting options to refine your photo selection.
-- **Exporting Photos**:
+_Every interaction with the application is a step deeper into your personal narrative._
 
-  - **Create Named Exports**: After filtering, create a named export that symlinks the selected photos.
-  - **Export Directory Structure**: Exports are saved under `exports/yyyy-mm-dd/named_export/`.
-  - **Photoshop Integration**: Point Photoshop's Photomerge automation to the export directory for seamless integration.
-
-**Note**: The first time you run the application, it may take some time to export data from the Photos library.
-
-## Development Roadmap
-
-### **Current Status**
-
-- **Data Extraction**: Successfully extracts photo metadata and images using `osxphotos`.
-- **Interactive Album Navigation**: Pending implementation.
-- **Enhanced Sorting and Filtering**: Pending implementation.
-- **Symlinked Photo Export**: Pending implementation.
-- **Web Interface**: Basic version displaying photos and scores.
-- **Styling**: Initial styling applied using SCSS.
-
-### **Pending Tasks**
-
-Refer to the detailed tasks and priorities in `DEVELOPMENT_PLAN.md`.
+- **Album Navigation**: Traverse your albums as if flipping through the pages of a storybook.
+- **Semantic Filtering**: Apply filters that resonate with the themes and motifs you're interested in exploring.
+- **Creating Exports**: Curate collections that represent significant chapters or themes in your visual journey.
 
 ## Contributing
 
-Please read `project-guidelines.md` for details on our code of conduct and the process for submitting pull requests.
-
-## Privacy Considerations
-
-- Personal data and photos are stored locally on your machine.
-- The application excludes personal data from the git repository.
-- Temporary caches and exported data are not shared and remain on your local system.
-
-## License
-
-This project is licensed under the MIT License.
+We welcome contributions that enhance the narrative and cultural dimensions of the application. Please read `project-guidelines.md` for details on our collaborative approach.
 
 ## Acknowledgments
 
-- Thanks to the developers of `osxphotos` for providing a powerful tool to interact with the macOS Photos library.
-- Inspired by Simon Willison's work on querying the Apple Photos SQLite database.
+This project is inspired by the interplay between technology and culture, drawing upon perspectives that emphasize narrative, semantics, and the agency of all components involved.

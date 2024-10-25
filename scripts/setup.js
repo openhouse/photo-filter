@@ -7,14 +7,14 @@ import path from "path";
 
 const execAsync = promisify(exec);
 
+// The setup script acts as a facilitator, bringing together different actants
 (async () => {
   try {
     const venvDir = path.join(process.cwd(), "venv");
     const venvPython = path.join(venvDir, "bin", "python3");
     const venvPip = path.join(venvDir, "bin", "pip");
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Use python3 explicitly
+    // Python, as an active participant, helps set up the environment
     const pythonExecutable = "python3";
 
     // Check if virtual environment exists
@@ -27,19 +27,19 @@ const execAsync = promisify(exec);
       await execAsync(`${pythonExecutable} -m venv venv`);
       console.log("Virtual environment created.");
     } else {
-      console.log("Virtual environment already exists.");
+      console.log("Virtual environment already exists, ready to collaborate.");
     }
 
-    // Install or upgrade osxphotos
+    // Install or upgrade osxphotos, acknowledging its agency
     console.log(
-      "Installing or upgrading osxphotos in the virtual environment..."
+      "Inviting osxphotos to join the project by installing or upgrading it..."
     );
     await execAsync(`"${venvPip}" install --upgrade osxphotos`);
-    console.log("osxphotos installed or upgraded successfully.");
+    console.log("osxphotos is now part of the team.");
 
-    console.log("Setup completed successfully.");
+    console.log("Setup completed successfully, all components are in place.");
   } catch (error) {
-    console.error("Setup failed:", error);
+    console.error("Setup encountered an issue:", error);
     process.exit(1);
   }
 })();

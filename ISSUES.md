@@ -37,3 +37,79 @@ When attempting to fetch photos for an album, the application throws an error st
 
 - Ensure that when executing external scripts that output data, the application captures and handles that output appropriately.
 - Remember to adjust utility functions accordingly when refactoring code to prevent breaking existing functionality.
+
+---
+
+## Issue 3: TypeError When Destructuring `stdout` in `runPythonScript`
+
+**Opened By:** Jamie on Oct 25, 2024
+
+**Description:**
+
+After updating `run-python-script.js` to use `execAsync`, an error occurs:
+
+```
+TypeError: Cannot destructure property 'stdout' of '(intermediate value)' as it is undefined.
+```
+
+**Symptoms:**
+
+- The application fails to fetch photos for an album.
+- The error points to line 14 in `run-python-script.js`.
+- `stdout` and `stderr` are undefined.
+
+**Steps Taken:**
+
+1. Reviewed the implementation of `runPythonScript` and noted the destructuring of `stdout` and `stderr`.
+2. Suspected that `execAsync` might not be returning the expected object.
+3. Considered the possibility of compatibility issues with `promisify(exec)`.
+
+**Resolution:**
+
+- Modified `runPythonScript` to first assign the result of `execAsync` to a variable before destructuring.
+- Provided an alternative implementation using the callback pattern with `exec`.
+- Ensured that the function handles errors and outputs correctly.
+- Tested the updated function and confirmed that the issue is resolved.
+
+**Status:** Resolved on Oct 25, 2024
+
+**Comments:**
+
+- Be cautious when destructuring objects that might be undefined.
+- Always handle potential errors when working with asynchronous functions.
+
+---
+
+## Issue 4: ENOENT Errors When Serving Images Due to Filename Mismatch
+
+**Opened By:** Jamie on Oct 25, 2024
+
+**Description:**
+
+When attempting to view photos in an album, the application throws `ENOENT` errors indicating that image files are not found. The server expects images with filenames matching `this.filename` from `photos.json`, but the actual exported images have different filenames.
+
+**Symptoms:**
+
+- Error messages like: `Error: ENOENT: no such file or directory, stat '/path/to/image'`
+- Images not displayed on the photos page.
+- Exported images have filenames like `IMG_3986-h4xPSuYPku8ThzcomRA5tq.HEIC` instead of the expected `IMG_3986.HEIC`.
+
+**Steps Taken:**
+
+1. Reviewed the `runOsxphotosExportImages` function in `get-photos-by-album.js`.
+2. Noted that the `--filename` parameter in the `osxphotos` command was set to `{original_name}-{shortuuid}`, causing filenames to include a random short UUID.
+3. Compared the filenames in `photos.json` with the actual exported filenames and identified the mismatch.
+4. Considered adjusting either the export command or the template to align the filenames.
+
+**Resolution:**
+
+- Modified the `osxphotos` export command to use `--filename "{filename}"`, ensuring that exported images have filenames matching `this.filename` in `photos.json`.
+- Updated `get-photos-by-album.js` accordingly.
+- Tested the application and confirmed that the images are now displayed correctly.
+
+**Status:** Resolved on Oct 25, 2024
+
+**Comments:**
+
+- When exporting images, ensure that the filenames align with how the application expects to reference them.
+- Consider potential filename conflicts if multiple images share the same name; in such cases, additional uniqueness may be necessary.

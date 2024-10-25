@@ -14,7 +14,7 @@ export const getPhotosByAlbum = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
 
-    // Paths
+    // Paths that bridge the digital and physical file systems
     const dataDir = path.join(__dirname, "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
@@ -29,7 +29,7 @@ export const getPhotosByAlbum = async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Ensure directories exist
+    // Ensure directories exist in the physical space
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
@@ -39,10 +39,10 @@ export const getPhotosByAlbum = async (req, res) => {
         `photos.json not found for album ${albumUUID}. Exporting photos using osxphotos...`
       );
 
-      // Export photos for the album using the Python script
+      // Export photos metadata using the Python script
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
 
-      // Export images
+      // Export images to bridge the digital metadata with physical images
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
@@ -51,10 +51,10 @@ export const getPhotosByAlbum = async (req, res) => {
       );
     }
 
-    // Read photos data
+    // Read photos data, integrating social metadata if available
     const photosData = await fs.readJson(photosPath);
 
-    // Pass the photos to the view
+    // Pass the photos to the view, where digital meets social interaction
     res.render("index", { photos: photosData, albumUUID });
   } catch (error) {
     console.error("Error fetching photos for album:", error);
@@ -74,15 +74,15 @@ async function runOsxphotosExportImages(
   const uuids = photosData.map((photo) => photo.uuid).join("\n");
   const uuidsFilePath = path.join(imagesDir, "uuids.txt");
 
-  // Ensure imagesDir exists
+  // Ensure imagesDir exists in the physical space
   await fs.ensureDir(imagesDir);
 
   // Write UUIDs to uuids.txt
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
-  // Use built-in template to match filenames in photos.json
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{uuid}.{original_file.ext}" --verbose`;
+  // Use {filename} template to match filenames in photos.json
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{filename}" --verbose`;
 
-  console.log(commandImages);
+  console.log(`Executing command:\n${commandImages}`);
   await execCommand(commandImages, "Error exporting album images:");
 }
