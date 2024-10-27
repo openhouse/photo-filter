@@ -81,12 +81,8 @@ async function runOsxphotosExportImages(
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
   // Use {original_name} template to match filenames in photos.json
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" -V -V -V`;
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
 
-  console.log(
-    `Environment Variables:\n${JSON.stringify(process.env, null, 2)}`
-  );
-  console.log(`Current Working Directory: ${process.cwd()}`);
   console.log(`Executing command:\n${commandImages}`);
   await execCommand(commandImages, "Error exporting album images:");
 }
