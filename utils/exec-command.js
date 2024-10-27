@@ -7,22 +7,29 @@ export function execCommand(command, errorMessage) {
   return new Promise((resolve, reject) => {
     console.log(`Executing command:\n${command}`);
 
-    exec(command, { env: process.env }, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`${errorMessage}\nError: ${error.message}`);
+    exec(
+      command,
+      {
+        env: process.env,
+        maxBuffer: 1024 * 1024 * 20, // Increase buffer to 20MB
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error(`${errorMessage}\nError: ${error.message}`);
+          if (stderr) {
+            console.error(`stderr:\n${stderr}`);
+          }
+          reject(error);
+          return;
+        }
+        if (stdout) {
+          console.log(`stdout:\n${stdout}`);
+        }
         if (stderr) {
           console.error(`stderr:\n${stderr}`);
         }
-        reject(error);
-        return;
+        resolve();
       }
-      if (stdout) {
-        console.log(`stdout:\n${stdout}`);
-      }
-      if (stderr) {
-        console.error(`stderr:\n${stderr}`);
-      }
-      resolve();
-    });
+    );
   });
 }
