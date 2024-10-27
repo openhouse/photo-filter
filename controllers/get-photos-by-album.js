@@ -81,7 +81,7 @@ async function runOsxphotosExportImages(
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
   // Use {original_name} template to match filenames in photos.json
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --verbose`;
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" -V -V -V`;
 
   console.log(
     `Environment Variables:\n${JSON.stringify(process.env, null, 2)}`
