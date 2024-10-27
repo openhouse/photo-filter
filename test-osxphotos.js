@@ -14,11 +14,11 @@ import fs from "fs-extra";
   await fs.ensureDir(imagesDir);
 
   // Use a valid photo UUID from your library
-  const testUUID = "REPLACE_WITH_VALID_UUID";
+  const testUUID = "CAC8EA0B-F5F5-4567-91AE-A0E6A440CE62";
   await fs.writeFile(uuidsFilePath, testUUID, "utf-8");
 
   // Construct the command
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --verbose --debug`;
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --verbose`;
 
   console.log(`Executing command:\n${commandImages}`);
 

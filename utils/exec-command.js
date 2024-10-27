@@ -19,6 +19,9 @@ export function execCommand(command, errorMessage) {
       if (stdout) {
         console.log(`stdout:\n${stdout}`);
       }
+      if (stderr) {
+        console.error(`stderr:\n${stderr}`);
+      }
       resolve();
     });
   });
