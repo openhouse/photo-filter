@@ -17,7 +17,7 @@
   "scripts": {
     "setup": "node ./scripts/setup.js",
     "start": "node server.js",
-    "dev": "concurrently \"nodemon server.js\" \"yarn watch-sass\" \"yarn watch-overview\"",
+    "dev": "concurrently \"node server.js\" \"yarn watch-sass\" \"yarn watch-overview\"",
     "build-sass": "sass public/stylesheets/scss:public/stylesheets/css --no-source-map",
     "watch-sass": "sass --watch public/stylesheets/scss:public/stylesheets/css --no-source-map",
     "generate-overview": "./generate-overview.sh",

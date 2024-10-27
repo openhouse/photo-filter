@@ -83,6 +83,10 @@ async function runOsxphotosExportImages(
   // Use {original_name} template to match filenames in photos.json
   const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --verbose`;
 
+  console.log(
+    `Environment Variables:\n${JSON.stringify(process.env, null, 2)}`
+  );
+  console.log(`Current Working Directory: ${process.cwd()}`);
   console.log(`Executing command:\n${commandImages}`);
   await execCommand(commandImages, "Error exporting album images:");
 }
