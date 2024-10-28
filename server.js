@@ -20,19 +20,13 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.static(path.join(__dirname, "public")));
 
 // Dynamic image serving middleware
-app.use("/images/:albumUUID/:imageBaseName", async (req, res) => {
-  const { albumUUID, imageBaseName } = req.params;
+app.use("/images/:albumUUID/:imageName", async (req, res) => {
+  const { albumUUID, imageName } = req.params;
   const imagesDir = path.join(__dirname, "data", "albums", albumUUID, "images");
 
   try {
-    const files = await fs.readdir(imagesDir);
-    const matchingFile = files.find((file) => {
-      const baseName = path.parse(file).name;
-      return baseName === imageBaseName;
-    });
-
-    if (matchingFile) {
-      const imagePath = path.join(imagesDir, matchingFile);
+    const imagePath = path.join(imagesDir, imageName);
+    if (await fs.pathExists(imagePath)) {
       res.sendFile(imagePath);
     } else {
       res.status(404).send("Image not found");
