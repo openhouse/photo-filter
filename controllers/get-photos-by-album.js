@@ -54,6 +54,9 @@ export const getPhotosByAlbum = async (req, res) => {
     // Read photos data, integrating social metadata if available
     const photosData = await fs.readJson(photosPath);
 
+    // Log the photosData to see available properties
+    console.log("Photos Data:", photosData);
+
     // Pass the photos to the view, where digital meets social interaction
     res.render("index", { photos: photosData, albumUUID });
   } catch (error) {
@@ -80,7 +83,7 @@ async function runOsxphotosExportImages(
   // Write UUIDs to uuids.txt
   await fs.writeFile(uuidsFilePath, uuids, "utf-8");
 
-  // Use {original_name} template to match filenames in photos.json
+  // Use {original_name} template to avoid double extensions
   const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
 
   console.log(`Executing command:\n${commandImages}`);
