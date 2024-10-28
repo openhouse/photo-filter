@@ -51,13 +51,18 @@ export const getPhotosByAlbum = async (req, res) => {
       );
     }
 
-    // Read photos data, integrating social metadata if available
+    // Read photos data
     const photosData = await fs.readJson(photosPath);
+
+    // Add 'original_name' property to each photo
+    photosData.forEach((photo) => {
+      photo.original_name = path.parse(photo.original_filename).name;
+    });
 
     // Log the photosData to see available properties
     console.log("Photos Data:", photosData);
 
-    // Pass the photos to the view, where digital meets social interaction
+    // Pass the photos to the view
     res.render("index", { photos: photosData, albumUUID });
   } catch (error) {
     console.error("Error fetching photos for album:", error);
