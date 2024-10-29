@@ -11,8 +11,40 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Set up Handlebars
-app.engine(".hbs", exphbs.engine({ extname: ".hbs" }));
+// Set up Handlebars with custom helpers
+const hbs = exphbs.create({
+  extname: ".hbs",
+  helpers: {
+    eq: (a, b) => a === b,
+    getNestedProperty: (obj, propertyPath) => {
+      if (!propertyPath || typeof propertyPath !== "string") {
+        return null;
+      }
+      return propertyPath
+        .split(".")
+        .reduce(
+          (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
+          obj
+        );
+    },
+    capitalize: (str) => {
+      if (typeof str !== "string") return "";
+      return str
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    },
+    concat: (...args) => {
+      args.pop(); // Remove Handlebars options object
+      return args.join("");
+    },
+    replace: (str, find, replace) => {
+      return str.replace(find, replace);
+    },
+  },
+});
+
+app.engine(".hbs", hbs.engine);
 app.set("view engine", ".hbs");
 app.set("views", path.join(__dirname, "views"));
 

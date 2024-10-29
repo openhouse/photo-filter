@@ -2,6 +2,26 @@
 
 <h1>Photos in Album</h1>
 <a href="/">Back to Albums</a>
+
+<form method="GET" action="/album/{{albumUUID}}">
+  <label for="sortAttribute">Sort by:</label>
+  <select name="sort" id="sortAttribute">
+    {{#each scoreAttributes}}
+      <option value="score.{{this}}" {{#if (eq ../sortAttribute (concat "score." this))}}selected{{/if}}>
+        {{capitalize this}}
+      </option>
+    {{/each}}
+  </select>
+
+  <label for="sortOrder">Order:</label>
+  <select name="order" id="sortOrder">
+    <option value="desc" {{#if (eq sortOrder 'desc')}}selected{{/if}}>Descending</option>
+    <option value="asc" {{#if (eq sortOrder 'asc')}}selected{{/if}}>Ascending</option>
+  </select>
+
+  <button type="submit">Sort</button>
+</form>
+
 <div class="photo-grid">
   {{#each photos}}
     <div class="photo-item">
@@ -9,7 +29,7 @@
         src="/images/{{../albumUUID}}/{{this.original_name}}.jpg"
         alt="{{this.original_name}}"
       />
-      <p>Score: {{this.score.overall}}</p>
+      <p>{{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}</p>
     </div>
   {{/each}}
 </div>

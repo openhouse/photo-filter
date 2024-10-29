@@ -9,12 +9,14 @@ import { execCommand } from "../utils/exec-command.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Function to get photos by album UUID
+// Function to get photos by album UUID with sorting
 export const getPhotosByAlbum = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
+    const sortAttribute = req.query.sort || "score.overall"; // Default sort attribute
+    const sortOrder = req.query.order || "desc"; // Default sort order
 
-    // Paths that bridge the digital and physical file systems
+    // Paths
     const dataDir = path.join(__dirname, "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
@@ -29,20 +31,15 @@ export const getPhotosByAlbum = async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Ensure directories exist in the physical space
+    // Ensure directories exist
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
     // Check if photos.json exists
     if (!(await fs.pathExists(photosPath))) {
-      console.log(
-        `photos.json not found for album ${albumUUID}. Exporting photos using osxphotos...`
-      );
-
-      // Export photos metadata using the Python script
+      // Export photos metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-
-      // Export images to bridge the digital metadata with physical images
+      // Export images
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
@@ -59,11 +56,32 @@ export const getPhotosByAlbum = async (req, res) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
 
-    // Log the photosData to see available properties
-    console.log("Photos Data:", photosData);
+    // Extract the list of score attributes
+    const scoreAttributes = Object.keys(photosData[0].score);
 
-    // Pass the photos to the view
-    res.render("index", { photos: photosData, albumUUID });
+    // Sort photos based on the requested attribute
+    photosData.sort((a, b) => {
+      const aValue = getNestedProperty(a, sortAttribute);
+      const bValue = getNestedProperty(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      if (sortOrder === "asc") {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+
+    // Pass the photos and score attributes to the view
+    res.render("index", {
+      photos: photosData,
+      albumUUID,
+      sortAttribute,
+      sortOrder,
+      scoreAttributes,
+    });
   } catch (error) {
     console.error("Error fetching photos for album:", error);
     res.status(500).send("Internal Server Error");
@@ -93,4 +111,14 @@ async function runOsxphotosExportImages(
 
   console.log(`Executing command:\n${commandImages}`);
   await execCommand(commandImages, "Error exporting album images:");
+}
+
+// Helper function to get nested properties safely
+function getNestedProperty(obj, propertyPath) {
+  return propertyPath
+    .split(".")
+    .reduce(
+      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
+      obj
+    );
 }
