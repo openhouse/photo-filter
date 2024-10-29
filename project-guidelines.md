@@ -3,6 +3,7 @@
 ## Project Philosophy
 
 - **User-Centric Design**: Develop features that meet the specific needs of photographers working with large photo libraries.
+- **Interactivity and Engagement**: Create an intuitive and engaging user experience, especially for complex tasks like photo selection and management.
 - **Clarity and Readability**: Code should be easy to read and understand by humans and AI alike.
 - **Modularity**: Break down the application into small, manageable modules.
 - **Consistency**: Follow established conventions throughout the project.
@@ -13,7 +14,7 @@
 
 ## Ensuring Complete Project Overviews
 
-Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The `generate-overview.sh` script should be dynamically modified as needed to provide insight into any relevant files, balancing the need for completeness with the practicality of input constraints in collaborative tools like ChatGPT.
+Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The `generate-overview.sh` script should be dynamically modified as needed to provide insight into any relevant files, balancing the need for completeness with the practicality of input constraints in collaborative tools.
 
 ## Coding Standards
 
@@ -34,16 +35,16 @@ Including all relevant files in the project overview helps maintain transparency
 
 ## Directory Structure
 
+- **backend/**: Express.js server and API endpoints.
+- **frontend/**: Ember.js application.
 - **config/**: Configuration files.
 - **controllers/**: Application logic and request handlers.
 - **models/**: Database models and data structures.
 - **routes/**: Route definitions and middleware.
-- **views/**: Template files (Handlebars templates).
+- **views/**: Template files (if any remain).
 - **public/**: Static assets (CSS, JavaScript, images).
-  - **stylesheets/**: CSS and SCSS files.
-  - **images/**: Image files served to the client.
 - **data/**: Data files and temporary caches (excluded from git).
-- **exports/**: Symlinked export directories (excluded from git).
+- **exports/**: Exported photos (excluded from git).
 - **scripts/**: Utility scripts (e.g., `generate-overview.sh`).
 - **utils/**: Utility functions and helpers.
 - **tests/**: Automated tests.
@@ -116,6 +117,7 @@ Including all relevant files in the project overview helps maintain transparency
   - **Embrace Iteration and Learning**: Recognize that being unsure is a natural part of the process and an opportunity for growth.
 
 - **Best Practices**:
+
   - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
 
 ## Environment and Dependency Management
@@ -124,6 +126,7 @@ Including all relevant files in the project overview helps maintain transparency
 - Keep dependencies up to date; use `yarn` consistently.
 - Exclude unnecessary files and directories using `.gitignore` (e.g., `node_modules/`, `public/images/`, `data/`, `exports/`).
 - **Integrate External Tools**: Manage calls to external tools (like `osxphotos`) within the Node.js application.
+- **Ember.js Integration**: Ensure that Ember.js and its dependencies are properly managed and documented.
 
 ## Error Handling and Logging
 
@@ -140,8 +143,9 @@ Including all relevant files in the project overview helps maintain transparency
 ## Testing
 
 - Write unit tests for critical components.
-- Use a testing framework like Jest or Mocha.
+- Use testing frameworks like Jest (for backend) and QUnit or Ember CLI's testing tools (for frontend).
 - Automate tests using scripts (e.g., `yarn test`).
+- Ensure tests cover both frontend and backend functionalities.
 
 ## Deployment and Operations
 
@@ -154,6 +158,7 @@ Including all relevant files in the project overview helps maintain transparency
 - Optimize code for performance when handling large datasets.
 - Use caching strategies where appropriate.
 - Profile and monitor resource usage.
+- Implement lazy loading and other performance enhancements in the frontend.
 
 ---
 

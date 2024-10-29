@@ -1,31 +1,46 @@
-# Photo Filter Application: Weaving Stories Through Images
+# Photo Filter Application: Interactive Photo Exploration and Management
 
 ## Overview
 
-The **Photo Filter Application** is more than just a tool—it's a narrative journey that empowers photographers to explore and curate their visual stories. By interfacing with the macOS Photos library, this application allows you to delve into the aesthetic qualities of your photographs, uncovering hidden patterns and meanings that reflect both personal and collective experiences.
-
-## The Story Behind the Application
-
-In a world inundated with images, finding the threads that connect our photos becomes a way of understanding ourselves and our culture. This application was born out of a desire to bridge the gap between technology and storytelling, enabling users to navigate their photo libraries not just as collections of files, but as evolving narratives that capture moments, emotions, and relationships.
+The **Photo Filter Application** is a web application that allows users to interactively explore, select, and manage photos from their macOS Photos library. By leveraging Apple's aesthetic scores and other metadata, users can sort and filter their photos, make selections across different sorting attributes, and perform actions like adding to albums or exporting selected images.
 
 ## Features
 
-- **Narrative Album Navigation**: Seamlessly browse through your albums, each representing a chapter in your visual story.
-- **Semantic Sorting and Filtering**: Use meaningful criteria like aesthetic scores, dates, keywords, and people to find connections between images.
-- **Symlinked Photo Export**: Create exports that are more than directories—they're curated exhibitions of your chosen narratives.
-- **Cultural Context Integration**: The application acknowledges and integrates the cultural and semantic contexts of your photos, offering a richer experience.
+- **Interactive Album Navigation**:
+
+  - Browse and select albums from your Photos library within the application.
+  - View photos within albums and sort them based on various attributes.
+
+- **Interactive Photo Selection**:
+
+  - Select multiple photos by clicking and dragging the mouse over them.
+  - Selections persist across different sorting attributes, allowing you to collect photos as you explore.
+
+- **Actions on Selected Photos**:
+
+  - Add selected photos to a new or existing album in your Photos library.
+  - Export selected photos to a directory on your computer.
+  - New albums are organized under a designated folder (e.g., "photo-filter") in your Photos library.
+
+- **Enhanced User Experience with Ember.js**:
+
+  - Responsive and interactive frontend built with Ember.js.
+  - Lazy loading of images for improved performance with large photo collections.
+
+- **Sorting and Filtering**:
+
+  - Sort photos based on aesthetic scores, dates, keywords, and more.
+  - Apply filters to refine your photo selection.
 
 ## Technologies Used
 
-- **Node.js**: Serving as the backbone of the application, facilitating communication between different components.
-- **Express.js**: Managing routes and server logic in a way that mirrors the pathways users take through their photo narratives.
-- **Express Handlebars**: Rendering dynamic content that adapts to the unfolding story of the user's interaction.
-- **SCSS/Sass**: Styling the application to provide an immersive and aesthetically pleasing experience.
-- **osxphotos**: Acting as a bridge between the application's narrative intent and the raw data of the Photos library.
+- **Ember.js**: Frontend framework for building a rich, interactive user interface.
+- **Express.js**: Backend server handling API requests and communication with the Photos library.
+- **Node.js**: Runtime environment for executing JavaScript on the server.
+- **osxphotos**: Python library for interfacing with the macOS Photos library.
+- **SCSS/Sass**: Styling the application for a cohesive and responsive design.
 
 ## Installation and Setup
-
-_The installation process is a journey that prepares your environment for the stories you're about to uncover._
 
 1. **Clone the Repository**:
 
@@ -34,19 +49,30 @@ _The installation process is a journey that prepares your environment for the st
    cd photo-filter
    ```
 
-2. **Install Dependencies**:
+2. **Install Backend Dependencies**:
 
    ```bash
+   cd backend
    yarn install
    ```
 
-3. **Set Up the Project**:
+3. **Install Frontend Dependencies**:
 
    ```bash
-   yarn setup
+   cd ../frontend
+   yarn install
    ```
 
-4. **Set Node.js Version**:
+4. **Set Up the Project**:
+
+   - Run the setup script to install `osxphotos` and configure the environment.
+
+     ```bash
+     cd ../
+     yarn setup
+     ```
+
+5. **Set Node.js Version**:
 
    ```bash
    nvm use
@@ -56,31 +82,68 @@ _The installation process is a journey that prepares your environment for the st
 
 - **Development Mode**:
 
-  ```bash
-  yarn dev
-  ```
+  - Start the backend server:
+
+    ```bash
+    cd backend
+    yarn dev
+    ```
+
+  - Start the Ember.js frontend:
+
+    ```bash
+    cd ../frontend
+    ember serve
+    ```
 
 - **Production Mode**:
 
-  ```bash
-  yarn build-sass
-  yarn start
-  ```
+  - Build the frontend:
 
-Access the application at `http://localhost:3000` and begin your narrative exploration.
+    ```bash
+    cd frontend
+    ember build --environment=production
+    ```
+
+  - Start the backend server (serving the built frontend):
+
+    ```bash
+    cd ../backend
+    yarn start
+    ```
+
+Access the application at `http://localhost:4200` during development.
 
 ## Usage
 
-_Every interaction with the application is a step deeper into your personal narrative._
+1. **Browse Albums**:
 
-- **Album Navigation**: Traverse your albums as if flipping through the pages of a storybook.
-- **Semantic Filtering**: Apply filters that resonate with the themes and motifs you're interested in exploring.
-- **Creating Exports**: Curate collections that represent significant chapters or themes in your visual journey.
+   - Navigate through your albums and select one to view its photos.
+
+2. **Select Photos**:
+
+   - Click and drag over photos to select multiple items.
+   - Selections persist as you sort and filter the photos.
+
+3. **Sort and Filter**:
+
+   - Use the sorting options to order photos by different attributes.
+   - Apply filters to narrow down the photo list.
+
+4. **Perform Actions**:
+
+   - Add selected photos to a new or existing album in your Photos library.
+   - Export selected photos to a directory on your computer.
 
 ## Contributing
 
-We welcome contributions that enhance the narrative and cultural dimensions of the application. Please read `project-guidelines.md` for details on our collaborative approach.
+We welcome contributions that enhance the application's functionality and user experience. Please read `project-guidelines.md` for details on our collaborative approach.
+
+## License
+
+This project is licensed under the MIT License.
 
 ## Acknowledgments
 
-This project is inspired by the interplay between technology and culture, drawing upon perspectives that emphasize narrative, semantics, and the agency of all components involved.
+- **osxphotos**: For providing a powerful interface to the macOS Photos library.
+- **Ember.js Community**: For creating a robust framework that empowers our frontend development.

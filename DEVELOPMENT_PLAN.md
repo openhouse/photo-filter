@@ -2,7 +2,7 @@
 
 ## Project Goal
 
-Develop a locally running web application that interfaces with the user's macOS Photos library to allow interactive querying, filtering, and exporting of photos based on Apple's aesthetic scores and other metadata.
+Develop a web application that interfaces with the user's macOS Photos library to enable interactive exploration, selection, and exporting of photos based on Apple's aesthetic scores and other metadata. The application aims to provide an engaging user experience by allowing users to select photos through intuitive interactions and perform actions like adding to albums or exporting selections.
 
 ## Current State
 
@@ -15,102 +15,129 @@ Develop a locally running web application that interfaces with the user's macOS 
 
 ## New Objectives
 
-- **Interactive Album Navigation**: Enable users to navigate and select albums from their Photos library within the web app.
-- **Enhanced Sorting and Filtering**: Allow sorting and filtering of photos by attributes like aesthetic scores, dates, keywords, and people.
-- **Symlinked Photo Export**: Facilitate exporting filtered photos as symlinks to a structured directory compatible with Photoshop's Photomerge.
-- **Export Directory Structure**: Organize exports under `exports/yyyy-mm-dd/named_export/`, containing symlinks to the original images.
-- **Privacy Considerations**: Ensure personal data and photos are not included in the git repository.
+- **Interactive Photo Selection**:
+
+  - Implement the ability to select multiple photos by clicking and dragging the mouse over them.
+  - Ensure selections persist as users switch between sorting attributes.
+  - Allow users to collect selected photos from different sorting criteria.
+
+- **Actions on Selected Photos**:
+
+  - Provide options to add selected photos to a new or existing album in the Photos library.
+  - Enable exporting selected images to a directory on the user's computer.
+  - Organize new albums under a specific folder (e.g., "photo-filter") in the Photos library for encapsulation.
+
+- **Enhanced Frontend Experience**:
+
+  - Transition to an Ember.js frontend for better interactivity and responsiveness.
+  - Use Express.js to serve API endpoints for data retrieval and actions.
+  - Implement lazy loading of images to improve performance with large albums.
+
+- **Roadmap Development**:
+
+  - Set up a development roadmap outlining the transition to Ember.js and the implementation of new features.
+  - Reimplement current features using the Ember.js frontend with Express.js as the API.
+  - Expand the application with the new interactive features after the transition.
 
 ## Pending Tasks and Priorities
 
 ### 1. High Priority
 
-- **Interactive Album Navigation**:
+- **Set Up Ember.js Frontend**:
 
-  - Implement a UI component to display and select albums from the Photos library.
-  - Modify the backend to fetch and serve album-specific data.
+  - Initialize a new Ember.js application within the project.
+  - Configure the build and development environment to work alongside the existing Express.js backend.
 
-- **Enhanced Sorting and Filtering**:
+- **Reimplement Current Features in Ember.js**:
 
-  - Develop sorting and filtering mechanisms based on photo attributes.
-  - Update the frontend to allow users to apply these filters interactively.
+  - Recreate album list view and photo grid view using Ember.js components.
+  - Ensure existing functionality (album navigation, photo display, sorting) works seamlessly.
 
-- **Symlinked Photo Export**:
+- **Implement Interactive Photo Selection**:
 
-  - Implement functionality to create symlinks of filtered photos in a user-defined export directory.
-  - Ensure the symlinks point to the original images in the Photos library without copying files.
-  - Handle potential issues with iCloud Photo Library and ensure symlinks work correctly.
+  - Develop a photo selection mechanism that allows users to select multiple photos via mouse dragging.
+  - Use Ember.js services to manage the selection state and ensure persistence across different sorting views.
 
-- **Export Directory Structure**:
+- **Add Actions for Selected Photos**:
 
-  - Automate the creation of export directories following the `exports/yyyy-mm-dd/named_export/` format.
-  - Provide a UI for users to name their exports.
+  - Implement UI elements (buttons, menus) to perform actions on selected photos.
+  - Set up API endpoints in Express.js to handle actions like adding to albums and exporting images.
 
-- **Enhanced Error Handling**:
-  - Improve error messages and handling throughout the application.
-  - Provide informative feedback to the user in case of failures.
+- **Organize Albums in Photos Library**:
+
+  - Use `osxphotos` to create new albums under a specific folder in the Photos library.
+  - Ensure that the application can interact with the Photos library to perform these actions.
 
 ### 2. Medium Priority
 
-- **Responsive Design**:
+- **Image Loading Optimization**:
 
-  - Update the frontend to be fully responsive and mobile-friendly.
-  - Use media queries and flexible layouts.
+  - Implement lazy loading of images to enhance performance with large photo collections.
+  - Use Ember.js add-ons or native capabilities to achieve efficient image rendering.
 
-- **Caching and Performance**:
-  - Implement caching mechanisms for photo metadata to reduce load times.
-  - Optimize queries and data processing for large datasets.
+- **UI/UX Enhancements**:
+
+  - Improve the overall look and feel of the application.
+  - Ensure the interface is intuitive and user-friendly for complex interactions.
+
+- **Error Handling and Notifications**:
+
+  - Provide user feedback for actions, especially for long-running processes.
+  - Implement notifications or status indicators within the Ember.js app.
 
 ### 3. Low Priority
 
+- **User Preferences and Settings**:
+
+  - Allow users to save preferences like default export directories or album names.
+  - Implement user authentication if necessary.
+
 - **Advanced Filtering Options**:
 
-  - Include additional filters like location, camera model, and EXIF data.
-  - Allow sorting by other subjective evaluation attributes from Apple's enhanced attributes.
+  - Introduce additional filters (e.g., location, camera model, EXIF data).
+  - Allow sorting by other subjective evaluation attributes.
 
-- **User Preferences**:
+- **Testing and Quality Assurance**:
 
-  - Save user settings and preferences for queries and interface configurations.
-
-- **Internationalization (i18n)**:
-  - Prepare the application for localization and support multiple languages.
+  - Write unit and integration tests for both frontend and backend components.
+  - Ensure robust error handling and data validation.
 
 ## Next Steps
 
-- **Implement Interactive Sorting and Filtering**:
+1. **Initialize Ember.js Application**:
 
-  - Allow users to sort photos by aesthetic score, date, etc.
-  - Update the frontend to include sorting/filtering UI components.
+   - Install Ember CLI and set up the Ember.js app within the project directory.
+   - Configure the development environment to run both the Ember.js frontend and Express.js backend concurrently.
 
-- **Symlinked Photo Export**:
+2. **Set Up API Endpoints**:
 
-  - Develop functionality to export selected photos as symlinks.
-  - Ensure compatibility with Photoshop's Photomerge.
+   - Define RESTful API endpoints in Express.js for data retrieval and actions.
+   - Ensure CORS is configured correctly for communication between frontend and backend.
 
-- **Enhance Documentation**:
+3. **Reimplement Existing Features**:
 
-  - Keep `ISSUES.md` updated with any new issues.
-  - Continue refining `project-guidelines.md` as the project evolves.
+   - Create Ember.js routes and components for album list and photo grid views.
+   - Implement sorting functionality using Ember's computed properties and actions.
 
-- **Backend Enhancements**:
+4. **Develop Photo Selection Mechanism**:
 
-  - Implement functions to create symlinks in the specified export directory.
-  - Ensure compatibility with the Photos library structure and handle any symlink limitations.
+   - Use Ember.js components and services to enable photo selection via mouse dragging.
+   - Ensure selection state persists across sorting changes.
 
-- **Frontend Development**:
+5. **Implement Actions on Selected Photos**:
 
-  - Update `index.hbs` and `main.hbs` to include album navigation and filtering UI components.
-  - Add forms or dialogs to allow users to specify export names.
-  - Use AJAX or Fetch API for dynamic content loading without full page refreshes.
+   - Add UI elements for actions like "Add to Album" and "Export Selected Photos."
+   - Implement backend logic to handle these actions using `osxphotos`.
 
-- **Privacy and Data Management**:
+6. **Optimize Image Loading**:
 
-  - Update `.gitignore` to exclude any personal data or photo files.
-  - Ensure temporary caches and exported data are stored securely on the user's local machine.
+   - Implement lazy loading for images to improve performance.
+   - Test with large albums to ensure smooth user experience.
 
-- **Testing and Quality Assurance**:
-  - Write unit tests for new features.
-  - Perform thorough testing to ensure stability.
+7. **Plan for Future Enhancements**:
+
+   - Outline additional features and improvements based on user feedback and testing.
+   - Prioritize tasks and update the development plan accordingly.
 
 ## Collaboration Notes
 
@@ -119,10 +146,12 @@ Develop a locally running web application that interfaces with the user's macOS 
   - Provide full files for any code changes to facilitate copy-paste replacement.
   - Organize the project into smaller files if necessary to improve manageability.
 
-- **Communication**:
+- **Documentation**:
 
-  - Include all critical information within project files for continuity.
-  - Document any architectural decisions and code changes thoroughly.
+  - Keep all project files updated, including `README.md`, `ISSUES.md`, and `project-guidelines.md`.
+  - Document architectural decisions and code changes thoroughly.
 
 - **Issue Tracking**:
-  - Utilize `ISSUES.md` for logging problems and tracki
+
+  - Utilize `ISSUES.md` for logging problems and tracking resolutions.
+  - Include open-ended questions and uncertainties to encourage collaborative problem-solving.
