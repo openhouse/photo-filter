@@ -1,5 +1,7 @@
 # Node modules
 node_modules/
+frontend/**/node_modules/
+backend/**/node_modules/
 
 # Logs
 logs/
@@ -16,28 +18,26 @@ Thumbs.db
 .env
 
 # Python virtual environment
-venv/
+backend/venv/
 
 # Public images and other large directories
-public/images/
-public/*images*/
-public/uploads/
-public/cache/
-public/*export*/
-public/stylesheets/css/
+backend/public/images/
+backend/public/uploads/
+backend/public/cache/
+backend/public/*export*/
+backend/public/stylesheets/css/
 
 # Build directories
 dist/
 build/
-
-# Project overview
-project-overview.txt
+frontend/photo-filter-frontend/dist/
+frontend/photo-filter-frontend/tmp/
 
 # Data and cache directories
-data/
-data/**/uuids.txt
-top_photo_uuids.txt
-cache/
+backend/data/
+backend/data/**/uuids.txt
+backend/top_photo_uuids.txt
+backend/cache/
 
 # Others
 .idea/

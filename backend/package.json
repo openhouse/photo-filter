@@ -1,0 +1,22 @@
+{
+  "name": "photo-filter-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.1",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "nodemon": "^3.1.7"
+  },
+  "scripts": {
+    "setup": "node ./scripts/setup.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "generate-overview": "../generate-overview.sh",
+    "postinstall": "node ./scripts/setup.js"
+  }
+}

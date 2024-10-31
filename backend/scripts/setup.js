@@ -7,15 +7,14 @@ import path from "path";
 
 const execAsync = promisify(exec);
 
-// The setup script acts as a facilitator, bringing together different actants
 (async () => {
   try {
     const venvDir = path.join(process.cwd(), "venv");
     const venvPython = path.join(venvDir, "bin", "python3");
     const venvPip = path.join(venvDir, "bin", "pip");
 
-    // Python, as an active participant, helps set up the environment
-    const pythonExecutable = "python3";
+    // Use Python 3.11 explicitly
+    const pythonExecutable = "python3.11";
 
     // Check if virtual environment exists
     const venvExists = await fs.pathExists(venvPython);
@@ -30,7 +29,7 @@ const execAsync = promisify(exec);
       console.log("Virtual environment already exists, ready to collaborate.");
     }
 
-    // Install or upgrade osxphotos, acknowledging its agency
+    // Install or upgrade osxphotos
     console.log(
       "Inviting osxphotos to join the project by installing or upgrading it..."
     );
