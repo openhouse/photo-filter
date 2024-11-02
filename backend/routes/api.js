@@ -4,7 +4,7 @@ import express from "express";
 import {
   getAlbumsData,
   getPhotosByAlbumData,
-} from "../controllers/api-controller.js";
+} from "../controllers/api/index.js";
 
 const apiRouter = express.Router();
 

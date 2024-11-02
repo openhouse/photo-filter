@@ -17,7 +17,7 @@ echo "## Project Structure" >> $OUTPUT_FILE
 echo "" >> $OUTPUT_FILE
 
 # Exclude specified directories
-EXCLUDE_DIRS='node_modules|.git|venv|dist|build|cache|logs'
+EXCLUDE_DIRS='node_modules|.git|venv|dist|build|cache|logs|images|images-source'
 
 # Generate the directory tree
 echo "\`\`\`" >> $OUTPUT_FILE
@@ -70,6 +70,19 @@ list_files() {
     fi
   done
 }
+
+# Include root-level markdown files
+echo "## Root-Level Files" >> $OUTPUT_FILE
+echo "" >> $OUTPUT_FILE
+for FILE in *.md; do
+  if [[ -f "$FILE" ]]; then
+    echo "### **./$FILE**" >> $OUTPUT_FILE
+    echo "\`\`\`" >> $OUTPUT_FILE
+    cat "$FILE" >> $OUTPUT_FILE
+    echo "\`\`\`" >> $OUTPUT_FILE
+    echo "" >> $OUTPUT_FILE
+  fi
+done
 
 echo "## Backend Files" >> $OUTPUT_FILE
 echo "" >> $OUTPUT_FILE

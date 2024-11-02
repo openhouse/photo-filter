@@ -1,4 +1,4 @@
-// ./server.js
+// backend/server.js
 
 import express from "express";
 import path from "path";
@@ -6,10 +6,14 @@ import { fileURLToPath } from "url";
 import exphbs from "express-handlebars";
 import routes from "./routes/index.js";
 import fs from "fs-extra";
+import cors from "cors"; // Import cors
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Enable CORS for all routes
+app.use(cors());
 
 // Set up Handlebars with custom helpers
 const hbs = exphbs.create({

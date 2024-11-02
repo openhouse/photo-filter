@@ -7,14 +7,29 @@
 - **Clarity and Readability**: Code should be easy to read and understand by humans and AI alike.
 - **Modularity**: Break down the application into small, manageable modules.
 - **Consistency**: Follow established conventions throughout the project.
+- **Ember.js Conventions**: Default to current Ember.js conventions and standards across the frontend and backend unless there is a strong reason to do otherwise in the backend.
 - **Privacy and Security**: Handle sensitive user data responsibly, ensuring personal data remains private.
 - **Performance**: Optimize for handling large datasets efficiently.
 - **Scalability**: Design the application architecture to accommodate future growth and additional features.
 - **Embrace Iterative Understanding**: Recognize that solutions are provisional and open to revision. Document and revisit solutions over time, framing them as hypotheses effective under current understanding but adaptable as new insights emerge.
 
+## Data Formats
+
+- **JSON:API Format**: Use the JSON:API specification for data exchange between the frontend and backend to ensure consistency and compatibility, especially with Ember Data.
+- **JSON:API Serializer**: Utilize packages like `jsonapi-serializer` on the backend to format responses according to the JSON:API specification, enhancing maintainability and compliance.
+
+## Data Synchronization and Caching
+
+- **Cache Invalidation**: Implement cache invalidation strategies to ensure the application reflects the most recent data from the Apple Photos library.
+- **Timestamp Comparison**: Use the last modified timestamps of the Photos library and cached data to determine when to refresh the cache.
+- **Performance Balance**: Strive for a balance between data freshness and application performance.
+
 ## Ensuring Complete Project Overviews
 
-Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The `generate-overview.sh` script should be dynamically modified as needed to provide insight into any relevant files, balancing the need for completeness with the practicality of input constraints in collaborative tools.
+Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The `generate-overview.sh` script should be kept up to date to include all necessary files, such as root-level markdown files (`DEVELOPMENT_PLAN.md`, `ISSUES.md`, `project-guidelines.md`, `README.md`), and any other files critical to the project's understanding. The script should balance the need for completeness with the practicality of input constraints in collaborative tools.
+
+- **Updating `generate-overview.sh`**: When new important files are added to the project, or when the inclusion criteria change, update `generate-overview.sh` to reflect these changes.
+- **Reviewing Project Overviews**: Regularly generate and review `project-overview.txt` to ensure it accurately represents the project's current state.
 
 ## Coding Standards
 
@@ -26,6 +41,7 @@ Including all relevant files in the project overview helps maintain transparency
 - Write comments for complex code blocks.
 - Avoid global variables; use modules and closures.
 - Use ES6+ features where appropriate.
+- **Ember.js Standards**: Follow Ember.js coding conventions and best practices in both the frontend and backend where applicable. This includes file naming, directory structure, and coding styles recommended by Ember.js.
 
 ## Naming Conventions
 
@@ -117,16 +133,16 @@ Including all relevant files in the project overview helps maintain transparency
   - **Embrace Iteration and Learning**: Recognize that being unsure is a natural part of the process and an opportunity for growth.
 
 - **Best Practices**:
-
   - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
 
 ## Environment and Dependency Management
 
 - Use `.nvmrc` to specify Node.js versions.
-- Keep dependencies up to date; use `yarn` consistently.
+- Keep dependencies up to date; use `yarn` or `npm` consistently.
 - Exclude unnecessary files and directories using `.gitignore` (e.g., `node_modules/`, `public/images/`, `data/`, `exports/`).
 - **Integrate External Tools**: Manage calls to external tools (like `osxphotos`) within the Node.js application.
 - **Ember.js Integration**: Ensure that Ember.js and its dependencies are properly managed and documented.
+- **JSON:API Compliance**: Ensure that the backend APIs conform to the JSON:API specification to facilitate seamless integration with Ember Data.
 
 ## Error Handling and Logging
 
@@ -144,7 +160,7 @@ Including all relevant files in the project overview helps maintain transparency
 
 - Write unit tests for critical components.
 - Use testing frameworks like Jest (for backend) and QUnit or Ember CLI's testing tools (for frontend).
-- Automate tests using scripts (e.g., `yarn test`).
+- Automate tests using scripts (e.g., `npm test` or `yarn test`).
 - Ensure tests cover both frontend and backend functionalities.
 
 ## Deployment and Operations

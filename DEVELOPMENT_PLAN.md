@@ -1,5 +1,55 @@
 # Development Plan
 
+## Update: Implementing Cache Invalidation Based on Timestamps
+
+**Date:** November 1, 2024
+
+### Decision
+
+Implement cache invalidation based on timestamps to ensure the web application reflects the latest changes in the Apple Photos library.
+
+### Rationale
+
+- **Data Freshness**: Ensures users always see the latest albums and photos.
+- **Performance**: Avoids unnecessary data regeneration, balancing performance with data freshness.
+
+### Implementation Steps
+
+1. **Create a Utility Function**:
+
+   - Implement `getPhotosLibraryLastModified` to retrieve the last modified time of the Photos library.
+
+2. **Update Backend Controllers**:
+
+   - Modify `getAlbumsData` and `getPhotosByAlbumData` to check the last modified timestamps.
+   - Regenerate cached data if the Photos library has changed.
+
+3. **Testing**:
+
+   - Test the implementation to ensure it correctly detects changes and updates cached data.
+
+4. **Documentation**:
+
+   - Update `README.md` and `project-guidelines.md` to reflect these changes.
+
+### Potential Challenges
+
+- **Accuracy of Timestamps**: Ensuring the last modified time accurately reflects changes within the library.
+- **Edge Cases**: Handling situations where the Photos library changes without updating the last modified timestamp.
+- **Performance Impact**: Monitoring any performance overhead introduced by checking timestamps.
+
+---
+
+## Previous Updates
+
+## Update: Integration of JSON:API Serializer
+
+- Decided to use `jsonapi-serializer` package on the backend to format API responses according to the JSON:API specification.
+- Refactored the backend controllers to utilize the serializer, improving maintainability and compliance.
+- Updated the package dependencies to include `jsonapi-serializer`.
+
+---
+
 ## Project Goal
 
 Develop a web application that interfaces with the user's macOS Photos library to enable interactive exploration, selection, and exporting of photos based on Apple's aesthetic scores and other metadata. The application aims to provide an engaging user experience by allowing users to select photos through intuitive interactions and perform actions like adding to albums or exporting selections.

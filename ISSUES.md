@@ -4,6 +4,60 @@ This file serves as a log of open issues, debugging steps taken, and resolutions
 
 ---
 
+## Issue 12: Implementing Cache Invalidation Based on Timestamps
+
+**Opened By:** [Your Name] on Nov 1, 2024
+
+**Status:** **In Progress**
+
+**Description:**
+
+We need to ensure that the web application reflects the latest changes made in the Apple Photos library, such as newly added albums or photos. Currently, the application uses cached JSON files (`albums.json` and `photos.json`) and does not automatically update when changes occur.
+
+**Objective:**
+
+- Implement a mechanism to invalidate cached data based on the last modified timestamps of the Photos library and the cached files.
+
+**Action Items:**
+
+- [x] Create a utility function `getPhotosLibraryLastModified`.
+- [x] Update `getAlbumsData` to check timestamps and regenerate `albums.json` if necessary.
+- [ ] Update `getPhotosByAlbumData` to implement similar logic for `photos.json`.
+- [ ] Test the implementation thoroughly.
+- [ ] Update documentation to reflect the changes.
+
+**Questions to Consider:**
+
+- How frequently does the Photos library's last modified timestamp update?
+- Are there any types of changes that do not affect the last modified time?
+- How will this impact performance with large libraries?
+
+---
+
+## Issue 11: Using a JSON:API Package on the Backend
+
+**Opened By:** [Your Name] on Oct 30, 2024
+
+**Status:** **Resolved**
+
+**Description:**
+
+We need to ensure that our backend API responses conform to the JSON:API specification to work seamlessly with Ember Data. Manually formatting the responses can be error-prone and hard to maintain.
+
+**Resolution:**
+
+- Decided to integrate the `jsonapi-serializer` package on the backend.
+- Refactored the API controllers to use the serializer.
+- This improves maintainability and ensures compliance with the JSON:API specification.
+
+**Action Items:**
+
+- Installed `jsonapi-serializer` package.
+- Updated API controllers by breaking them into smaller files and using the serializer.
+- Updated package dependencies.
+
+---
+
 ## Issue 8: Implementing Interactive Photo Selection and Persistence
 
 **Opened By:** [Your Name] on Oct 27, 2024
