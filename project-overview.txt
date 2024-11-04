@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Sat Nov  2 08:39:33 EDT 2024
+Generated on: Sun Nov  3 21:17:38 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -28,41 +28,20 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── get-photos-by-album.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   ├── --albums.json
-│   │   ├── -albums.json
-│   │   ├── -photos.json
-│   │   ├── -top_photo_uuids.txt
-│   │   ├── albums
-│   │   │   ├── .DS_Store
-│   │   │   ├── 082DC15E-64E9-4D16-A4D0-E0E37D4B1589
-│   │   │   ├── 265925AE-5152-40DD-A35B-2F9AD7F19610
-│   │   │   ├── 42817B09-9B99-49D1-8DF5-4B1FAE5136A8
-│   │   │   │   └── photos.json
-│   │   │   ├── 4B1BD5DB-5E72-42CF-9DCE-FD120C123423
-│   │   │   ├── 5F69342F-40C4-4E2B-BC7B-81BDAE2A23AB
-│   │   │   ├── 8F27C9E8-F5CD-42AA-97A2-5DC49E0A4AB1
-│   │   │   │   └── photos.json
-│   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
-│   │   │   │   └── photos.json
-│   │   │   ├── 95FE318F-3C94-45B5-8C64-4882CC46FDAC
-│   │   │   └── F4DD754A-B233-4488-A868-7DB9B56F4651
-│   │   └── albums.json
+│   │   └── albums
+│   │       └── 918451EC-C6A5-416D-B919-D23AE46FEBBF
+│   │           └── photos.json
 │   ├── models
 │   │   └── photoModel.js
 │   ├── package.json
 │   ├── public
-│   │   ├── .DS_Store
 │   │   └── stylesheets
-│   │       ├── css
-│   │       │   └── style.css
 │   │       └── scss
 │   │           └── style.scss
 │   ├── routes
 │   │   ├── api.js
 │   │   └── index.js
 │   ├── scripts
-│   │   ├── __pycache__
-│   │   │   └── template_functions.cpython-312.pyc
 │   │   ├── export_albums.py
 │   │   ├── export_photos_in_album.py
 │   │   ├── setup.js
@@ -75,10 +54,13 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── views
 │   │   ├── albums.hbs
 │   │   ├── index.hbs
-│   │   ├── layouts
-│   │   │   └── main.hbs
-│   │   └── partials
+│   │   └── layouts
+│   │       └── main.hbs
 │   └── yarn.lock
+├── data
+│   └── albums
+│       └── 8F27C9E8-F5CD-42AA-97A2-5DC49E0A4AB1
+│           └── photos.json
 ├── frontend
 │   └── photo-filter-frontend
 │       ├── .editorconfig
@@ -167,6 +149,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── osxphotos_crash.log
 ├── project-guidelines.md
 ├── project-overview.txt
+├── public
+│   └── stylesheets
+│       └── css
+│           └── style.css
 ├── test-images
 │   ├── .osxphotos_export.db
 │   ├── IMG_0743.HEIC
@@ -174,7 +160,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-54 directories, 111 files
+49 directories, 102 files
 ```
 
 ---
@@ -936,9 +922,7 @@ export async function runPythonScript(
   return new Promise((resolve, reject) => {
     exec(
       command,
-      {
-        maxBuffer: 1024 * 1024 * 20, // Increase buffer to 20MB
-      },
+      { env: process.env, maxBuffer: 1024 * 1024 * 20 },
       async (error, stdout, stderr) => {
         if (error) {
           console.error(
@@ -968,38 +952,34 @@ export async function runPythonScript(
 ```
 // ./utils/exec-command.js
 
-import { spawn } from "child_process";
+import { exec } from "child_process";
 
 // Helper function to execute shell commands
 export function execCommand(command, errorMessage) {
   return new Promise((resolve, reject) => {
     console.log(`Executing command:\n${command}`);
 
-    const child = spawn(command, {
-      env: process.env,
-      shell: true,
-    });
-
-    child.stdout.on("data", (data) => {
-      console.log(`stdout:\n${data.toString()}`);
-    });
-
-    child.stderr.on("data", (data) => {
-      console.error(`stderr:\n${data.toString()}`);
-    });
-
-    child.on("error", (error) => {
-      console.error(`${errorMessage}\nError: ${error.message}`);
-      reject(error);
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(`${errorMessage}\nExit code: ${code}`));
-      } else {
-        resolve();
+    exec(
+      command,
+      { env: process.env, maxBuffer: 1024 * 1024 * 20 },
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error(`${errorMessage}\nError: ${error.message}`);
+          if (stderr) {
+            console.error(`stderr:\n${stderr}`);
+          }
+          reject(error);
+          return;
+        }
+        if (stdout) {
+          console.log(`stdout:\n${stdout}`);
+        }
+        if (stderr) {
+          console.error(`stderr:\n${stderr}`);
+        }
+        resolve({ stdout, stderr });
       }
-    });
+    );
   });
 }
 ```
@@ -1149,7 +1129,7 @@ form button {
   "scripts": {
     "setup": "node ./scripts/setup.js",
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon --ignore 'data/*' server.js",
     "generate-overview": "../generate-overview.sh",
     "postinstall": "node ./scripts/setup.js"
   }
@@ -1827,131 +1807,6 @@ function getNestedProperty(obj, propertyPath) {
 }
 ```
 
-### **./backend/data/--albums.json**
-```json
-Type of albums: <class 'list'>
-First album: <osxphotos.albuminfo.AlbumInfo object at 0x2d0d1f050>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d0d1f050>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d0cd3f10>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d0cd1550>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x112a14390>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d0d1ca50>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660c9d0>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cad0>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cb50>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cbd0>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660c950>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cc90>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cd10>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cd90>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660ce10>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660ce90>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cf10>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660cf90>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660d010>, Type: <class 'osxphotos.albuminfo.AlbumInfo'>
-...
-```
-
-### **./backend/data/albums.json**
-```json
-[
-    {
-        "title": "Inner Space",
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA"
-    },
-    {
-        "title": "Carmen",
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673"
-    },
-    {
-        "title": "Jamie",
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518"
-    },
-    {
-        "title": "LoVid",
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF"
-    },
-    {
-        "title": "Lera Show",
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610"
-...
-```
-
-### **./backend/data/-albums.json**
-```json
-[
-  {
-    "title": "Inner Space",
-    "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA"
-  },
-  {
-    "title": "Carmen",
-    "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673"
-  },
-  {
-    "title": "Jamie",
-    "uuid": "5DF549B9-BA1C-4958-A538-46811101F518"
-  },
-  {
-    "title": "LoVid",
-    "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF"
-  },
-  {
-    "title": "Lera Show",
-    "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610"
-...
-```
-
-### **./backend/data/-photos.json**
-```json
-[
-  {
-    "adjustments": {},
-    "album_info": [
-      {
-        "creation_date": "2024-06-23T14:49:57.421845-04:00",
-        "end_date": "2024-10-16T18:32:33-04:00",
-        "folder_list": ["86D4E6EE-9838-4CE5-BC2C-2017436FB14A"],
-        "folder_names": ["Original Sources"],
-        "owner": null,
-        "parent": "86D4E6EE-9838-4CE5-BC2C-2017436FB14A",
-        "sort_order": null,
-        "start_date": "2020-01-01T00:07:08-04:00",
-        "title": "FujiFilm x100v: All, Full Res",
-        "uuid": "AE73F776-BE1F-4E89-9EBF-431EBA6B5354"
-      },
-      {
-        "creation_date": "2024-10-19T01:16:51.057409-04:00",
-        "end_date": "2024-10-16T18:32:33-04:00",
-        "folder_list": [],
-...
-```
-
-### **./backend/data/albums/8F27C9E8-F5CD-42AA-97A2-5DC49E0A4AB1/photos.json**
-```json
-[
-    {
-        "albums": [
-            "Halloween 2024"
-        ],
-        "burst": false,
-        "cloud_guid": "AVZTq0PAdwoR9feq5jTelYlBBFRA",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-10-31 21:25:07.190094-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-10-31 21:11:46-04:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 3200,
-            "metering_mode": 5,
-            "sample_rate": null,
-            "track_format": null,
-...
-```
-
 ### **./backend/data/albums/918451EC-C6A5-416D-B919-D23AE46FEBBF/photos.json**
 ```json
 [
@@ -1974,31 +1829,6 @@ Processing album: <osxphotos.albuminfo.AlbumInfo object at 0x2d660d010>, Type: <
             "metering_mode": 5,
             "sample_rate": null,
             "track_format": null,
-...
-```
-
-### **./backend/data/albums/42817B09-9B99-49D1-8DF5-4B1FAE5136A8/photos.json**
-```json
-[
-    {
-        "albums": [
-            "FujiFilm x100v: All, Full Res",
-            "Rosa Transfer",
-            "Transfer"
-        ],
-        "burst": false,
-        "cloud_guid": "AbK+fMDS4LmOv5Jy0fRXMtt5xWGC",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-10-17 11:35:15.485776-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-10-16 18:32:33-04:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 1250,
-            "metering_mode": 5,
 ...
 ```
 
