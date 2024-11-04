@@ -1,5 +1,26 @@
 # Project Guidelines
 
+## Table of Contents
+
+- [Project Philosophy](#project-philosophy)
+- [Data Formats](#data-formats)
+- [Data Synchronization and Caching](#data-synchronization-and-caching)
+- [Ensuring Complete Project Overviews](#ensuring-complete-project-overviews)
+- [Coding Standards](#coding-standards)
+- [Naming Conventions](#naming-conventions)
+- [Directory Structure](#directory-structure)
+- [Documentation Practices](#documentation-practices)
+- [Privacy and Data Handling](#privacy-and-data-handling)
+- [Project State and Continuity](#project-state-and-continuity)
+- [Issue Tracking and Debugging](#issue-tracking-and-debugging)
+- [Collaboration Guidelines](#collaboration-guidelines)
+- [Environment and Dependency Management](#environment-and-dependency-management)
+- [Error Handling and Logging](#error-handling-and-logging)
+- [Security Best Practices](#security-best-practices)
+- [**Testing**](#testing)
+- [Deployment and Operations](#deployment-and-operations)
+- [Performance Optimization](#performance-optimization)
+
 ## Project Philosophy
 
 - **User-Centric Design**: Develop features that meet the specific needs of photographers working with large photo libraries.
@@ -156,12 +177,46 @@ Including all relevant files in the project overview helps maintain transparency
 - Use environment variables for configuration where necessary.
 - Sanitize and validate all user inputs to prevent injection attacks.
 
-## Testing
+## **Testing**
 
-- Write unit tests for critical components.
-- Use testing frameworks like Jest (for backend) and QUnit or Ember CLI's testing tools (for frontend).
-- Automate tests using scripts (e.g., `npm test` or `yarn test`).
-- Ensure tests cover both frontend and backend functionalities.
+- **Importance of Testing**: Testing is crucial to ensure that our application functions correctly now and in the future. It helps us catch bugs early and provides confidence when making changes.
+
+- **Test Coverage**: Aim for comprehensive test coverage, including unit tests, integration tests, and acceptance tests for both the backend and frontend.
+
+- **Testing Frameworks**:
+
+  - **Backend**: Use **Jest** for testing Node.js code in the backend.
+
+    - **Configuration**: Ensure Jest is configured to work with ES modules.
+    - **Test Files**: Place test files under `backend/tests/` with a structure mirroring the source code.
+    - **Mocking**: Use mocks to isolate tests from external dependencies like file systems or network requests.
+
+  - **Frontend**: Use **Ember CLI's** built-in testing tools.
+    - **Test Types**:
+      - **Unit Tests**: Test individual functions, helpers, and components.
+      - **Integration Tests**: Test interactions between components.
+      - **Acceptance Tests**: Test user flows and interactions with the app.
+    - **Test Files**: Place test files under `frontend/photo-filter-frontend/tests/`.
+
+- **Best Practices**:
+
+  - **Write Tests Alongside Code**: Whenever new code is added, corresponding tests should be written.
+  - **Automate Testing**: Use scripts (`npm test` or `yarn test`) to automate running tests.
+  - **Continuous Integration**: Set up CI/CD pipelines to run tests automatically on commits and pull requests.
+  - **Mock External Dependencies**: Avoid relying on real external services or data in tests. Use mocking to simulate responses.
+  - **Clear Test Descriptions**: Test names should clearly describe the functionality being tested.
+  - **Avoid Flaky Tests**: Ensure tests are reliable and do not fail intermittently.
+
+- **Maintaining Tests**:
+
+  - **Update Tests with Code Changes**: When modifying code, update the tests to reflect the changes.
+  - **Review Test Coverage**: Regularly review test coverage reports to identify untested parts of the codebase.
+  - **Refactor Tests**: Keep test code clean and maintainable, applying the same coding standards as production code.
+
+- **Tools and Libraries**:
+
+  - **Code Coverage Tools**: Use tools like **Istanbul** or **nyc** for backend and built-in coverage tools in Ember CLI for frontend to measure code coverage.
+  - **Linting**: Lint test code as rigorously as production code.
 
 ## Deployment and Operations
 
