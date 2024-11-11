@@ -22,19 +22,61 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
    cd photo-filter
    ```
 
+2. **Set Up the Backend**:
+
+   ```bash
+   cd backend
+   npm install
+   npm run setup
+   npm run dev
+   ```
+
+3. **Set Up the Frontend**:
+
+   Open a new terminal window:
+
+   ```bash
+   cd frontend/photo-filter-frontend
+   npm install
+   npm run start
+   ```
+
+4. **Access the Application**:
+
+   - Visit [http://localhost:4200](http://localhost:4200) to access the Ember.js frontend.
+
+## Features
+
+- **Album Navigation**: Browse albums using a left navigation column.
+- **Photo Display**: View photos within selected albums.
+- **Expanded Sorting**: Sort photos by various attributes, including aesthetic scores.
+- **Photo Selection**: Select photos by clicking; selections persist across sorting changes.
+- **Export Functionality**: Export selected photos to a directory.
+
 ## Data Synchronization and Cache Invalidation
 
-This application uses a caching mechanism to store data extracted from the Apple Photos library. To ensure that users see the most up-to-date information, we have implemented cache invalidation based on timestamps.
+- **Automatic Updates**: The backend checks for changes in the Photos library and updates cached data accordingly.
+- **Data Freshness**: Ensures users see the most recent albums and photos.
+- **Performance Optimization**: Avoids unnecessary data regeneration.
 
-### How It Works
+## Development Notes
 
-- **Albums and Photos Data**:
+- **Nested Routes**: Utilizes Ember.js nested routes with `{{outlet}}` to render child templates.
+- **Ember Services**: Uses a selection service to manage photo selection state.
+- **JSON:API Compliance**: Backend APIs conform to the JSON:API specification for seamless integration with Ember Data.
+- **Styling**: Basic responsive design implemented with CSS.
 
-  - The backend checks the last modified time of the Photos library and compares it with the last modified time of the cached data files (`albums.json`, `photos.json`).
-  - If the Photos library has been updated since the cache was last generated, the backend regenerates the cache by re-running the data extraction scripts.
-  - This process ensures that any new albums or photos added to the Photos library are reflected in the application.
+## Contributing
 
-### Benefits
+- **Git Commit Messages**: Include clear and descriptive commit messages with every change.
+- **Issue Tracking**: Use `ISSUES.md` to log problems and track resolutions.
+- **Collaboration Guidelines**: Refer to `project-guidelines.md` for best practices.
 
-- **Data Freshness**: Users always see the latest albums and photos without manual intervention.
-- **Performance Optimization**: The application avoids unnecessary data regeneration, improving performance.
+## Testing
+
+- **Backend Tests**: Use Jest for testing backend code.
+- **Frontend Tests**: Use Ember CLI's testing tools.
+
+## License
+
+This project is licensed under the MIT License.

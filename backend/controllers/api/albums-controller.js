@@ -1,4 +1,4 @@
-// ./controllers/api/albums-controller.js
+// backend/controllers/api/albums-controller.js
 
 import path from "path";
 import fs from "fs-extra";
@@ -9,12 +9,12 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use singular 'album' as the type and prevent pluralization
+// Change 'albums' to 'album' and set pluralizeType to false
 const AlbumSerializer = new Serializer("album", {
   id: "uuid", // Use 'uuid' as the 'id' field
   attributes: ["title"],
   keyForAttribute: "camelCase",
-  pluralizeType: false, // Add this line
+  pluralizeType: false, // Prevent automatic pluralization
 });
 
 export const getAlbumsData = async (req, res) => {
@@ -52,6 +52,35 @@ export const getAlbumsData = async (req, res) => {
     res.json(jsonApiData);
   } catch (error) {
     console.error("Error fetching albums:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+// Function to get a single album by UUID
+export const getAlbumById = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumsPath = path.join(dataDir, "albums.json");
+
+    // Read albums data
+    const albumsData = await fs.readJson(albumsPath);
+
+    // Find the album with the matching UUID
+    const album = albumsData.find((a) => a.uuid === albumUUID);
+
+    if (!album) {
+      return res.status(404).json({ errors: [{ detail: "Album not found" }] });
+    }
+
+    // Serialize data
+    const jsonApiData = AlbumSerializer.serialize(album);
+
+    // Send JSON response
+    res.json(jsonApiData);
+  } catch (error) {
+    console.error("Error fetching album:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };

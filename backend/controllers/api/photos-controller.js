@@ -1,4 +1,4 @@
-// ./controllers/api/photos-controller.js
+// backend/controllers/api/photos-controller.js
 
 import path from "path";
 import fs from "fs-extra";
@@ -10,7 +10,7 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use singular 'photo' as the type and prevent pluralization
+// Ensure 'type' is 'photo' and prevent pluralization
 const PhotoSerializer = new Serializer("photo", {
   id: "uuid", // Use 'uuid' as the 'id' field
   attributes: [
@@ -21,12 +21,12 @@ const PhotoSerializer = new Serializer("photo", {
     "exifInfo",
   ],
   keyForAttribute: "camelCase",
-  pluralizeType: false, // Add this line
   relationships: {
     album: {
       type: "album", // Use singular 'album' for the relationship
     },
   },
+  pluralizeType: false, // Prevent automatic pluralization
 });
 
 export const getPhotosByAlbumData = async (req, res) => {

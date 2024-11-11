@@ -4,57 +4,50 @@ This file serves as a log of open issues, debugging steps taken, and resolutions
 
 ---
 
-## Issue 12: Implementing Cache Invalidation Based on Timestamps
+## Issue 15: Nested Routes Not Rendering Child Templates
 
-**Opened By:** [Your Name] on Nov 1, 2024
-
-**Status:** **In Progress**
-
-**Description:**
-
-We need to ensure that the web application reflects the latest changes made in the Apple Photos library, such as newly added albums or photos. Currently, the application uses cached JSON files (`albums.json` and `photos.json`) and does not automatically update when changes occur.
-
-**Objective:**
-
-- Implement a mechanism to invalidate cached data based on the last modified timestamps of the Photos library and the cached files.
-
-**Action Items:**
-
-- [x] Create a utility function `getPhotosLibraryLastModified`.
-- [x] Update `getAlbumsData` to check timestamps and regenerate `albums.json` if necessary.
-- [ ] Update `getPhotosByAlbumData` to implement similar logic for `photos.json`.
-- [ ] Test the implementation thoroughly.
-- [ ] Update documentation to reflect the changes.
-
-**Questions to Consider:**
-
-- How frequently does the Photos library's last modified timestamp update?
-- Are there any types of changes that do not affect the last modified time?
-- How will this impact performance with large libraries?
-
----
-
-## Issue 11: Using a JSON:API Package on the Backend
-
-**Opened By:** [Your Name] on Oct 30, 2024
+**Opened By:** [Your Name] on Nov 12, 2024
 
 **Status:** **Resolved**
 
-**Description:**
+### Description
 
-We need to ensure that our backend API responses conform to the JSON:API specification to work seamlessly with Ember Data. Manually formatting the responses can be error-prone and hard to maintain.
+The `albums/album` route was not rendering its template within the `albums` route as expected. Clicking on an album link did not display the album's photos.
 
-**Resolution:**
+### Error Observed
 
-- Decided to integrate the `jsonapi-serializer` package on the backend.
-- Refactored the API controllers to use the serializer.
-- This improves maintainability and ensures compliance with the JSON:API specification.
+- The child route's template was not rendering within the parent route's template.
 
-**Action Items:**
+### Resolution
 
-- Installed `jsonapi-serializer` package.
-- Updated API controllers by breaking them into smaller files and using the serializer.
-- Updated package dependencies.
+- **Root Cause:** The `albums.hbs` template lacked an `{{outlet}}`, which is necessary for rendering nested routes in Ember.js.
+- **Solution:** Added an `{{outlet}}` to `app/templates/albums.hbs`.
+- **Commit:** Added outlet to `albums.hbs` to render album content and updated styles.
+
+### Action Items
+
+- Updated `albums.hbs` to include `{{outlet}}`.
+- Restructured the template to include a left navigation column and content area.
+- Restarted the Ember server to apply changes.
+- Verified that the child route's content renders correctly.
+
+---
+
+## Issue 14: 404 Error When Fetching Album Data in Ember.js Application
+
+**Opened By:** [Your Name] on Nov 10, 2024
+
+**Status:** **Resolved**
+
+### Description
+
+The Ember.js application encountered a 404 Not Found error when attempting to fetch album data from the endpoint `/api/albums/:albumUUID`.
+
+### Resolution
+
+- **Root Cause:** The backend API did not have an endpoint to handle GET requests to `/api/albums/:albumUUID`.
+- **Solution:** Implemented the missing endpoint on the backend to handle GET requests to `/api/albums/:albumUUID`.
+- **Commit:** Implemented backend endpoint for fetching single album data.
 
 ---
 
@@ -62,44 +55,22 @@ We need to ensure that our backend API responses conform to the JSON:API specifi
 
 **Opened By:** [Your Name] on Oct 27, 2024
 
-**Status:** **Open**
+**Status:** **In Progress**
 
-**Description:**
+### Description
 
-We need to implement the ability for users to select multiple photos by clicking and dragging the mouse over them. Selections should persist as users switch between different sorting attributes. This functionality is essential for allowing users to collect photos as they explore their albums.
+We need to implement the ability for users to select multiple photos by clicking and dragging the mouse over them. Selections should persist as users switch between different sorting attributes.
 
-**Challenges:**
+### Action Items
 
-- **Mouse Drag Selection**: Implementing a user-friendly and intuitive way to select multiple photos with mouse dragging.
-- **Selection Persistence**: Maintaining the selection state across different views and sorting options.
-- **Performance**: Ensuring that the selection mechanism is performant, especially with large photo collections.
+- **Create Selection Service:** Implemented `app/services/selection.js` to manage selection state.
+- **Update Photo Grid:** Modified `albums/album.hbs` to handle photo selection and display selected state.
+- **Implement Selection Persistence:** Ensure that selections persist across sorting and navigation.
 
-**Potential Solutions:**
+### Next Steps
 
-- **Use Ember.js Services**:
-
-  - Create a service to store the selection state, which can be accessed across different components and routes.
-
-- **Photo Item Component**:
-
-  - Develop a `PhotoItem` component that can detect mouse events and update the selection state accordingly.
-
-- **Selection Library**:
-
-  - Consider using or integrating with a library that handles drag selection (e.g., `ember-cli-drag-select`).
-
-**Action Items:**
-
-- Research existing Ember.js add-ons or libraries that facilitate drag selection.
-- Implement the `SelectionService` to manage the selection state.
-- Update the `PhotoGrid` and `PhotoItem` components to handle mouse events for selection.
-- Ensure that the selection state is preserved when sorting attributes change.
-
-**Questions to Consider:**
-
-- How will the selection state be affected if the user navigates away from the album view?
-- Do we need to implement a way to save and load selections across sessions?
-- How can we optimize performance to handle thousands of photos?
+- **Expand Selection Feature:** Implement functionality to include photos taken immediately before and after selected photos.
+- **Testing:** Write tests to ensure selection works as expected.
 
 ---
 
@@ -107,89 +78,22 @@ We need to implement the ability for users to select multiple photos by clicking
 
 **Opened By:** [Your Name] on Oct 27, 2024
 
-**Status:** **Open**
+**Status:** **In Progress**
 
-**Description:**
+### Description
 
-After implementing the selection mechanism, we need to allow users to perform actions on the selected photos, such as adding them to an album in the Photos library or exporting them to a directory.
+Allow users to perform actions on the selected photos, such as exporting them to a directory.
 
-**Challenges:**
+### Action Items
 
-- **Backend Integration**: Setting up API endpoints to handle actions on the backend.
-- **Interaction with Photos Library**: Using `osxphotos` to add photos to albums or export them.
-- **User Feedback**: Providing real-time feedback to the user about the status of their actions.
+- **Backend API Endpoint:** Created `/api/photos/export` to handle exporting photos.
+- **Frontend Integration:** Updated `albums/album.js` to send selected photo IDs to the backend.
+- **User Feedback:** Added alert messages to inform users about the export status.
 
-**Potential Solutions:**
+### Next Steps
 
-- **API Endpoints**:
-
-  - Create POST endpoints in Express.js to handle actions on selected photos.
-
-- **Asynchronous Processing**:
-
-  - Implement background jobs or asynchronous processing for long-running tasks like exporting photos.
-
-- **Notifications**:
-
-  - Use Ember.js notifications or toasts to inform users about the progress and completion of actions.
-
-**Action Items:**
-
-- Define the API endpoints and their payload structures.
-- Implement the backend logic to interact with `osxphotos`.
-- Update the Ember.js frontend to send requests to the API when actions are triggered.
-- Provide user feedback through UI elements.
-
-**Questions to Consider:**
-
-- How will we handle errors or failures during these actions?
-- Do we need to implement a progress indicator for actions that take a long time?
-- Are there permissions or security considerations when interacting with the Photos library?
-
----
-
-## Issue 10: Transitioning to Ember.js Frontend
-
-**Opened By:** [Your Name] on Oct 27, 2024
-
-**Status:** **Open**
-
-**Description:**
-
-We need to plan and execute the transition from the current Handlebars templates to an Ember.js frontend. This includes reimplementing existing features and ensuring that the application remains functional during the transition.
-
-**Challenges:**
-
-- **Development Environment**: Setting up the project to run both the backend and frontend seamlessly.
-- **Data Communication**: Ensuring that data is correctly passed between the frontend and backend.
-- **Feature Parity**: Reimplementing all existing features without losing functionality.
-
-**Potential Solutions:**
-
-- **Incremental Transition**:
-
-  - Gradually replace parts of the frontend, starting with less critical components.
-
-- **API Development**:
-
-  - Define clear API contracts to facilitate communication between the frontend and backend.
-
-- **Testing**:
-
-  - Write tests to ensure that features work as expected after reimplementation.
-
-**Action Items:**
-
-- Set up the Ember.js application and configure it to work with the Express.js backend.
-- Recreate the album list and photo grid views in Ember.js.
-- Implement data fetching using Ember Data and ensure API endpoints return data in the expected format.
-- Test all existing features thoroughly after reimplementation.
-
-**Questions to Consider:**
-
-- How will we handle authentication and session management, if needed?
-- What are the risks of downtime during the transition, and how can we mitigate them?
-- Are there any dependencies or plugins we need to consider for Ember.js?
+- **Implement Actual Export Logic:** Complete the backend function to export photos.
+- **Enhance User Feedback:** Provide better UI notifications and progress indicators.
 
 ---
 

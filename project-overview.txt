@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Sun Nov  3 21:17:38 EST 2024
+Generated on: Mon Nov 11 13:31:59 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -28,9 +28,14 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── get-photos-by-album.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   └── albums
-│   │       └── 918451EC-C6A5-416D-B919-D23AE46FEBBF
-│   │           └── photos.json
+│   │   ├── albums
+│   │   │   ├── 4B1BD5DB-5E72-42CF-9DCE-FD120C123423
+│   │   │   │   └── photos.json
+│   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
+│   │   │   │   └── photos.json
+│   │   │   └── AE73F776-BE1F-4E89-9EBF-431EBA6B5354
+│   │   └── albums.json
+│   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
 │   ├── package.json
@@ -47,6 +52,12 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── setup.js
 │   │   └── template_functions.py
 │   ├── server.js
+│   ├── test_albums.json
+│   ├── tests
+│   │   └── controllers
+│   │       └── api
+│   │           ├── albums-controller.test.js
+│   │           └── photos-controller.test.js
 │   ├── utils
 │   │   ├── exec-command.js
 │   │   ├── get-photos-library-last-modified.js
@@ -80,7 +91,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       ├── README.md
 │       ├── app
 │       │   ├── adapters
-│       │   │   └── application.js
+│       │   │   ├── application.js
+│       │   │   └── photo.js
 │       │   ├── app.js
 │       │   ├── components
 │       │   │   └── .gitkeep
@@ -101,7 +113,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── router.js
 │       │   ├── routes
 │       │   │   ├── .gitkeep
-│       │   │   ├── album.js
 │       │   │   ├── albums
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
@@ -111,7 +122,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── styles
 │       │   │   └── app.css
 │       │   └── templates
-│       │       ├── album.hbs
 │       │       ├── albums
 │       │       │   └── album.hbs
 │       │       ├── albums.hbs
@@ -128,6 +138,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   └── robots.txt
 │       ├── testem.js
 │       ├── tests
+│       │   ├── acceptance
+│       │   │   └── albums-test.js
 │       │   ├── helpers
 │       │   │   └── index.js
 │       │   ├── index.html
@@ -160,7 +172,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-49 directories, 102 files
+55 directories, 108 files
 ```
 
 ---
@@ -383,6 +395,47 @@ Develop a web application that interfaces with the user's macOS Photos library t
 # Issues and Resolutions
 
 This file serves as a log of open issues, debugging steps taken, and resolutions. It's intended to facilitate collaborative problem-solving and prevent redundant efforts.
+
+---
+
+## Issue 14: 404 Error When Fetching Album Data in Ember.js Application
+
+**Opened By:** [Your Name] on Nov 10, 2024
+
+**Status:** **Resolved**
+
+### Description
+
+After making changes suggested in previous steps, the Ember.js application encountered a 404 Not Found error when clicking on an album link. The application was attempting to fetch album data from the endpoint `/api/albums/:albumUUID`, which was not defined on the backend.
+
+### Error Message
+
+> Error while processing route: albums.album Ember Data Request GET `http://localhost:3000/api/albums/918451EC-C6A5-416D-B919-D23AE46FEBBF` returned a 404
+
+### Objective
+
+- Determine why the Ember application is making this request.
+- Implement a solution to resolve the 404 error and ensure the application functions as expected.
+
+### Resolution
+
+- **Root Cause:** The backend API did not have an endpoint to handle GET requests to `/api/albums/:albumUUID`, which is required by Ember Data when using `store.findRecord('album', album_id)`.
+- **Solution:** Implement the missing endpoint on the backend to handle GET requests to `/api/albums/:albumUUID` and return the album data in JSON:API format.
+
+### Action Items
+
+1. **Update Backend:**
+   - **Create a New Controller Function:** `getAlbumById` in `backend/controllers/api/albums-controller.js` to handle fetching a single album by its UUID.
+   - **Update API Routes:** Add a new route in `backend/routes/api.js` to handle GET requests to `/api/albums/:albumUUID`.
+2. **Test the Solution:**
+   - Restart the backend server to load the new route.
+   - Verify that accessing `/api/albums/:albumUUID` returns the correct album data.
+   - Test the Ember.js application to ensure the 404 error is resolved.
+
+### Questions to Consider
+
+- Are there any other endpoints that Ember Data might require that are not currently implemented?
+- Should we adjust our Ember Data models or adapter configurations to better align with our backend API?
 
 ---
 
@@ -624,187 +677,236 @@ This application uses a caching mechanism to store data extracted from the Apple
 
 ### **./project-guidelines.md**
 ```
-# Project Guidelines
+Project Guidelines
 
-## Project Philosophy
+Table of Contents
 
-- **User-Centric Design**: Develop features that meet the specific needs of photographers working with large photo libraries.
-- **Interactivity and Engagement**: Create an intuitive and engaging user experience, especially for complex tasks like photo selection and management.
-- **Clarity and Readability**: Code should be easy to read and understand by humans and AI alike.
-- **Modularity**: Break down the application into small, manageable modules.
-- **Consistency**: Follow established conventions throughout the project.
-- **Ember.js Conventions**: Default to current Ember.js conventions and standards across the frontend and backend unless there is a strong reason to do otherwise in the backend.
-- **Privacy and Security**: Handle sensitive user data responsibly, ensuring personal data remains private.
-- **Performance**: Optimize for handling large datasets efficiently.
-- **Scalability**: Design the application architecture to accommodate future growth and additional features.
-- **Embrace Iterative Understanding**: Recognize that solutions are provisional and open to revision. Document and revisit solutions over time, framing them as hypotheses effective under current understanding but adaptable as new insights emerge.
+    •	Project Philosophy
+    •	Keeping Up with Dependencies
+    •	Data Formats
+    •	Data Synchronization and Caching
+    •	Ensuring Complete Project Overviews
+    •	Coding Standards
+    •	Naming Conventions
+    •	Directory Structure
+    •	Documentation Practices
+    •	Privacy and Data Handling
+    •	Project State and Continuity
+    •	Issue Tracking and Debugging
+    •	Collaboration Guidelines
+    •	Environment and Dependency Management
+    •	Error Handling and Logging
+    •	Security Best Practices
+    •	Testing
+    •	Deployment and Operations
+    •	Performance Optimization
 
-## Data Formats
+Project Philosophy
 
-- **JSON:API Format**: Use the JSON:API specification for data exchange between the frontend and backend to ensure consistency and compatibility, especially with Ember Data.
-- **JSON:API Serializer**: Utilize packages like `jsonapi-serializer` on the backend to format responses according to the JSON:API specification, enhancing maintainability and compliance.
+    •	User-Centric Design: Develop features that meet the specific needs of photographers working with large photo libraries.
+    •	Interactivity and Engagement: Create an intuitive and engaging user experience, especially for complex tasks like photo selection and management.
+    •	Clarity and Readability: Code should be easy to read and understand by humans and AI alike.
+    •	Modularity: Break down the application into small, manageable modules.
+    •	Consistency: Follow established conventions throughout the project.
+    •	Ember.js Conventions: Default to current Ember.js conventions and standards across the frontend and backend unless there is a strong reason to do otherwise in the backend.
+    •	Privacy and Security: Handle sensitive user data responsibly, ensuring personal data remains private.
+    •	Performance: Optimize for handling large datasets efficiently.
+    •	Scalability: Design the application architecture to accommodate future growth and additional features.
+    •	Embrace Iterative Understanding: Recognize that solutions are provisional and open to revision. Document and revisit solutions over time, framing them as hypotheses effective under current understanding but adaptable as new insights emerge.
 
-## Data Synchronization and Caching
+Keeping Up with Dependencies
 
-- **Cache Invalidation**: Implement cache invalidation strategies to ensure the application reflects the most recent data from the Apple Photos library.
-- **Timestamp Comparison**: Use the last modified timestamps of the Photos library and cached data to determine when to refresh the cache.
-- **Performance Balance**: Strive for a balance between data freshness and application performance.
+    •	Awareness of Rapid Changes: Acknowledge that open-source projects and dependencies, such as Ember.js, are rapidly evolving. Stay informed about the latest versions and updates.
+    •	Proactive Research: Regularly check for updates and changes in the dependencies used in the project. Utilize tools, AI assistants with web access, and official documentation to stay current.
+    •	Compatibility Checks: Ensure that updates to dependencies do not break existing functionality. Test thoroughly when upgrading to new versions.
+    •	Document Changes: Keep a log of dependency versions and update notes in the project’s documentation, including any migration steps or deprecated features.
+    •	Community Engagement: Participate in the communities of key dependencies to stay ahead of upcoming changes and contribute when possible.
 
-## Ensuring Complete Project Overviews
+Data Formats
 
-Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The `generate-overview.sh` script should be kept up to date to include all necessary files, such as root-level markdown files (`DEVELOPMENT_PLAN.md`, `ISSUES.md`, `project-guidelines.md`, `README.md`), and any other files critical to the project's understanding. The script should balance the need for completeness with the practicality of input constraints in collaborative tools.
+    •	JSON:API Format: Use the JSON:API specification for data exchange between the frontend and backend to ensure consistency and compatibility, especially with Ember Data.
+    •	JSON:API Serializer: Utilize packages like jsonapi-serializer on the backend to format responses according to the JSON:API specification, enhancing maintainability and compliance.
 
-- **Updating `generate-overview.sh`**: When new important files are added to the project, or when the inclusion criteria change, update `generate-overview.sh` to reflect these changes.
-- **Reviewing Project Overviews**: Regularly generate and review `project-overview.txt` to ensure it accurately represents the project's current state.
+Data Synchronization and Caching
 
-## Coding Standards
+    •	Cache Invalidation: Implement cache invalidation strategies to ensure the application reflects the most recent data from the Apple Photos library.
+    •	Timestamp Comparison: Use the last modified timestamps of the Photos library and cached data to determine when to refresh the cache.
+    •	Performance Balance: Strive for a balance between data freshness and application performance.
 
-- Use consistent indentation (2 spaces).
-- Follow naming conventions:
-  - **Variables and Functions**: `camelCase`
-  - **Classes and Constructors**: `PascalCase`
-  - **Constants**: `UPPER_SNAKE_CASE`
-- Write comments for complex code blocks.
-- Avoid global variables; use modules and closures.
-- Use ES6+ features where appropriate.
-- **Ember.js Standards**: Follow Ember.js coding conventions and best practices in both the frontend and backend where applicable. This includes file naming, directory structure, and coding styles recommended by Ember.js.
+Ensuring Complete Project Overviews
 
-## Naming Conventions
+Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The generate-overview.sh script should be kept up to date to include all necessary files, such as root-level markdown files (DEVELOPMENT_PLAN.md, ISSUES.md, project-guidelines.md, README.md), and any other files critical to the project’s understanding. The script should balance the need for completeness with the practicality of input constraints in collaborative tools.
+• Updating generate-overview.sh: When new important files are added to the project, or when the inclusion criteria change, update generate-overview.sh to reflect these changes.
+• Reviewing Project Overviews: Regularly generate and review project-overview.txt to ensure it accurately represents the project’s current state.
 
-- Use **dasherized** filenames for files (e.g., `photo-controller.js`).
-- Directories and files should be **lowercase** with **hyphens**.
-- Keep filenames descriptive and concise.
+Coding Standards
 
-## Directory Structure
+    •	Use consistent indentation (2 spaces).
+    •	Follow naming conventions:
+    •	Variables and Functions: camelCase
+    •	Classes and Constructors: PascalCase
+    •	Constants: UPPER_SNAKE_CASE
+    •	Write comments for complex code blocks.
+    •	Avoid global variables; use modules and closures.
+    •	Use ES6+ features where appropriate.
+    •	Ember.js Standards: Follow Ember.js coding conventions and best practices in both the frontend and backend where applicable. This includes file naming, directory structure, and coding styles recommended by Ember.js.
 
-- **backend/**: Express.js server and API endpoints.
-- **frontend/**: Ember.js application.
-- **config/**: Configuration files.
-- **controllers/**: Application logic and request handlers.
-- **models/**: Database models and data structures.
-- **routes/**: Route definitions and middleware.
-- **views/**: Template files (if any remain).
-- **public/**: Static assets (CSS, JavaScript, images).
-- **data/**: Data files and temporary caches (excluded from git).
-- **exports/**: Exported photos (excluded from git).
-- **scripts/**: Utility scripts (e.g., `generate-overview.sh`).
-- **utils/**: Utility functions and helpers.
-- **tests/**: Automated tests.
+Naming Conventions
 
-## Documentation Practices
+    •	Use dasherized filenames for files (e.g., photo-controller.js).
+    •	Directories and files should be lowercase with hyphens.
+    •	Keep filenames descriptive and concise.
 
-- Update `README.md` with project information, setup instructions, and usage examples.
-- Use `generate-overview.sh` to generate project overviews automatically.
-- **Include All Relevant Files**: Ensure that the project overview includes the contents of all relevant files, excluding personal data and photos.
-- Include inline documentation in code files using JSDoc comments where appropriate.
-- Maintain a changelog (`CHANGELOG.md`) to track changes over time.
-- Document any architectural decisions in an `ARCHITECTURE.md` file.
-- **Incorporate "Questions to Consider"**: In documentation and code comments, include open-ended questions that highlight potential uncertainties or areas for further exploration. This invites contributors to approach the project with a proactive, questioning mindset.
+Directory Structure
 
-## Privacy and Data Handling
+    •	backend/: Express.js server and API endpoints.
+    •	frontend/: Ember.js application.
+    •	config/: Configuration files.
+    •	controllers/: Application logic and request handlers.
+    •	models/: Database models and data structures.
+    •	routes/: Route definitions and middleware.
+    •	views/: Template files (if any remain).
+    •	public/: Static assets (CSS, JavaScript, images).
+    •	data/: Data files and temporary caches (excluded from git).
+    •	exports/: Exported photos (excluded from git).
+    •	scripts/: Utility scripts (e.g., generate-overview.sh).
+    •	utils/: Utility functions and helpers.
+    •	tests/: Automated tests.
 
-- **Data Exclusion**: Do not include personal data or photos in the git repository.
-- **Local Storage**: Store temporary caches and exported data securely on the user's local machine.
-- **User Consent**: Ensure any data processing is transparent to the user.
+Documentation Practices
 
-## Project State and Continuity
+    •	Update README.md with project information, setup instructions, and usage examples.
+    •	Use generate-overview.sh to generate project overviews automatically.
+    •	Include All Relevant Files: Ensure that the project overview includes the contents of all relevant files, excluding personal data and photos.
+    •	Include inline documentation in code files using JSDoc comments where appropriate.
+    •	Maintain a changelog (CHANGELOG.md) to track changes over time.
+    •	Document any architectural decisions in an ARCHITECTURE.md file.
+    •	Incorporate “Questions to Consider”: In documentation and code comments, include open-ended questions that highlight potential uncertainties or areas for further exploration. This invites contributors to approach the project with a proactive, questioning mindset.
 
-- **Portability**: Ensure the project's state is fully contained within the project files for new collaborators or assistants.
-- **Agile State Documentation**: Include the current project state, pending tasks, and future plans within the project files.
-- **Self-Containment**: The project should be self-contained, requiring no external context to understand its current state and next steps.
+Privacy and Data Handling
 
-## Issue Tracking and Debugging
+    •	Data Exclusion: Do not include personal data or photos in the git repository.
+    •	Local Storage: Store temporary caches and exported data securely on the user’s local machine.
+    •	User Consent: Ensure any data processing is transparent to the user.
 
-- Use `ISSUES.md` to log open issues, steps taken to resolve them, and their eventual resolutions.
-- **Introduce an Uncertainty Tag**: For issues with aspects that remain unclear or unresolved, add an "Uncertain" status or tag. This encourages documenting both what's known and unknown, creating a rich context that invites collective problem-solving.
-- When an issue is identified:
-  - **Describe** the problem clearly.
-  - **Document** the steps you've taken to diagnose and attempt to fix it.
-  - **Collaborate** by inviting input from others, including role-playing as experts or utilizing AI assistants.
-  - **Reflect** on the solution by asking, "What assumptions did we rely on?" or "What could still be unclear?"
-  - **Update** the issue log with any new findings or solutions.
-- **Resolutions as Provisional Truths**: Frame issue resolutions as effective under current tests but open to improvement. This perspective respects the unknown and encourages team members to share doubts or questions.
-- This practice ensures transparency and helps prevent redundant work.
+Project State and Continuity
 
-## Collaboration Guidelines
+    •	Portability: Ensure the project’s state is fully contained within the project files for new collaborators or assistants.
+    •	Agile State Documentation: Include the current project state, pending tasks, and future plans within the project files.
+    •	Self-Containment: The project should be self-contained, requiring no external context to understand its current state and next steps.
 
-- **Communication**:
+Issue Tracking and Debugging
 
-  - Provide clear and concise messages when collaborating.
-  - Use full file contents for any file to be modified or created to ensure verifiability.
-  - Include all necessary information in the project overview for effective collaboration.
+    •	Use ISSUES.md to log open issues, steps taken to resolve them, and their eventual resolutions.
+    •	Introduce an Uncertainty Tag: For issues with aspects that remain unclear or unresolved, add an “Uncertain” status or tag. This encourages documenting both what’s known and unknown, creating a rich context that invites collective problem-solving.
+    •	When an issue is identified:
+    •	Describe the problem clearly.
+    •	Document the steps you’ve taken to diagnose and attempt to fix it.
+    •	Collaborate by inviting input from others, including role-playing as experts or utilizing AI assistants.
+    •	Reflect on the solution by asking, “What assumptions did we rely on?” or “What could still be unclear?”
+    •	Update the issue log with any new findings or solutions.
+    •	Resolutions as Provisional Truths: Frame issue resolutions as effective under current tests but open to improvement. This perspective respects the unknown and encourages team members to share doubts or questions.
+    •	This practice ensures transparency and helps prevent redundant work.
 
-- **Code Provisioning**:
+Collaboration Guidelines
 
-  - **Full File Replacements**: Always provide full files for any code changes to facilitate copy-paste replacement.
-  - **Project Organization**: Organize the project into smaller, manageable files to support this method.
-  - **Include Git Commit Messages**: When making changes to project files, always include a clear and descriptive git commit message in replies.
+    •	Communication:
+    •	Provide clear and concise messages when collaborating.
+    •	Use full file contents for any file to be modified or created to ensure verifiability.
+    •	Include all necessary information in the project overview for effective collaboration.
+    •	Code Provisioning:
+    •	Full File Replacements: Always provide full files for any code changes to facilitate copy-paste replacement.
+    •	Project Organization: Organize the project into smaller, manageable files to support this method.
+    •	Include Git Commit Messages: When making changes to project files, always include a clear and descriptive git commit message in replies.
+    •	Version Control:
+    •	Commit small, logical changes with clear commit messages.
+    •	Use branches for new features or bug fixes.
+    •	Code Review:
+    •	Review and test contributions thoroughly before merging.
+    •	Encourage collaborative problem-solving.
+    •	Problem-Solving Approach:
+    •	Identify the issue and document it in ISSUES.md.
+    •	Brainstorm potential solutions, possibly involving role-play or consulting experts.
+    •	Test each solution systematically, noting outcomes.
+    •	Reflect on the process to improve future problem-solving efforts.
+    •	Embrace Iteration and Learning: Recognize that being unsure is a natural part of the process and an opportunity for growth.
+    •	Best Practices:
+    •	Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
 
-- **Version Control**:
+Environment and Dependency Management
 
-  - Commit small, logical changes with clear commit messages.
-  - Use branches for new features or bug fixes.
+    •	Use .nvmrc to specify Node.js versions.
+    •	Keep dependencies up to date; use yarn or npm consistently.
+    •	Regular Updates:
+    •	Schedule regular intervals to check for updates to dependencies.
+    •	Use tools like npm-check-updates to identify outdated packages.
+    •	Testing After Updates:
+    •	After updating dependencies, run the full test suite to catch any compatibility issues.
+    •	Be cautious with major version updates that may introduce breaking changes.
+    •	Documentation of Versions:
+    •	Document the versions of critical dependencies in the README.md or a dedicated VERSIONS.md file.
+    •	Include notes on any significant changes or migration steps required.
+    •	Exclude unnecessary files and directories using .gitignore (e.g., node_modules/, public/images/, data/, exports/).
+    •	Integrate External Tools: Manage calls to external tools (like osxphotos) within the Node.js application.
+    •	Ember.js Integration: Ensure that Ember.js and its dependencies are properly managed and documented.
+    •	JSON:API Compliance: Ensure that the backend APIs conform to the JSON:API specification to facilitate seamless integration with Ember Data.
 
-- **Code Review**:
+Error Handling and Logging
 
-  - Review and test contributions thoroughly before merging.
-  - Encourage collaborative problem-solving.
+    •	Implement robust error handling in all asynchronous code.
+    •	Provide meaningful error messages.
+    •	Use logging to aid in debugging and monitoring application health.
 
-- **Problem-Solving Approach**:
+Security Best Practices
 
-  - **Identify** the issue and document it in `ISSUES.md`.
-  - **Brainstorm** potential solutions, possibly involving role-play or consulting experts.
-  - **Test** each solution systematically, noting outcomes.
-  - **Reflect** on the process to improve future problem-solving efforts.
-  - **Embrace Iteration and Learning**: Recognize that being unsure is a natural part of the process and an opportunity for growth.
+    •	Do not commit sensitive information to version control.
+    •	Use environment variables for configuration where necessary.
+    •	Sanitize and validate all user inputs to prevent injection attacks.
 
-- **Best Practices**:
-  - Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
+Testing
 
-## Environment and Dependency Management
+    •	Importance of Testing: Testing is crucial to ensure that our application functions correctly now and in the future. It helps us catch bugs early and provides confidence when making changes.
+    •	Test Coverage: Aim for comprehensive test coverage, including unit tests, integration tests, and acceptance tests for both the backend and frontend.
+    •	Testing Frameworks:
+    •	Backend: Use Jest for testing Node.js code in the backend.
+    •	Configuration: Ensure Jest is configured to work with ES modules.
+    •	Test Files: Place test files under backend/tests/ with a structure mirroring the source code.
+    •	Mocking: Use mocks to isolate tests from external dependencies like file systems or network requests.
+    •	Frontend: Use Ember CLI’s built-in testing tools.
+    •	Test Types:
+    •	Unit Tests: Test individual functions, helpers, and components.
+    •	Integration Tests: Test interactions between components.
+    •	Acceptance Tests: Test user flows and interactions with the app.
+    •	Test Files: Place test files under frontend/photo-filter-frontend/tests/.
+    •	Best Practices:
+    •	Write Tests Alongside Code: Whenever new code is added, corresponding tests should be written.
+    •	Automate Testing: Use scripts (npm test or yarn test) to automate running tests.
+    •	Continuous Integration: Set up CI/CD pipelines to run tests automatically on commits and pull requests.
+    •	Mock External Dependencies: Avoid relying on real external services or data in tests. Use mocking to simulate responses.
+    •	Clear Test Descriptions: Test names should clearly describe the functionality being tested.
+    •	Avoid Flaky Tests: Ensure tests are reliable and do not fail intermittently.
+    •	Maintaining Tests:
+    •	Update Tests with Code Changes: When modifying code, update the tests to reflect the changes.
+    •	Review Test Coverage: Regularly review test coverage reports to identify untested parts of the codebase.
+    •	Refactor Tests: Keep test code clean and maintainable, applying the same coding standards as production code.
+    •	Tools and Libraries:
+    •	Code Coverage Tools: Use tools like Istanbul or nyc for backend and built-in coverage tools in Ember CLI for frontend to measure code coverage.
+    •	Linting: Lint test code as rigorously as production code.
 
-- Use `.nvmrc` to specify Node.js versions.
-- Keep dependencies up to date; use `yarn` or `npm` consistently.
-- Exclude unnecessary files and directories using `.gitignore` (e.g., `node_modules/`, `public/images/`, `data/`, `exports/`).
-- **Integrate External Tools**: Manage calls to external tools (like `osxphotos`) within the Node.js application.
-- **Ember.js Integration**: Ensure that Ember.js and its dependencies are properly managed and documented.
-- **JSON:API Compliance**: Ensure that the backend APIs conform to the JSON:API specification to facilitate seamless integration with Ember Data.
+Deployment and Operations
 
-## Error Handling and Logging
+    •	Document deployment processes.
+    •	Use environment-specific configurations.
+    •	Monitor application performance and errors in production environments.
 
-- Implement robust error handling in all asynchronous code.
-- Provide meaningful error messages.
-- Use logging to aid in debugging and monitoring application health.
+Performance Optimization
 
-## Security Best Practices
+    •	Optimize code for performance when handling large datasets.
+    •	Use caching strategies where appropriate.
+    •	Profile and monitor resource usage.
+    •	Implement lazy loading and other performance enhancements in the frontend.
 
-- Do not commit sensitive information to version control.
-- Use environment variables for configuration where necessary.
-- Sanitize and validate all user inputs to prevent injection attacks.
-
-## Testing
-
-- Write unit tests for critical components.
-- Use testing frameworks like Jest (for backend) and QUnit or Ember CLI's testing tools (for frontend).
-- Automate tests using scripts (e.g., `npm test` or `yarn test`).
-- Ensure tests cover both frontend and backend functionalities.
-
-## Deployment and Operations
-
-- Document deployment processes.
-- Use environment-specific configurations.
-- Monitor application performance and errors in production environments.
-
-## Performance Optimization
-
-- Optimize code for performance when handling large datasets.
-- Use caching strategies where appropriate.
-- Profile and monitor resource usage.
-- Implement lazy loading and other performance enhancements in the frontend.
-
----
-
-**Note:** These guidelines should be reviewed and updated regularly as the project evolves, embracing uncertainty and adapting to new insights.
+Note: These guidelines should be reviewed and updated regularly as the project evolves, embracing uncertainty and adapting to new insights. Staying current with the latest versions of dependencies and being proactive in managing updates is crucial for the project’s long-term success.
 ```
 
 ## Backend Files
@@ -814,6 +916,11 @@ Including all relevant files in the project overview helps maintain transparency
 {
   "presets": ["@babel/preset-env"]
 }
+```
+
+### **./backend/test_albums.json**
+```
+{"albums": {"FujiFilm x100v: All, Full Res": 59919, "FUJIFILM X100V": 39610, "iMessage": 6346, "Sold the building": 4902, "Charlie": 3959, "Flickr: Fredenburg": 3442, "Flickr": 2947, "Transfer": 2821, "Film: Luster Photo": 2590, "At or Near the Building": 1274, "Jamie": 1149, "Halloween 2024": 1084, "Instagram": 858, "Kc": 773, "Penny Party P4": 683, "Dawn Riddle 🎞️ On a Roll": 581, "Snow Day": 542, "KCTH Building Tour": 512, "Harold Mason": 491, "Fun day all": 360, "Rosa Transfer": 350, "Olympia": 344, "Lera Show": 309, "WhatsApp": 289, "Saved from Flickr": 244, "Mason Deed": 221, "Beacon 9-2024": 194, "APNG": 188, "Make New Pictures": 163, "Netherlands": 126, "September MacOS Screenshots": 120, "Building problems": 113, "KCTH Building Tour — People": 86, "Birthday": 67, "Berlin": 55, "Dream City": 50, "Jamie Shirt": 50, "Divorced": 48, "GIF": 47, "Jamie Hair": 45, "Mia-Ben-Arrival": 44, "Moving": 43, "Jamie CC": 41, "Paris Downstairs": 40, "Passport": 40, "Animated": 36, "Mir Faves": 35, "New Year's Day": 33, "2012-12-15": 32, "Espinal": 31, "Ali Coleman": 31, "Olympia house": 30, "FLIR ONE": 30, "Philadelphia": 30, "Christmas 2022": 26, "Glitch Sotheby's": 26, "Good times": 21, "Washer Drier": 20, "Film: Walgreens": 20, "Olympia's Birthday": 20, "Beacon": 19, "Utility": 18, "438": 18, "2024-04-03": 17, "Mom": 17, "Gordon Matta Clarke": 17, "Skate": 16, "Claudette AR": 16, "Jb kc building": 16, "Collaborative": 16, "Rachel Walther": 16, "SceneViewer": 16, "Tyler": 15, "Misha": 14, "Bridget Basket Beacon": 13, "2022-canoe-mo-shared": 13, "Kc work": 12, "Flip books": 12, "Mir": 12, "Pompa": 12, "2022-canoe-Mo": 12, "Lighting Refresh": 11, "Moving Pictures": 10, "Notes": 10, "Bobby Anspach": 10, "Sheep": 9, "Earl Mason Jonathan": 9, "By Dawn Riddle": 9, "Tire Extraction": 8, "Twitter": 8, "2022-11-22-red": 8, "Dominic": 8, "Bookshelves": 8, "Emily Sphere": 7, "Stairs": 7, "Flowers": 7, "Drive": 7, "Inner Space": 6, "LoVid": 6, "Canoe Car": 6, "Close friends": 6, "Camilla Carper": 6, "Stefania": 6, "Looms": 6, "Penelope": 5, "Elisa": 5, "Manhattan": 5, "Olympia Resume": 5, "Giphy": 5, "Dwelling makes home": 5, "Steam": 4, "My world": 4, "Babe": 4, "St Marks": 4, "Potluck": 4, "3D Photo": 4, "Carmen": 3, "Kendel & Mandi": 3, "NYC people": 3, "Hudson": 3, "Jmr": 3, "Flan": 3, "Camera": 3, "Shared with Mason & Earl": 3, "Mia Ben": 3, "To see": 2, "Jb": 2, "Charlie - We Might See": 2, "Zoom Backgrounds": 2, "Rosa": 2, "Paris": 2, "Mason": 2, "Luis": 2, "C&O Canal": 2, "Big Fun Day": 2, "Graphics": 2, "Dana": 2, "Dump": 2, "Mental Health": 2, "Old camera": 2, "Burkarts": 2, "Lisbeth": 2, "Zach": 2, "Airbnb": 2, "Fotor": 2, "Trent": 2, "Books": 1, "Really free": 1, "Tara": 1, "Catalina": 1, "196": 1, "Thor": 1, "Dominic and Antoine": 1, "Untitled Album": 1, "Documentation": 1, "KCTH": 1, "Dropbox": 1, "Kc town hall": 1, "Recently Viewed": 1, "Water Park": 0}, "shared albums": {"Charlie ◍ Jamie": 4976, "Dominic ◍ Jamie": 4415, "Rosa Menkman ◍ Jamie Burkart": 2821, "Transfer ◍ Jamie Burkart": 2821, "Sondy ◍ Jamie": 2542, "Chad ◍ Jamie": 1830, "Lera Tarasenko ◍ Jamie Burkart": 1636, "Mir ◍ 196 Artists Residency": 1156, "Carper ◍ Burkart": 717, "Lydia ◍ Jamie": 380, "Jessi ◍ Mike ◍ Jamie": 347, "Jack ◍ Jamie": 332, "Lera Show ◍ Jamie Burkart": 310, "Patrick Weaver ◍ Jamie Burkart": 162, "Hayley ◍ Jamie": 149, "Claudette ◍ Jamie": 143, "Greta ◍ Shan ◍ Jamie": 137, "Zhen Li ◍ Jamie Burkart": 83, "Bobby ◍ Madeleine ◍ Jamie": 60, "Abby ◍ Jamie": 57, "Isabel Santos ◍ Jamie Burkart": 50, "Laura Mattingly ◍ Jamie Burkart": 45, "Thor ◍ Jamie": 35, "Stewart ◍ Jamie": 29, "Jessi ◍ Jamie Fashion Concepts &;-)": 26, "Gabi ◍ Michael ◍ Jamie": 17, "Melody ◍ Jamie": 13, "Michael ◍ Jamie": 9, "Em Gift ◍ Jamie Burkart": 1, "Bridget ◍ Jamie": 0}}
 ```
 
 ### **./backend/server.js**
@@ -900,6 +1007,120 @@ app.use("/", routes);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+```
+
+### **./backend/jest.config.js**
+```
+// backend/jest.config.js
+
+export default {
+    testEnvironment: 'node',
+    transform: {},
+    extensionsToTreatAsEsm: ['.js'],
+  };```
+
+### **./backend/tests/controllers/api/photos-controller.test.js**
+```
+// backend/tests/controllers/api/photos-controller.test.js
+
+import { jest } from "@jest/globals";
+import { getPhotosByAlbumData } from "../../../controllers/api/photos-controller.js";
+import httpMocks from "node-mocks-http";
+import fs from "fs-extra";
+import path from "path";
+
+describe("getPhotosByAlbumData", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("should return photos data in JSON:API format", async () => {
+    const req = httpMocks.createRequest({
+      params: {
+        albumUUID: "album-1",
+      },
+      query: {
+        sort: "score.overall",
+        order: "desc",
+      },
+    });
+    const res = httpMocks.createResponse();
+
+    // Mock fs.readJson to return sample data
+    const samplePhotos = [
+      {
+        uuid: "photo-1",
+        original_filename: "photo1.jpg",
+        score: { overall: 0.9 },
+      },
+      {
+        uuid: "photo-2",
+        original_filename: "photo2.jpg",
+        score: { overall: 0.8 },
+      },
+    ];
+
+    jest.spyOn(fs, "readJson").mockResolvedValue(samplePhotos);
+    jest.spyOn(fs, "pathExists").mockResolvedValue(true);
+
+    await getPhotosByAlbumData(req, res);
+
+    const data = res._getJSONData();
+
+    expect(res.statusCode).toBe(200);
+    expect(data.data).toBeDefined();
+    expect(data.data.length).toBe(2);
+    expect(data.data[0]).toHaveProperty("type", "photo");
+    expect(data.data[0]).toHaveProperty("id", "photo-1");
+    expect(data.data[0].attributes).toHaveProperty("originalName", "photo1");
+    expect(data.data[0].attributes.score).toHaveProperty("overall", 0.9);
+  });
+});
+```
+
+### **./backend/tests/controllers/api/albums-controller.test.js**
+```
+// backend/tests/controllers/api/albums-controller.test.js
+
+import { jest } from "@jest/globals";
+import { getAlbumsData } from "../../../controllers/api/albums-controller.js";
+import httpMocks from "node-mocks-http";
+import fs from "fs-extra";
+import path from "path";
+
+describe("getAlbumsData", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("should return albums data in JSON:API format", async () => {
+    // Mock request and response
+    const req = httpMocks.createRequest();
+    const res = httpMocks.createResponse();
+
+    // Mock fs.readJson to return sample data
+    const sampleData = [
+      { uuid: "album-1", title: "Album 1" },
+      { uuid: "album-2", title: "Album 2" },
+    ];
+
+    jest.spyOn(fs, "readJson").mockResolvedValue(sampleData);
+
+    // Mock fs.pathExists to return true
+    jest.spyOn(fs, "pathExists").mockResolvedValue(true);
+
+    await getAlbumsData(req, res);
+
+    const data = res._getJSONData();
+
+    expect(res.statusCode).toBe(200);
+    expect(data.data).toBeDefined();
+    expect(data.data.length).toBe(2);
+    expect(data.data[0]).toHaveProperty("type", "album");
+    expect(data.data[0]).toHaveProperty("id", "album-1");
+    expect(data.data[0].attributes).toHaveProperty("title", "Album 1");
+  });
 });
 ```
 
@@ -1124,12 +1345,14 @@ form button {
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
+    "jest": "^29.7.0",
     "nodemon": "^3.1.7"
   },
   "scripts": {
     "setup": "node ./scripts/setup.js",
     "start": "node server.js",
     "dev": "nodemon --ignore 'data/*' server.js",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "generate-overview": "../generate-overview.sh",
     "postinstall": "node ./scripts/setup.js"
   }
@@ -1454,7 +1677,7 @@ export { getAlbums, getPhotosByAlbum };
 
 ### **./backend/controllers/api/albums-controller.js**
 ```
-// ./controllers/api/albums-controller.js
+// backend/controllers/api/albums-controller.js
 
 import path from "path";
 import fs from "fs-extra";
@@ -1465,12 +1688,12 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use singular 'album' as the type and prevent pluralization
+// Change 'albums' to 'album' and set pluralizeType to false
 const AlbumSerializer = new Serializer("album", {
   id: "uuid", // Use 'uuid' as the 'id' field
   attributes: ["title"],
   keyForAttribute: "camelCase",
-  pluralizeType: false, // Add this line
+  pluralizeType: false, // Prevent automatic pluralization
 });
 
 export const getAlbumsData = async (req, res) => {
@@ -1511,19 +1734,48 @@ export const getAlbumsData = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
+
+// Function to get a single album by UUID
+export const getAlbumById = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumsPath = path.join(dataDir, "albums.json");
+
+    // Read albums data
+    const albumsData = await fs.readJson(albumsPath);
+
+    // Find the album with the matching UUID
+    const album = albumsData.find((a) => a.uuid === albumUUID);
+
+    if (!album) {
+      return res.status(404).json({ errors: [{ detail: "Album not found" }] });
+    }
+
+    // Serialize data
+    const jsonApiData = AlbumSerializer.serialize(album);
+
+    // Send JSON response
+    res.json(jsonApiData);
+  } catch (error) {
+    console.error("Error fetching album:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
 ```
 
 ### **./backend/controllers/api/index.js**
 ```
 // ./controllers/api/index.js
 
-export { getAlbumsData } from "./albums-controller.js";
+export { getAlbumsData, getAlbumById } from "./albums-controller.js";
 export { getPhotosByAlbumData } from "./photos-controller.js";
 ```
 
 ### **./backend/controllers/api/photos-controller.js**
 ```
-// ./controllers/api/photos-controller.js
+// backend/controllers/api/photos-controller.js
 
 import path from "path";
 import fs from "fs-extra";
@@ -1535,7 +1787,7 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use singular 'photo' as the type and prevent pluralization
+// Ensure 'type' is 'photo' and prevent pluralization
 const PhotoSerializer = new Serializer("photo", {
   id: "uuid", // Use 'uuid' as the 'id' field
   attributes: [
@@ -1546,12 +1798,12 @@ const PhotoSerializer = new Serializer("photo", {
     "exifInfo",
   ],
   keyForAttribute: "camelCase",
-  pluralizeType: false, // Add this line
   relationships: {
     album: {
       type: "album", // Use singular 'album' for the relationship
     },
   },
+  pluralizeType: false, // Prevent automatic pluralization
 });
 
 export const getPhotosByAlbumData = async (req, res) => {
@@ -1807,6 +2059,56 @@ function getNestedProperty(obj, propertyPath) {
 }
 ```
 
+### **./backend/data/albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/4B1BD5DB-5E72-42CF-9DCE-FD120C123423/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Penelope"
+        ],
+        "burst": false,
+        "cloud_guid": "AfonVRKr8towxdbmoX04M4QSn1X4",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2023-04-02 10:33:01.263685-04:00",
+        "date_modified": "2024-06-13 18:13:37.828345-04:00",
+        "date_trashed": null,
+        "date": "2023-04-02 10:33:00.926000-04:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 160,
+            "metering_mode": 5,
+            "sample_rate": null,
+            "track_format": null,
+...
+```
+
 ### **./backend/data/albums/918451EC-C6A5-416D-B919-D23AE46FEBBF/photos.json**
 ```json
 [
@@ -1925,11 +2227,12 @@ export default router;
 
 ### **./backend/routes/api.js**
 ```
-// ./routes/api.js
+// backend/routes/api.js
 
 import express from "express";
 import {
   getAlbumsData,
+  getAlbumById,
   getPhotosByAlbumData,
 } from "../controllers/api/index.js";
 
@@ -1937,6 +2240,9 @@ const apiRouter = express.Router();
 
 // API route to get all albums
 apiRouter.get("/albums", getAlbumsData);
+
+// API route to get a single album by UUID
+apiRouter.get("/albums/:albumUUID", getAlbumById);
 
 // API route to get photos by album UUID
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
@@ -1973,25 +2279,29 @@ module.exports = {
 
 ### **./frontend/photo-filter-frontend/app/models/album.js**
 ```
+// app/models/album.js
+
 import Model, { attr, hasMany } from '@ember-data/model';
 
 export default class AlbumModel extends Model {
   @attr('string') title;
-  @hasMany('photo', { async: true }) photos;
+  @hasMany('photo', { async: true, inverse: 'album' }) photos;
 }
 ```
 
 ### **./frontend/photo-filter-frontend/app/models/photo.js**
 ```
+// app/models/photo.js
+
 import Model, { attr, belongsTo } from '@ember-data/model';
 
 export default class PhotoModel extends Model {
-  @attr('string') original_name;
-  @attr('string') original_filename;
+  @attr('string') originalName;
+  @attr('string') originalFilename;
   @attr('string') filename;
   @attr() score;
-  @attr() exif_info;
-  @belongsTo('album') album;
+  @attr() exifInfo;
+  @belongsTo('album', { async: true, inverse: 'photos' }) album;
 }
 ```
 
@@ -2003,6 +2313,30 @@ import config from 'photo-filter-frontend/config/environment';
 export default class ApplicationAdapter extends JSONAPIAdapter {
   host = config.APP.apiHost || 'http://localhost:3000';
   namespace = 'api';
+}
+```
+
+### **./frontend/photo-filter-frontend/app/adapters/photo.js**
+```
+// app/adapters/photo.js
+
+import ApplicationAdapter from './application';
+
+export default class PhotoAdapter extends ApplicationAdapter {
+  buildURL(modelName, id, snapshot, requestType, query) {
+    // Handle the query for photos by album ID
+    if (requestType === 'query' && query && query.album_id) {
+      const albumUUID = query.album_id;
+      const url = `${this.host}/${this.namespace}/albums/${albumUUID}/photos`;
+
+      // Remove album_id from query params to avoid duplication
+      delete query.album_id;
+
+      return url;
+    } else {
+      return super.buildURL(...arguments);
+    }
+  }
 }
 ```
 
@@ -2023,18 +2357,15 @@ Router.map(function () {
 });
 ```
 
-### **./frontend/photo-filter-frontend/app/templates/album.hbs**
-```
-{{page-title "Album"}}
-{{outlet}}```
-
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
 <h1>Select an Album</h1>
 <ul>
   {{#each this.model as |album|}}
     <li>
-      {{#link-to "albums.album" album.id}}{{album.title}}{{/link-to}}
+      <LinkTo @route="albums.album" @model={{album.id}}>
+        {{album.title}}
+      </LinkTo>
     </li>
   {{/each}}
 </ul>```
@@ -2081,8 +2412,8 @@ Router.map(function () {
   {{#each this.model.photos as |photo|}}
     <div class="photo-item">
       <img
-        src="/images/{{this.model.albumUUID}}/{{photo.original_name}}.jpg"
-        alt="{{photo.original_name}}"
+        src="/images/{{this.model.albumUUID}}/{{photo.originalName}}.jpg"
+        alt="{{photo.originalName}}"
       />
       <p>
         {{capitalize (replace this.model.sortAttribute "score." "")}}:
@@ -2107,7 +2438,7 @@ export default class AlbumsAlbumController extends Controller {
   @action
   updateSort(event) {
     event.preventDefault();
-    // The properties are bound to query params, so the route will refresh automatically
+    // Properties are bound to query params; the model will refresh automatically
   }
 
   @action
@@ -2152,7 +2483,7 @@ export default class AlbumsRoute extends Route {
 }
 ```
 
-### **./frontend/photo-filter-frontend/app/routes/album.js**
+### **./frontend/photo-filter-frontend/app/routes/albums/album.js**
 ```
 // app/routes/albums/album.js
 
@@ -2174,60 +2505,22 @@ export default class AlbumsAlbumRoute extends Route {
   async model(params) {
     const { album_id, sort = 'score.overall', order = 'desc' } = params;
 
-    // Fetch the album
+    // Fetch the album without including photos
     const album = await this.store.findRecord('album', album_id);
 
-    // Fetch photos associated with the album
-    const response = await fetch(
-      `${this.store.adapterFor('application').host}/api/albums/${album_id}/photos?sort=${sort}&order=${order}`,
-    );
-    const data = await response.json();
-
-    return {
-      album,
-      photos: data.photos,
-      albumUUID: data.albumUUID,
-      sortAttribute: data.sortAttribute,
-      sortOrder: data.sortOrder,
-      scoreAttributes: data.scoreAttributes,
-    };
-  }
-}
-```
-
-### **./frontend/photo-filter-frontend/app/routes/albums/album.js**
-```
-import Route from '@ember/routing/route';
-import { inject as service } from '@ember/service';
-
-export default class AlbumsAlbumRoute extends Route {
-  @service store;
-
-  queryParams = {
-    sort: {
-      refreshModel: true,
-    },
-    order: {
-      refreshModel: true,
-    },
-  };
-
-  async model(params) {
-    const { album_id, sort = 'score.overall', order = 'desc' } = params;
-
-    // Fetch the album, including its photos
-    const album = await this.store.findRecord('album', album_id, {
-      include: 'photos',
-      reload: true,
-      adapterOptions: { sort, order },
+    // Fetch photos associated with the album using store.query
+    const photos = await this.store.query('photo', {
+      album_id,
+      sort,
+      order,
     });
 
-    // Extract meta information from the album
-    const meta = album.get('meta');
+    // Get meta data from the photos response
+    const meta = photos.meta || {};
 
     return {
       album,
-      photos: await album.photos,
+      photos,
       albumUUID: meta.albumUUID || album_id,
       sortAttribute: meta.sortAttribute || sort,
       sortOrder: meta.sortOrder || order,
@@ -2493,6 +2786,44 @@ setApplication(Application.create(config.APP));
 setup(QUnit.assert);
 
 start();
+```
+
+### **./frontend/photo-filter-frontend/tests/acceptance/albums-test.js**
+```
+// frontend/photo-filter-frontend/tests/acceptance/albums-test.js
+
+import { module, test } from 'qunit';
+import { visit, click, findAll, currentURL } from '@ember/test-helpers';
+import { setupApplicationTest } from '../helpers/index.js';
+
+module('Acceptance | albums', function (hooks) {
+  setupApplicationTest(hooks);
+
+  test('visiting /albums and viewing an album', async function (assert) {
+    await visit('/albums');
+
+    assert.strictEqual(currentURL(), '/albums');
+    assert.dom('h1').hasText('Select an Album');
+
+    const albumLinks = findAll('a');
+    assert.ok(albumLinks.length > 0, 'There are album links');
+
+    // Click the first album link
+    await click(albumLinks[0]);
+
+    // The URL should change to the album route
+    assert.ok(currentURL().startsWith('/albums/'), 'Navigated to album route');
+
+    // Check that photos are displayed
+    assert.dom('.photo-grid').exists('Photo grid is displayed');
+    assert
+      .dom('.photo-item')
+      .exists({ count: 1 }, 'At least one photo is displayed');
+
+    // Check that images have loaded
+    assert.dom('.photo-item img').exists('Photo image is displayed');
+  });
+});
 ```
 
 ### **./frontend/photo-filter-frontend/tests/helpers/index.js**
