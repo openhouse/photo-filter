@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Nov 19 15:50:52 CET 2024
+Generated on: Tue Nov 19 16:38:34 CET 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -31,10 +31,13 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── .DS_Store
 │   │   ├── albums
 │   │   │   ├── .DS_Store
+│   │   │   ├── 45D42E51-EF1D-4773-BA2E-0E2A9621E960
 │   │   │   ├── 88DE9057-862E-4ED9-83BD-D96F7D77F3CD
 │   │   │   │   └── photos.json
-│   │   │   └── EEB5CC1C-4BF6-43EC-A0AD-107FE7298D44
-│   │   │       ├── .DS_Store
+│   │   │   ├── EEB5CC1C-4BF6-43EC-A0AD-107FE7298D44
+│   │   │   │   ├── .DS_Store
+│   │   │   │   └── photos.json
+│   │   │   └── F892C968-0ACF-4FF6-B387-0BEA05052E2A
 │   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
@@ -175,7 +178,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-54 directories, 112 files
+56 directories, 113 files
 ```
 
 ---
@@ -976,7 +979,7 @@ export async function runPythonScript(
   return new Promise((resolve, reject) => {
     exec(
       command,
-      { env: process.env, maxBuffer: 1024 * 1024 * 40 },
+      { env: process.env, maxBuffer: 1024 * 1024 * 1024 * 2 },
       async (error, stdout, stderr) => {
         if (error) {
           console.error(
@@ -1015,7 +1018,7 @@ export function execCommand(command, errorMessage) {
 
     exec(
       command,
-      { env: process.env, maxBuffer: 1024 * 1024 * 40 },
+      { env: process.env, maxBuffer: 1024 * 1024 * 1024 * 2 },
       (error, stdout, stderr) => {
         if (error) {
           console.error(`${errorMessage}\nError: ${error.message}`);
@@ -2131,6 +2134,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/F892C968-0ACF-4FF6-B387-0BEA05052E2A/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Dawn Riddle \ud83c\udf9e\ufe0f On a Roll"
+        ],
+        "burst": false,
+        "cloud_guid": "ARoRNA4UZ5Cb0dqUdEVM/fOnPQ2n",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-10-06 19:00:43.723274-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-10-06 19:00:43.720590-04:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": null,
+            "metering_mode": null,
+            "sample_rate": null,
+            "track_format": null,
+...
+```
+
 ### **./backend/views/albums.hbs**
 ```
 <!-- ./views/albums.hbs -->
@@ -2310,12 +2338,13 @@ module.exports = {
 
 ### **./frontend/photo-filter-frontend/app/models/album.js**
 ```
-// app/models/album.js
+// frontend/photo-filter-frontend/app/models/album.js
 
 import Model, { attr, hasMany } from '@ember-data/model';
 
 export default class AlbumModel extends Model {
   @attr('string') title;
+  @attr('boolean') isSmart;
   @hasMany('photo', { async: true, inverse: 'album' }) photos;
 }
 ```
@@ -2373,7 +2402,12 @@ export default class PhotoAdapter extends ApplicationAdapter {
 
 ### **./frontend/photo-filter-frontend/app/styles/app.scss**
 ```
-/* Ember supports plain CSS out of the box. More info: https://cli.emberjs.com/release/advanced-use/stylesheets/ */
+/* frontend/photo-filter-frontend/app/styles/app.scss */
+
+.smart-album-label {
+  font-style: italic;
+  color: gray;
+}
 ```
 
 ### **./frontend/photo-filter-frontend/app/router.js**
@@ -2395,12 +2429,17 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
+<!-- frontend/photo-filter-frontend/app/templates/albums.hbs -->
+
 <h1>Select an Album</h1>
 <ul>
   {{#each this.model as |album|}}
     <li>
       <LinkTo @route="albums.album" @model={{album.id}}>
         {{album.title}}
+        {{#if album.isSmart}}
+          <span class="smart-album-label">(Smart Album)</span>
+        {{/if}}
       </LinkTo>
     </li>
   {{/each}}
