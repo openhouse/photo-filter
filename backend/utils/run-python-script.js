@@ -15,7 +15,7 @@ export async function runPythonScript(
   return new Promise((resolve, reject) => {
     exec(
       command,
-      { env: process.env, maxBuffer: 1024 * 1024 * 20 },
+      { env: process.env, maxBuffer: 1024 * 1024 * 40 },
       async (error, stdout, stderr) => {
         if (error) {
           console.error(

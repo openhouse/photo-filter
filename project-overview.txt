@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Mon Nov 11 13:31:59 EST 2024
+Generated on: Tue Nov 19 15:50:52 CET 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -28,16 +28,19 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── get-photos-by-album.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── .DS_Store
 │   │   ├── albums
-│   │   │   ├── 4B1BD5DB-5E72-42CF-9DCE-FD120C123423
+│   │   │   ├── .DS_Store
+│   │   │   ├── 88DE9057-862E-4ED9-83BD-D96F7D77F3CD
 │   │   │   │   └── photos.json
-│   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
-│   │   │   │   └── photos.json
-│   │   │   └── AE73F776-BE1F-4E89-9EBF-431EBA6B5354
+│   │   │   └── EEB5CC1C-4BF6-43EC-A0AD-107FE7298D44
+│   │   │       ├── .DS_Store
+│   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
+│   ├── package-lock.json
 │   ├── package.json
 │   ├── public
 │   │   └── stylesheets
@@ -120,7 +123,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── services
 │       │   │   └── store.js
 │       │   ├── styles
-│       │   │   └── app.css
+│       │   │   └── app.scss
 │       │   └── templates
 │       │       ├── albums
 │       │       │   └── album.hbs
@@ -172,7 +175,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-55 directories, 108 files
+54 directories, 112 files
 ```
 
 ---
@@ -183,211 +186,136 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ```
 # Development Plan
 
-## Update: Implementing Cache Invalidation Based on Timestamps
+## Update: Implementing Nested Routes and UI Enhancements
 
-**Date:** November 1, 2024
+**Date:** November 12, 2024
 
 ### Decision
 
-Implement cache invalidation based on timestamps to ensure the web application reflects the latest changes in the Apple Photos library.
+- **Implement Nested Routes with `{{outlet}}` in `albums.hbs`**: To properly render child routes within the parent `albums` route.
+- **Create Left Navigation Column**: Mimic the UI of the Apple Photos app by adding a left navigation column for album selection.
+- **Display Full Photo Library on Index Route**: Show all photos when no specific album is selected.
+- **Implement Expanded Sorting and Selection Features**: Allow sorting by various attributes and enable photo selection that persists across sorting changes.
 
 ### Rationale
 
-- **Data Freshness**: Ensures users always see the latest albums and photos.
-- **Performance**: Avoids unnecessary data regeneration, balancing performance with data freshness.
+- **User Experience**: Enhances navigation and usability by providing a familiar interface.
+- **Functionality**: Supports the requirement to sort photos by multiple attributes and manage selections effectively.
+- **Scalability**: Sets a foundation for future features like exporting and advanced photo management.
 
 ### Implementation Steps
 
-1. **Create a Utility Function**:
+1. **Add `{{outlet}}` to `albums.hbs`**:
 
-   - Implement `getPhotosLibraryLastModified` to retrieve the last modified time of the Photos library.
+   - Update `app/templates/albums.hbs` to include `{{outlet}}` for rendering child routes.
 
-2. **Update Backend Controllers**:
+2. **Create Left Navigation Layout**:
 
-   - Modify `getAlbumsData` and `getPhotosByAlbumData` to check the last modified timestamps.
-   - Regenerate cached data if the Photos library has changed.
+   - Structure `albums.hbs` to have a left navigation column (`albums-list`) and a content area (`album-content`).
 
-3. **Testing**:
+3. **Display Full Photo Library When No Album is Selected**:
 
-   - Test the implementation to ensure it correctly detects changes and updates cached data.
+   - Create `app/routes/albums/index.js` and `app/templates/albums/index.hbs` to fetch and display all photos.
 
-4. **Documentation**:
+4. **Implement Expanded Sorting Functionality**:
 
-   - Update `README.md` and `project-guidelines.md` to reflect these changes.
+   - Update `app/controllers/albums/album.js` to handle additional sorting attributes and orders.
+
+5. **Implement Photo Selection Mechanism**:
+
+   - Create a selection service (`app/services/selection.js`) to manage selected photos.
+   - Update `albums/album.hbs` and `albums/album.js` to handle photo selection.
+
+6. **Implement Export Functionality**:
+
+   - Add an endpoint in the backend (`backend/routes/api/photos.js`) to handle exporting selected photos.
+   - Update the frontend to send selected photo IDs to the backend for export.
+
+7. **Styling and Responsiveness**:
+
+   - Add CSS styles to `app/styles/app.css` to make the application visually appealing and responsive.
+
+8. **Testing**:
+
+   - Write tests for new features, especially the selection and export functionalities.
+
+9. **Documentation**:
+
+   - Update `README.md`, `DEVELOPMENT_PLAN.md`, `ISSUES.md`, and `project-guidelines.md` to reflect changes.
 
 ### Potential Challenges
 
-- **Accuracy of Timestamps**: Ensuring the last modified time accurately reflects changes within the library.
-- **Edge Cases**: Handling situations where the Photos library changes without updating the last modified timestamp.
-- **Performance Impact**: Monitoring any performance overhead introduced by checking timestamps.
+- **Persistent Selection State**: Ensuring the selection persists across sorting and navigation changes.
+- **Performance**: Managing performance with large photo libraries, especially during selection and export.
+- **Backend Integration**: Properly handling the export functionality without affecting the Photos library integrity.
 
 ---
 
 ## Previous Updates
 
-## Update: Integration of JSON:API Serializer
+### Update: Implementing Cache Invalidation Based on Timestamps
 
-- Decided to use `jsonapi-serializer` package on the backend to format API responses according to the JSON:API specification.
-- Refactored the backend controllers to utilize the serializer, improving maintainability and compliance.
-- Updated the package dependencies to include `jsonapi-serializer`.
+- **Date:** November 1, 2024
+- **Decision:** Implement cache invalidation to ensure data freshness.
+- **Implementation:** Created utility functions to check last modified times and regenerate cached data as needed.
+
+### Update: Integration of JSON:API Serializer
+
+- **Date:** October 30, 2024
+- **Decision:** Use `jsonapi-serializer` package to format API responses according to the JSON:API specification.
+- **Implementation:** Refactored backend controllers and updated dependencies.
 
 ---
 
 ## Project Goal
 
-Develop a web application that interfaces with the user's macOS Photos library to enable interactive exploration, selection, and exporting of photos based on Apple's aesthetic scores and other metadata. The application aims to provide an engaging user experience by allowing users to select photos through intuitive interactions and perform actions like adding to albums or exporting selections.
+Develop a web application that interfaces with the user's macOS Photos library to enable interactive exploration, selection, and exporting of photos based on Apple's aesthetic scores and other metadata. The application aims to provide an engaging user experience by allowing users to select photos through intuitive interactions and perform actions like exporting selections.
 
 ## Current State
 
-- **Data Extraction**: Implemented using `osxphotos` via a Python virtual environment.
-- **Image Export**: Functioning correctly after resolving export issues.
-- **Backend**: Express.js server with routes handling album and photo data.
-- **Frontend**: Handlebars templates displaying albums and photos.
-- **Styling**: Basic CSS styling using SCSS.
-- **Issue Tracking**: `ISSUES.md` added for documenting issues and resolutions.
-
-## New Objectives
-
-- **Interactive Photo Selection**:
-
-  - Implement the ability to select multiple photos by clicking and dragging the mouse over them.
-  - Ensure selections persist as users switch between sorting attributes.
-  - Allow users to collect selected photos from different sorting criteria.
-
-- **Actions on Selected Photos**:
-
-  - Provide options to add selected photos to a new or existing album in the Photos library.
-  - Enable exporting selected images to a directory on the user's computer.
-  - Organize new albums under a specific folder (e.g., "photo-filter") in the Photos library for encapsulation.
-
-- **Enhanced Frontend Experience**:
-
-  - Transition to an Ember.js frontend for better interactivity and responsiveness.
-  - Use Express.js to serve API endpoints for data retrieval and actions.
-  - Implement lazy loading of images to improve performance with large albums.
-
-- **Roadmap Development**:
-
-  - Set up a development roadmap outlining the transition to Ember.js and the implementation of new features.
-  - Reimplement current features using the Ember.js frontend with Express.js as the API.
-  - Expand the application with the new interactive features after the transition.
-
-## Pending Tasks and Priorities
-
-### 1. High Priority
-
-- **Set Up Ember.js Frontend**:
-
-  - Initialize a new Ember.js application within the project.
-  - Configure the build and development environment to work alongside the existing Express.js backend.
-
-- **Reimplement Current Features in Ember.js**:
-
-  - Recreate album list view and photo grid view using Ember.js components.
-  - Ensure existing functionality (album navigation, photo display, sorting) works seamlessly.
-
-- **Implement Interactive Photo Selection**:
-
-  - Develop a photo selection mechanism that allows users to select multiple photos via mouse dragging.
-  - Use Ember.js services to manage the selection state and ensure persistence across different sorting views.
-
-- **Add Actions for Selected Photos**:
-
-  - Implement UI elements (buttons, menus) to perform actions on selected photos.
-  - Set up API endpoints in Express.js to handle actions like adding to albums and exporting images.
-
-- **Organize Albums in Photos Library**:
-
-  - Use `osxphotos` to create new albums under a specific folder in the Photos library.
-  - Ensure that the application can interact with the Photos library to perform these actions.
-
-### 2. Medium Priority
-
-- **Image Loading Optimization**:
-
-  - Implement lazy loading of images to enhance performance with large photo collections.
-  - Use Ember.js add-ons or native capabilities to achieve efficient image rendering.
-
-- **UI/UX Enhancements**:
-
-  - Improve the overall look and feel of the application.
-  - Ensure the interface is intuitive and user-friendly for complex interactions.
-
-- **Error Handling and Notifications**:
-
-  - Provide user feedback for actions, especially for long-running processes.
-  - Implement notifications or status indicators within the Ember.js app.
-
-### 3. Low Priority
-
-- **User Preferences and Settings**:
-
-  - Allow users to save preferences like default export directories or album names.
-  - Implement user authentication if necessary.
-
-- **Advanced Filtering Options**:
-
-  - Introduce additional filters (e.g., location, camera model, EXIF data).
-  - Allow sorting by other subjective evaluation attributes.
-
-- **Testing and Quality Assurance**:
-
-  - Write unit and integration tests for both frontend and backend components.
-  - Ensure robust error handling and data validation.
+- **Frontend**: Ember.js application with nested routes and a left navigation layout.
+- **Backend**: Express.js server with API endpoints serving data in JSON:API format.
+- **Data Handling**: Uses `osxphotos` to extract data from the Photos library.
+- **Photo Selection**: Implemented using an Ember service to manage selection state.
+- **Export Functionality**: Backend API endpoint to handle exporting selected photos.
+- **Styling**: Basic CSS styling for responsive design.
+- **Documentation**: Project files (`README.md`, `ISSUES.md`, `DEVELOPMENT_PLAN.md`, `project-guidelines.md`) are updated.
 
 ## Next Steps
 
-1. **Initialize Ember.js Application**:
+1. **Enhance Photo Selection Features**:
 
-   - Install Ember CLI and set up the Ember.js app within the project directory.
-   - Configure the development environment to run both the Ember.js frontend and Express.js backend concurrently.
+   - Implement the ability to expand the selection to include photos taken immediately before and after the selected photos.
+   - Ensure selection persistence across different sorting and navigation.
 
-2. **Set Up API Endpoints**:
+2. **Complete Export Functionality**:
 
-   - Define RESTful API endpoints in Express.js for data retrieval and actions.
-   - Ensure CORS is configured correctly for communication between frontend and backend.
+   - Implement the backend logic to actually export the selected photos to a designated directory.
+   - Provide user feedback on the export process.
 
-3. **Reimplement Existing Features**:
+3. **UI/UX Improvements**:
 
-   - Create Ember.js routes and components for album list and photo grid views.
-   - Implement sorting functionality using Ember's computed properties and actions.
+   - Refine the user interface for better intuitiveness.
+   - Add visual indicators for selected photos and selection expansion.
 
-4. **Develop Photo Selection Mechanism**:
+4. **Performance Optimization**:
 
-   - Use Ember.js components and services to enable photo selection via mouse dragging.
-   - Ensure selection state persists across sorting changes.
+   - Implement lazy loading for images.
+   - Optimize data fetching and rendering for large photo libraries.
 
-5. **Implement Actions on Selected Photos**:
+5. **Testing and Quality Assurance**:
 
-   - Add UI elements for actions like "Add to Album" and "Export Selected Photos."
-   - Implement backend logic to handle these actions using `osxphotos`.
+   - Write comprehensive tests for new features.
+   - Perform user testing to gather feedback.
 
-6. **Optimize Image Loading**:
+6. **Documentation and Cleanup**:
 
-   - Implement lazy loading for images to improve performance.
-   - Test with large albums to ensure smooth user experience.
+   - Update documentation to reflect new features and changes.
+   - Refactor code for maintainability.
 
-7. **Plan for Future Enhancements**:
+---
 
-   - Outline additional features and improvements based on user feedback and testing.
-   - Prioritize tasks and update the development plan accordingly.
-
-## Collaboration Notes
-
-- **Code Provisioning**:
-
-  - Provide full files for any code changes to facilitate copy-paste replacement.
-  - Organize the project into smaller files if necessary to improve manageability.
-
-- **Documentation**:
-
-  - Keep all project files updated, including `README.md`, `ISSUES.md`, and `project-guidelines.md`.
-  - Document architectural decisions and code changes thoroughly.
-
-- **Issue Tracking**:
-
-  - Utilize `ISSUES.md` for logging problems and tracking resolutions.
-  - Include open-ended questions and uncertainties to encourage collaborative problem-solving.
+**Note:** All changes should be committed to the repository with clear and descriptive commit messages to maintain project history and facilitate collaboration.
 ```
 
 ### **./ISSUES.md**
@@ -395,6 +323,35 @@ Develop a web application that interfaces with the user's macOS Photos library t
 # Issues and Resolutions
 
 This file serves as a log of open issues, debugging steps taken, and resolutions. It's intended to facilitate collaborative problem-solving and prevent redundant efforts.
+
+---
+
+## Issue 15: Nested Routes Not Rendering Child Templates
+
+**Opened By:** [Your Name] on Nov 12, 2024
+
+**Status:** **Resolved**
+
+### Description
+
+The `albums/album` route was not rendering its template within the `albums` route as expected. Clicking on an album link did not display the album's photos.
+
+### Error Observed
+
+- The child route's template was not rendering within the parent route's template.
+
+### Resolution
+
+- **Root Cause:** The `albums.hbs` template lacked an `{{outlet}}`, which is necessary for rendering nested routes in Ember.js.
+- **Solution:** Added an `{{outlet}}` to `app/templates/albums.hbs`.
+- **Commit:** Added outlet to `albums.hbs` to render album content and updated styles.
+
+### Action Items
+
+- Updated `albums.hbs` to include `{{outlet}}`.
+- Restructured the template to include a left navigation column and content area.
+- Restarted the Ember server to apply changes.
+- Verified that the child route's content renders correctly.
 
 ---
 
@@ -406,90 +363,13 @@ This file serves as a log of open issues, debugging steps taken, and resolutions
 
 ### Description
 
-After making changes suggested in previous steps, the Ember.js application encountered a 404 Not Found error when clicking on an album link. The application was attempting to fetch album data from the endpoint `/api/albums/:albumUUID`, which was not defined on the backend.
-
-### Error Message
-
-> Error while processing route: albums.album Ember Data Request GET `http://localhost:3000/api/albums/918451EC-C6A5-416D-B919-D23AE46FEBBF` returned a 404
-
-### Objective
-
-- Determine why the Ember application is making this request.
-- Implement a solution to resolve the 404 error and ensure the application functions as expected.
+The Ember.js application encountered a 404 Not Found error when attempting to fetch album data from the endpoint `/api/albums/:albumUUID`.
 
 ### Resolution
 
-- **Root Cause:** The backend API did not have an endpoint to handle GET requests to `/api/albums/:albumUUID`, which is required by Ember Data when using `store.findRecord('album', album_id)`.
-- **Solution:** Implement the missing endpoint on the backend to handle GET requests to `/api/albums/:albumUUID` and return the album data in JSON:API format.
-
-### Action Items
-
-1. **Update Backend:**
-   - **Create a New Controller Function:** `getAlbumById` in `backend/controllers/api/albums-controller.js` to handle fetching a single album by its UUID.
-   - **Update API Routes:** Add a new route in `backend/routes/api.js` to handle GET requests to `/api/albums/:albumUUID`.
-2. **Test the Solution:**
-   - Restart the backend server to load the new route.
-   - Verify that accessing `/api/albums/:albumUUID` returns the correct album data.
-   - Test the Ember.js application to ensure the 404 error is resolved.
-
-### Questions to Consider
-
-- Are there any other endpoints that Ember Data might require that are not currently implemented?
-- Should we adjust our Ember Data models or adapter configurations to better align with our backend API?
-
----
-
-## Issue 12: Implementing Cache Invalidation Based on Timestamps
-
-**Opened By:** [Your Name] on Nov 1, 2024
-
-**Status:** **In Progress**
-
-**Description:**
-
-We need to ensure that the web application reflects the latest changes made in the Apple Photos library, such as newly added albums or photos. Currently, the application uses cached JSON files (`albums.json` and `photos.json`) and does not automatically update when changes occur.
-
-**Objective:**
-
-- Implement a mechanism to invalidate cached data based on the last modified timestamps of the Photos library and the cached files.
-
-**Action Items:**
-
-- [x] Create a utility function `getPhotosLibraryLastModified`.
-- [x] Update `getAlbumsData` to check timestamps and regenerate `albums.json` if necessary.
-- [ ] Update `getPhotosByAlbumData` to implement similar logic for `photos.json`.
-- [ ] Test the implementation thoroughly.
-- [ ] Update documentation to reflect the changes.
-
-**Questions to Consider:**
-
-- How frequently does the Photos library's last modified timestamp update?
-- Are there any types of changes that do not affect the last modified time?
-- How will this impact performance with large libraries?
-
----
-
-## Issue 11: Using a JSON:API Package on the Backend
-
-**Opened By:** [Your Name] on Oct 30, 2024
-
-**Status:** **Resolved**
-
-**Description:**
-
-We need to ensure that our backend API responses conform to the JSON:API specification to work seamlessly with Ember Data. Manually formatting the responses can be error-prone and hard to maintain.
-
-**Resolution:**
-
-- Decided to integrate the `jsonapi-serializer` package on the backend.
-- Refactored the API controllers to use the serializer.
-- This improves maintainability and ensures compliance with the JSON:API specification.
-
-**Action Items:**
-
-- Installed `jsonapi-serializer` package.
-- Updated API controllers by breaking them into smaller files and using the serializer.
-- Updated package dependencies.
+- **Root Cause:** The backend API did not have an endpoint to handle GET requests to `/api/albums/:albumUUID`.
+- **Solution:** Implemented the missing endpoint on the backend to handle GET requests to `/api/albums/:albumUUID`.
+- **Commit:** Implemented backend endpoint for fetching single album data.
 
 ---
 
@@ -497,44 +377,22 @@ We need to ensure that our backend API responses conform to the JSON:API specifi
 
 **Opened By:** [Your Name] on Oct 27, 2024
 
-**Status:** **Open**
+**Status:** **In Progress**
 
-**Description:**
+### Description
 
-We need to implement the ability for users to select multiple photos by clicking and dragging the mouse over them. Selections should persist as users switch between different sorting attributes. This functionality is essential for allowing users to collect photos as they explore their albums.
+We need to implement the ability for users to select multiple photos by clicking and dragging the mouse over them. Selections should persist as users switch between different sorting attributes.
 
-**Challenges:**
+### Action Items
 
-- **Mouse Drag Selection**: Implementing a user-friendly and intuitive way to select multiple photos with mouse dragging.
-- **Selection Persistence**: Maintaining the selection state across different views and sorting options.
-- **Performance**: Ensuring that the selection mechanism is performant, especially with large photo collections.
+- **Create Selection Service:** Implemented `app/services/selection.js` to manage selection state.
+- **Update Photo Grid:** Modified `albums/album.hbs` to handle photo selection and display selected state.
+- **Implement Selection Persistence:** Ensure that selections persist across sorting and navigation.
 
-**Potential Solutions:**
+### Next Steps
 
-- **Use Ember.js Services**:
-
-  - Create a service to store the selection state, which can be accessed across different components and routes.
-
-- **Photo Item Component**:
-
-  - Develop a `PhotoItem` component that can detect mouse events and update the selection state accordingly.
-
-- **Selection Library**:
-
-  - Consider using or integrating with a library that handles drag selection (e.g., `ember-cli-drag-select`).
-
-**Action Items:**
-
-- Research existing Ember.js add-ons or libraries that facilitate drag selection.
-- Implement the `SelectionService` to manage the selection state.
-- Update the `PhotoGrid` and `PhotoItem` components to handle mouse events for selection.
-- Ensure that the selection state is preserved when sorting attributes change.
-
-**Questions to Consider:**
-
-- How will the selection state be affected if the user navigates away from the album view?
-- Do we need to implement a way to save and load selections across sessions?
-- How can we optimize performance to handle thousands of photos?
+- **Expand Selection Feature:** Implement functionality to include photos taken immediately before and after selected photos.
+- **Testing:** Write tests to ensure selection works as expected.
 
 ---
 
@@ -542,89 +400,22 @@ We need to implement the ability for users to select multiple photos by clicking
 
 **Opened By:** [Your Name] on Oct 27, 2024
 
-**Status:** **Open**
+**Status:** **In Progress**
 
-**Description:**
+### Description
 
-After implementing the selection mechanism, we need to allow users to perform actions on the selected photos, such as adding them to an album in the Photos library or exporting them to a directory.
+Allow users to perform actions on the selected photos, such as exporting them to a directory.
 
-**Challenges:**
+### Action Items
 
-- **Backend Integration**: Setting up API endpoints to handle actions on the backend.
-- **Interaction with Photos Library**: Using `osxphotos` to add photos to albums or export them.
-- **User Feedback**: Providing real-time feedback to the user about the status of their actions.
+- **Backend API Endpoint:** Created `/api/photos/export` to handle exporting photos.
+- **Frontend Integration:** Updated `albums/album.js` to send selected photo IDs to the backend.
+- **User Feedback:** Added alert messages to inform users about the export status.
 
-**Potential Solutions:**
+### Next Steps
 
-- **API Endpoints**:
-
-  - Create POST endpoints in Express.js to handle actions on selected photos.
-
-- **Asynchronous Processing**:
-
-  - Implement background jobs or asynchronous processing for long-running tasks like exporting photos.
-
-- **Notifications**:
-
-  - Use Ember.js notifications or toasts to inform users about the progress and completion of actions.
-
-**Action Items:**
-
-- Define the API endpoints and their payload structures.
-- Implement the backend logic to interact with `osxphotos`.
-- Update the Ember.js frontend to send requests to the API when actions are triggered.
-- Provide user feedback through UI elements.
-
-**Questions to Consider:**
-
-- How will we handle errors or failures during these actions?
-- Do we need to implement a progress indicator for actions that take a long time?
-- Are there permissions or security considerations when interacting with the Photos library?
-
----
-
-## Issue 10: Transitioning to Ember.js Frontend
-
-**Opened By:** [Your Name] on Oct 27, 2024
-
-**Status:** **Open**
-
-**Description:**
-
-We need to plan and execute the transition from the current Handlebars templates to an Ember.js frontend. This includes reimplementing existing features and ensuring that the application remains functional during the transition.
-
-**Challenges:**
-
-- **Development Environment**: Setting up the project to run both the backend and frontend seamlessly.
-- **Data Communication**: Ensuring that data is correctly passed between the frontend and backend.
-- **Feature Parity**: Reimplementing all existing features without losing functionality.
-
-**Potential Solutions:**
-
-- **Incremental Transition**:
-
-  - Gradually replace parts of the frontend, starting with less critical components.
-
-- **API Development**:
-
-  - Define clear API contracts to facilitate communication between the frontend and backend.
-
-- **Testing**:
-
-  - Write tests to ensure that features work as expected after reimplementation.
-
-**Action Items:**
-
-- Set up the Ember.js application and configure it to work with the Express.js backend.
-- Recreate the album list and photo grid views in Ember.js.
-- Implement data fetching using Ember Data and ensure API endpoints return data in the expected format.
-- Test all existing features thoroughly after reimplementation.
-
-**Questions to Consider:**
-
-- How will we handle authentication and session management, if needed?
-- What are the risks of downtime during the transition, and how can we mitigate them?
-- Are there any dependencies or plugins we need to consider for Ember.js?
+- **Implement Actual Export Logic:** Complete the backend function to export photos.
+- **Enhance User Feedback:** Provide better UI notifications and progress indicators.
 
 ---
 
@@ -657,22 +448,64 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
    cd photo-filter
    ```
 
+2. **Set Up the Backend**:
+
+   ```bash
+   cd backend
+   npm install
+   npm run setup
+   npm run dev
+   ```
+
+3. **Set Up the Frontend**:
+
+   Open a new terminal window:
+
+   ```bash
+   cd frontend/photo-filter-frontend
+   npm install
+   npm run start
+   ```
+
+4. **Access the Application**:
+
+   - Visit [http://localhost:4200](http://localhost:4200) to access the Ember.js frontend.
+
+## Features
+
+- **Album Navigation**: Browse albums using a left navigation column.
+- **Photo Display**: View photos within selected albums.
+- **Expanded Sorting**: Sort photos by various attributes, including aesthetic scores.
+- **Photo Selection**: Select photos by clicking; selections persist across sorting changes.
+- **Export Functionality**: Export selected photos to a directory.
+
 ## Data Synchronization and Cache Invalidation
 
-This application uses a caching mechanism to store data extracted from the Apple Photos library. To ensure that users see the most up-to-date information, we have implemented cache invalidation based on timestamps.
+- **Automatic Updates**: The backend checks for changes in the Photos library and updates cached data accordingly.
+- **Data Freshness**: Ensures users see the most recent albums and photos.
+- **Performance Optimization**: Avoids unnecessary data regeneration.
 
-### How It Works
+## Development Notes
 
-- **Albums and Photos Data**:
+- **Nested Routes**: Utilizes Ember.js nested routes with `{{outlet}}` to render child templates.
+- **Ember Services**: Uses a selection service to manage photo selection state.
+- **JSON:API Compliance**: Backend APIs conform to the JSON:API specification for seamless integration with Ember Data.
+- **Styling**: Basic responsive design implemented with CSS.
 
-  - The backend checks the last modified time of the Photos library and compares it with the last modified time of the cached data files (`albums.json`, `photos.json`).
-  - If the Photos library has been updated since the cache was last generated, the backend regenerates the cache by re-running the data extraction scripts.
-  - This process ensures that any new albums or photos added to the Photos library are reflected in the application.
+## Contributing
 
-### Benefits
+- **Git Commit Messages**: Include clear and descriptive commit messages with every change.
+- **Issue Tracking**: Use `ISSUES.md` to log problems and track resolutions.
+- **Collaboration Guidelines**: Refer to `project-guidelines.md` for best practices.
 
-- **Data Freshness**: Users always see the latest albums and photos without manual intervention.
-- **Performance Optimization**: The application avoids unnecessary data regeneration, improving performance.
+## Testing
+
+- **Backend Tests**: Use Jest for testing backend code.
+- **Frontend Tests**: Use Ember CLI's testing tools.
+
+## License
+
+This project is licensed under the MIT License.
 ```
 
 ### **./project-guidelines.md**
@@ -1143,7 +976,7 @@ export async function runPythonScript(
   return new Promise((resolve, reject) => {
     exec(
       command,
-      { env: process.env, maxBuffer: 1024 * 1024 * 20 },
+      { env: process.env, maxBuffer: 1024 * 1024 * 40 },
       async (error, stdout, stderr) => {
         if (error) {
           console.error(
@@ -1182,7 +1015,7 @@ export function execCommand(command, errorMessage) {
 
     exec(
       command,
-      { env: process.env, maxBuffer: 1024 * 1024 * 20 },
+      { env: process.env, maxBuffer: 1024 * 1024 * 40 },
       (error, stdout, stderr) => {
         if (error) {
           console.error(`${errorMessage}\nError: ${error.message}`);
@@ -1329,6 +1162,31 @@ form button {
 }
 ```
 
+### **./backend/package-lock.json**
+```json
+{
+  "name": "photo-filter-backend",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "photo-filter-backend",
+      "version": "1.0.0",
+      "hasInstallScript": true,
+      "license": "MIT",
+      "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.21.1",
+        "fs-extra": "^11.2.0",
+        "jsonapi-serializer": "^3.6.7"
+      },
+      "devDependencies": {
+        "concurrently": "^9.0.1",
+        "jest": "^29.7.0",
+...
+```
+
 ### **./backend/package.json**
 ```
 {
@@ -1341,7 +1199,9 @@ form button {
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "fs-extra": "^11.2.0",
-    "jsonapi-serializer": "^3.6.7"
+    "jsonapi-serializer": "^3.6.7",
+    "osx-tag": "^0.4.9",
+    "plist": "^3.1.0"
   },
   "devDependencies": {
     "concurrently": "^9.0.1",
@@ -1940,11 +1800,33 @@ import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
 import { execCommand } from "../utils/exec-command.js";
+import plist from "plist";
+import { exec } from "child_process";
+
+import os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Function to get photos by album UUID with sorting
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const tag = require("osx-tag");
+
+async function setFinderTags(filePath, tags) {
+  return new Promise((resolve, reject) => {
+    tag.setTags(filePath, tags, (err) => {
+      if (err) {
+        console.error(`Error setting Finder tags for ${filePath}:`, err);
+        reject(err);
+      } else {
+        console.log(`Tags set successfully for ${filePath}.`);
+        resolve();
+      }
+    });
+  });
+}
+
+// Function to get photos by album UUID with sorting and tagging
 export const getPhotosByAlbum = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
@@ -1991,7 +1873,78 @@ export const getPhotosByAlbum = async (req, res) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
 
-    // Extract the list of score attributes
+    const limit = 50;
+
+    // List of attributes to process
+    const attributesToProcess = [
+      { name: "score.overall", order: "desc", limit: limit },
+      { name: "score.curation", order: "desc", limit: limit },
+      { name: "score.highlight_visibility", order: "desc", limit: limit },
+      { name: "score.harmonious_color", order: "desc", limit: limit },
+      { name: "score.immersiveness", order: "desc", limit: limit },
+      { name: "score.interaction", order: "desc", limit: limit },
+      { name: "score.interesting_subject", order: "desc", limit: limit },
+      { name: "score.intrusive_object_presence", order: "asc", limit: limit },
+      { name: "score.lively_color", order: "desc", limit: limit },
+      { name: "score.noise", order: "desc", limit: Math.ceil(limit / 4) },
+      { name: "score.pleasant_camera_tilt", order: "desc", limit: limit },
+      { name: "score.pleasant_composition", order: "desc", limit: limit },
+      { name: "score.pleasant_lighting", order: "desc", limit: limit },
+      { name: "score.pleasant_pattern", order: "desc", limit: limit },
+      { name: "score.pleasant_perspective", order: "desc", limit: limit },
+      { name: "score.pleasant_post_processing", order: "desc", limit: limit },
+      { name: "score.pleasant_reflection", order: "desc", limit: limit },
+      { name: "score.pleasant_symmetry", order: "desc", limit: limit },
+      { name: "score.sharply_focused_subject", order: "desc", limit: limit },
+      { name: "score.tastefully_blurred", order: "desc", limit: limit },
+      { name: "score.well_chosen_subject", order: "desc", limit: limit },
+      { name: "score.well_framed_subject", order: "desc", limit: limit },
+      { name: "score.well_timed_shot", order: "desc", limit: limit },
+    ];
+
+    // Initialize a map to keep track of tags for each photo
+    const photoTags = {};
+
+    // For each attribute, compute the top N photos
+    attributesToProcess.forEach(({ name, order, limit }) => {
+      // Sort photos based on the attribute
+      const sortedPhotos = [...photosData].sort((a, b) => {
+        const aValue = getNestedProperty(a, name);
+        const bValue = getNestedProperty(b, name);
+
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+
+        if (order === "asc") {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      });
+
+      // Take the top N photos
+      const topPhotos = sortedPhotos.slice(0, limit);
+
+      // Add the attribute name to the tags for each top photo
+      topPhotos.forEach((photo) => {
+        const photoId = photo.uuid;
+        if (!photoTags[photoId]) {
+          photoTags[photoId] = [];
+        }
+        // Extract the attribute display name
+        const attributeDisplayName = capitalizeAttributeName(name);
+        if (!photoTags[photoId].includes(attributeDisplayName)) {
+          photoTags[photoId].push(attributeDisplayName);
+        }
+      });
+    });
+
+    // Now, when rendering the photos, include the tags
+    photosData.forEach((photo) => {
+      photo.tags = photoTags[photo.uuid] || [];
+    });
+
+    // Extract the list of score attributes for the dropdown
     const scoreAttributes = Object.keys(photosData[0].score);
 
     // Sort photos based on the requested attribute
@@ -2017,6 +1970,9 @@ export const getPhotosByAlbum = async (req, res) => {
       sortOrder,
       scoreAttributes,
     });
+
+    // After rendering, set Finder tags on the exported images
+    await setTagsOnExportedImages(imagesDir, photosData);
   } catch (error) {
     console.error("Error fetching photos for album:", error);
     res.status(500).send("Internal Server Error");
@@ -2050,12 +2006,53 @@ async function runOsxphotosExportImages(
 
 // Helper function to get nested properties safely
 function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
+  return propertyPath.split(".").reduce((acc, part) => {
+    if (acc && acc[part] !== undefined) {
+      return acc[part];
+    } else {
+      return null;
+    }
+  }, obj);
+}
+
+// Helper function to capitalize attribute names
+function capitalizeAttributeName(attributeName) {
+  // Convert 'score.overall' to 'Overall'
+  const nameParts = attributeName.split(".");
+  const lastPart = nameParts[nameParts.length - 1];
+  return lastPart
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+// Function to set tags on exported images
+async function setTagsOnExportedImages(imagesDir, photosData) {
+  for (const photo of photosData) {
+    const tags = photo.tags || [];
+
+    if (tags.length === 0) {
+      continue; // No tags to set
+    }
+
+    // **Add the count tag**
+    const countTag = `${tags.length} Tags`;
+    tags.push(countTag);
+
+    const imageFileName = `${photo.original_name}.jpg`;
+    const imagePath = path.join(imagesDir, imageFileName);
+
+    if (await fs.pathExists(imagePath)) {
+      try {
+        await setFinderTags(imagePath, tags);
+        console.log(`Set tags for ${imageFileName}: ${tags.join(", ")}`);
+      } catch (error) {
+        console.error(`Error setting tags for ${imageFileName}:`, error);
+      }
+    } else {
+      console.warn(`Image not found: ${imageFileName}`);
+    }
+  }
 }
 ```
 
@@ -2084,53 +2081,53 @@ function getNestedProperty(obj, propertyPath) {
 ...
 ```
 
-### **./backend/data/albums/4B1BD5DB-5E72-42CF-9DCE-FD120C123423/photos.json**
+### **./backend/data/albums/EEB5CC1C-4BF6-43EC-A0AD-107FE7298D44/photos.json**
 ```json
 [
     {
         "albums": [
-            "Penelope"
+            "FujiFilm x100v: All, Full Res",
+            "Studio3"
         ],
         "burst": false,
-        "cloud_guid": "AfonVRKr8towxdbmoX04M4QSn1X4",
+        "cloud_guid": "AeYanNpn+78RnmuKdBkVH8exg96c",
         "cloud_owner_hashed_id": null,
         "comments": [],
-        "date_added": "2023-04-02 10:33:01.263685-04:00",
-        "date_modified": "2024-06-13 18:13:37.828345-04:00",
+        "date_added": "2024-11-15 18:02:02.568318+01:00",
+        "date_modified": null,
         "date_trashed": null,
-        "date": "2023-04-02 10:33:00.926000-04:00",
+        "date": "2024-11-15 17:13:24+01:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/88DE9057-862E-4ED9-83BD-D96F7D77F3CD/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FujiFilm x100v: All, Full Res",
+            "Innsbruck Family"
+        ],
+        "burst": false,
+        "cloud_guid": "AYaUuJtA5yA6XXDRPyhyj5y6JVIU",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-17 17:37:33.167930+01:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-17 10:25:23+01:00",
         "description": null,
         "exif_info": {
             "flash_fired": false,
             "iso": 160,
             "metering_mode": 5,
             "sample_rate": null,
-            "track_format": null,
-...
-```
-
-### **./backend/data/albums/918451EC-C6A5-416D-B919-D23AE46FEBBF/photos.json**
-```json
-[
-    {
-        "albums": [
-            "Sheep"
-        ],
-        "burst": false,
-        "cloud_guid": "AbkiIdG7V0IzR4NfC4f4B8JslwNm",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2022-11-06 17:52:19.752600+01:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2022-11-06 17:52:18.936800+01:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 1600,
-            "metering_mode": 5,
-            "sample_rate": null,
-            "track_format": null,
 ...
 ```
 
@@ -2150,7 +2147,25 @@ function getNestedProperty(obj, propertyPath) {
 ### **./backend/views/index.hbs**
 ```
 <!-- ./views/index.hbs -->
+<style>
+  img {
+    width: 30rem;
+    max-width: 100%;
+  }
 
+  .tags {
+    margin-top: 5px;
+  }
+
+  .tag {
+    display: inline-block;
+    background-color: #eee;
+    padding: 2px 5px;
+    margin: 2px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+</style>
 <h1>Photos in Album</h1>
 <a href="/">Back to Albums</a>
 
@@ -2179,12 +2194,25 @@ function getNestedProperty(obj, propertyPath) {
       <img
         src="/images/{{../albumUUID}}/{{this.original_name}}.jpg"
         alt="{{this.original_name}}"
+        loading="lazy"
       />
-      <p>{{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}</p>
+      <p>
+        <span style="opacity: 0.38">{{@index}} -</span> {{this.original_name}}.jpg
+
+        {{#if this.tags}}
+          <p class="tags">
+            {{#each this.tags}}
+              <span class="tag">{{this}}</span>
+            {{/each}}
+          </p>
+        {{/if}}
+
+        
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}
+      </p>
     </div>
   {{/each}}
-</div>
-```
+</div>```
 
 ### **./backend/views/layouts/main.hbs**
 ```
@@ -2262,6 +2290,9 @@ module.exports = function (defaults) {
   const app = new EmberApp(defaults, {
     // Add options here
     proxy: 'http://localhost:3000',
+    sassOptions: {
+      extension: 'scss',
+    },
   });
 
   return app.toTree();
@@ -2338,6 +2369,11 @@ export default class PhotoAdapter extends ApplicationAdapter {
     }
   }
 }
+```
+
+### **./frontend/photo-filter-frontend/app/styles/app.scss**
+```
+/* Ember supports plain CSS out of the box. More info: https://cli.emberjs.com/release/advanced-use/stylesheets/ */
 ```
 
 ### **./frontend/photo-filter-frontend/app/router.js**
@@ -3033,6 +3069,7 @@ Specify what it takes to deploy your app.
     "ember-cli-dependency-checker": "^3.3.2",
     "ember-cli-htmlbars": "^6.3.0",
     "ember-cli-inject-live-reload": "^2.1.0",
+    "ember-cli-sass": "^11.0.1",
     "ember-cli-sri": "^2.1.1",
     "ember-cli-terser": "^4.0.2",
     "ember-data": "~5.3.8",
@@ -3055,6 +3092,7 @@ Specify what it takes to deploy your app.
     "prettier": "^3.3.3",
     "qunit": "^2.22.0",
     "qunit-dom": "^3.2.1",
+    "sass": "^1.80.6",
     "stylelint": "^15.11.0",
     "stylelint-config-standard": "^34.0.0",
     "stylelint-prettier": "^4.1.0",

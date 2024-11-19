@@ -1,5 +1,23 @@
 <!-- ./views/index.hbs -->
+<style>
+  img {
+    width: 30rem;
+    max-width: 100%;
+  }
 
+  .tags {
+    margin-top: 5px;
+  }
+
+  .tag {
+    display: inline-block;
+    background-color: #eee;
+    padding: 2px 5px;
+    margin: 2px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+</style>
 <h1>Photos in Album</h1>
 <a href="/">Back to Albums</a>
 
@@ -28,8 +46,22 @@
       <img
         src="/images/{{../albumUUID}}/{{this.original_name}}.jpg"
         alt="{{this.original_name}}"
+        loading="lazy"
       />
-      <p>{{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}</p>
+      <p>
+        <span style="opacity: 0.38">{{@index}} -</span> {{this.original_name}}.jpg
+
+        {{#if this.tags}}
+          <p class="tags">
+            {{#each this.tags}}
+              <span class="tag">{{this}}</span>
+            {{/each}}
+          </p>
+        {{/if}}
+
+        
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}
+      </p>
     </div>
   {{/each}}
 </div>

@@ -9,7 +9,7 @@ export function execCommand(command, errorMessage) {
 
     exec(
       command,
-      { env: process.env, maxBuffer: 1024 * 1024 * 20 },
+      { env: process.env, maxBuffer: 1024 * 1024 * 40 },
       (error, stdout, stderr) => {
         if (error) {
           console.error(`${errorMessage}\nError: ${error.message}`);
