@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec  7 12:07:15 EST 2024
+Generated on: Sat Dec  7 12:17:39 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -23,6 +23,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── api
 │   │   │   ├── albums-controller.js
 │   │   │   ├── index.js
+│   │   │   ├── people-controller.js
 │   │   │   └── photos-controller.js
 │   │   ├── api-controller.js
 │   │   ├── get-albums.js
@@ -116,6 +117,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── controllers
 │       │   │   ├── .gitkeep
 │       │   │   └── albums
+│       │   │       ├── album
+│       │   │       │   └── persons
+│       │   │       │       └── person.js
 │       │   │       └── album.js
 │       │   ├── helpers
 │       │   │   ├── .gitkeep
@@ -131,6 +135,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── routes
 │       │   │   ├── .gitkeep
 │       │   │   ├── albums
+│       │   │   │   ├── album
+│       │   │   │   │   ├── persons
+│       │   │   │   │   │   └── person.js
+│       │   │   │   │   └── persons.js
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
 │       │   │   └── index.js
@@ -140,6 +148,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   └── app.scss
 │       │   └── templates
 │       │       ├── albums
+│       │       │   ├── album
+│       │       │   │   ├── persons
+│       │       │   │   │   └── person.hbs
+│       │       │   │   └── persons.hbs
 │       │       │   └── album.hbs
 │       │       ├── albums.hbs
 │       │       └── application.hbs
@@ -189,7 +201,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-60 directories, 120 files
+66 directories, 126 files
 ```
 
 ---
@@ -1710,6 +1722,173 @@ export { getAlbumsData, getAlbumById } from "./albums-controller.js";
 export { getPhotosByAlbumData } from "./photos-controller.js";
 ```
 
+### **./backend/controllers/api/people-controller.js**
+```
+// backend/controllers/api/people-controller.js
+
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+import { runPythonScript } from "../../utils/run-python-script.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// We'll reuse the PhotoSerializer from photos-controller or create a new one here.
+const PhotoSerializer = new Serializer("photo", {
+  id: "uuid",
+  attributes: [
+    "originalName",
+    "originalFilename",
+    "filename",
+    "score",
+    "exifInfo",
+    "persons",
+  ],
+  keyForAttribute: "camelCase",
+  relationships: {
+    album: {
+      type: "album",
+    },
+  },
+  pluralizeType: false,
+});
+
+// Helper function to safely get nested property
+function getNestedProperty(obj, propertyPath) {
+  return propertyPath
+    .split(".")
+    .reduce(
+      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
+      obj
+    );
+}
+
+// List all people in an album
+export const getPeopleInAlbum = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+
+    if (!(await fs.pathExists(photosPath))) {
+      return res
+        .status(404)
+        .json({
+          errors: [{ detail: "Album not found or no photos available" }],
+        });
+    }
+
+    const photosData = await fs.readJson(photosPath);
+
+    // Extract all persons from all photos
+    const allPersons = new Set();
+    for (const photo of photosData) {
+      if (Array.isArray(photo.persons)) {
+        photo.persons.forEach((p) => allPersons.add(p));
+      }
+    }
+
+    // Return the list of people as a simple JSON structure
+    // Not JSON:API, just a simple array for now (we could also do JSON:API if desired)
+    res.json({ data: Array.from(allPersons) });
+  } catch (error) {
+    console.error("Error fetching people in album:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+// Get photos of a specific person in the album
+export const getPhotosByPerson = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const personName = req.params.personName;
+    const sortAttribute = req.query.sort || "score.overall"; // Default
+    const sortOrder = req.query.order || "desc"; // Default
+
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+
+    if (!(await fs.pathExists(photosPath))) {
+      return res
+        .status(404)
+        .json({
+          errors: [{ detail: "Album not found or no photos available" }],
+        });
+    }
+
+    const photosData = await fs.readJson(photosPath);
+
+    // Filter photos by personName
+    const filteredPhotos = photosData.filter((photo) => {
+      if (!Array.isArray(photo.persons)) return false;
+      return photo.persons.includes(personName);
+    });
+
+    if (filteredPhotos.length === 0) {
+      return res.json({
+        data: [],
+        meta: {
+          albumUUID,
+          personName,
+          sortAttribute,
+          sortOrder,
+          scoreAttributes: [],
+        },
+      });
+    }
+
+    // Add originalName property
+    filteredPhotos.forEach((photo) => {
+      photo.originalName = path.parse(photo.original_filename).name;
+    });
+
+    // Extract score attributes from first photo
+    const scoreAttributes = Object.keys(filteredPhotos[0].score);
+
+    // Sort the photos
+    filteredPhotos.sort((a, b) => {
+      const aValue = getNestedProperty(a, sortAttribute);
+      const bValue = getNestedProperty(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      if (sortOrder === "asc") {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+
+    // Add album relationship
+    filteredPhotos.forEach((photo) => {
+      photo.album = albumUUID;
+    });
+
+    const jsonApiData = PhotoSerializer.serialize(filteredPhotos);
+
+    res.json({
+      ...jsonApiData,
+      meta: {
+        albumUUID,
+        personName,
+        sortAttribute,
+        sortOrder,
+        scoreAttributes,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching photos for person:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+```
+
 ### **./backend/controllers/api/photos-controller.js**
 ```
 // backend/controllers/api/photos-controller.js
@@ -2541,6 +2720,12 @@ import {
   getPhotosByAlbumData,
 } from "../controllers/api/index.js";
 
+// Import the new people controllers
+import {
+  getPeopleInAlbum,
+  getPhotosByPerson,
+} from "../controllers/api/people-controller.js";
+
 const apiRouter = express.Router();
 
 // API route to get all albums
@@ -2551,6 +2736,10 @@ apiRouter.get("/albums/:albumUUID", getAlbumById);
 
 // API route to get photos by album UUID
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
+
+// API routes for people in an album
+apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
+apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 
 export default apiRouter;
 ```
@@ -2707,6 +2896,12 @@ Router.map(function () {
 <h1>{{this.model.album.title}}</h1>
 {{#link-to "albums"}}Back to Albums{{/link-to}}
 
+<p>
+  {{#link-to "albums.album.persons" this.model.album.id}}
+    View People in this Album
+  {{/link-to}}
+</p>
+
 <form {{on "submit" this.updateSort}}>
   <label for="sortAttribute">Sort by:</label>
   <select id="sortAttribute" {{on "change" this.selectSortAttribute}}>
@@ -2747,6 +2942,69 @@ Router.map(function () {
   {{/each}}
 </div>```
 
+### **./frontend/photo-filter-frontend/app/templates/albums/album/persons/person.hbs**
+```
+<h2>Photos of {{this.model.personName}} in {{this.model.album.title}}</h2>
+{{#link-to "albums.album.persons" this.model.album.id}}Back to People{{/link-to}}
+
+<form {{on "submit" (fn (mut (this.sortChanged)) true)}}>
+  <label for="sortAttribute">Sort by:</label>
+  <select id="sortAttribute" {{on "change" (fn this.selectSortAttribute)}}>
+    {{#each this.model.scoreAttributes as |attribute|}}
+      <option
+        value="score.{{attribute}}"
+        selected={{eq this.model.sortAttribute (concat "score." attribute)}}
+      >
+        {{capitalize attribute}}
+      </option>
+    {{/each}}
+  </select>
+
+  <label for="sortOrder">Order:</label>
+  <select id="sortOrder" {{on "change" (fn this.selectSortOrder)}}>
+    <option
+      value="desc"
+      selected={{eq this.model.sortOrder "desc"}}
+    >Descending</option>
+    <option
+      value="asc"
+      selected={{eq this.model.sortOrder "asc"}}
+    >Ascending</option>
+  </select>
+
+  <button type="submit">Sort</button>
+</form>
+
+<div class="photo-grid">
+  {{#each this.model.photos as |photoObj|}}
+    <div class="photo-item">
+      <img
+        src="/images/{{this.model.albumUUID}}/{{photoObj.attributes.originalName}}.jpg"
+        alt="{{photoObj.attributes.originalName}}"
+      />
+      <p>
+        {{capitalize (replace this.model.sortAttribute "score." "")}}:
+        {{getNestedProperty photoObj.attributes this.model.sortAttribute}}
+      </p>
+    </div>
+  {{/each}}
+</div>```
+
+### **./frontend/photo-filter-frontend/app/templates/albums/album/persons.hbs**
+```
+<h2>People in {{this.model.album.title}}</h2>
+<ul>
+  {{#each this.model.people as |person|}}
+    <li>
+      {{#link-to "albums.album.persons.person" this.model.album.id person}}
+        {{person}}
+      {{/link-to}}
+    </li>
+  {{/each}}
+</ul>
+
+{{#link-to "albums.album" this.model.album.id}}Back to Album{{/link-to}}```
+
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
 // app/controllers/albums/album.js
@@ -2773,6 +3031,36 @@ export default class AlbumsAlbumController extends Controller {
   @action
   selectSortOrder(event) {
     this.set('order', event.target.value);
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/controllers/albums/album/persons/person.js**
+```
+// app/controllers/albums/album/persons/person.js
+
+import Controller from '@ember/controller';
+import { action } from '@ember/object';
+
+export default class AlbumsAlbumPersonsPersonController extends Controller {
+  queryParams = ['sort', 'order'];
+  sort = 'score.overall';
+  order = 'desc';
+
+  @action
+  selectSortAttribute(event) {
+    this.set('sort', event.target.value);
+  }
+
+  @action
+  selectSortOrder(event) {
+    this.set('order', event.target.value);
+  }
+
+  @action
+  updateSort(event) {
+    event.preventDefault();
+    // Trigger route refresh due to query param binding
   }
 }
 ```
@@ -2844,6 +3132,76 @@ export default class AlbumsAlbumRoute extends Route {
 
     return {
       album,
+      photos,
+      albumUUID: meta.albumUUID || album_id,
+      sortAttribute: meta.sortAttribute || sort,
+      sortOrder: meta.sortOrder || order,
+      scoreAttributes: meta.scoreAttributes || [],
+    };
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/routes/albums/album/persons.js**
+```
+// app/routes/albums/album/persons.js
+
+import Route from '@ember/routing/route';
+import { inject as service } from '@ember/service';
+import fetch from 'fetch';
+
+export default class AlbumsAlbumPersonsRoute extends Route {
+  @service store;
+
+  async model(params) {
+    const { album_id } = this.paramsFor('albums.album');
+    // Fetch the list of people from the backend
+    const response = await fetch(
+      `${this.store.adapterFor('application').host}/api/albums/${album_id}/persons`,
+    );
+    const data = await response.json();
+
+    return {
+      album: await this.store.findRecord('album', album_id),
+      people: data.data || [],
+    };
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/routes/albums/album/persons/person.js**
+```
+// app/routes/albums/album/persons/person.js
+
+import Route from '@ember/routing/route';
+import { inject as service } from '@ember/service';
+import fetch from 'fetch';
+
+export default class AlbumsAlbumPersonsPersonRoute extends Route {
+  @service store;
+
+  queryParams = {
+    sort: { refreshModel: true },
+    order: { refreshModel: true },
+  };
+
+  async model(params) {
+    const { album_id } = this.paramsFor('albums.album');
+    const { person_name } = params;
+    const sort = params.sort || 'score.overall';
+    const order = params.order || 'desc';
+
+    const url = `${this.store.adapterFor('application').host}/api/albums/${album_id}/person/${encodeURIComponent(person_name)}?sort=${sort}&order=${order}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const photos = data.data || [];
+    const meta = data.meta || {};
+
+    return {
+      album: await this.store.findRecord('album', album_id),
+      personName: person_name,
       photos,
       albumUUID: meta.albumUUID || album_id,
       sortAttribute: meta.sortAttribute || sort,

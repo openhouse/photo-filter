@@ -1,4 +1,4 @@
-<!-- ./views/index.hbs -->
+<!-- ./views/person.hbs -->
 <style>
   img {
     width: 30rem;
@@ -18,11 +18,10 @@
     font-size: 0.9em;
   }
 </style>
-<h1>Photos in Album</h1>
-<a href="/">Back to Albums</a> | 
-<a href="/album/{{albumUUID}}/persons">View People in this Album</a>
+<h1>Photos of {{personName}} in Album</h1>
+<a href="/album/{{albumUUID}}/persons">Back to People</a>
 
-<form method="GET" action="/album/{{albumUUID}}">
+<form method="GET" action="/album/{{albumUUID}}/person/{{personName}}">
   <label for="sortAttribute">Sort by:</label>
   <select name="sort" id="sortAttribute">
     {{#each scoreAttributes}}
@@ -42,26 +41,25 @@
 </form>
 
 <div class="photo-grid">
-  {{#each photos}}
+  {{#each photos as |photo|}}
     <div class="photo-item">
       <img
-        src="/images/{{../albumUUID}}/{{this.original_name}}.jpg"
-        alt="{{this.original_name}}"
+        src="/images/{{../albumUUID}}/{{photo.original_name}}.jpg"
+        alt="{{photo.original_name}}"
         loading="lazy"
       />
       <p>
-        <span style="opacity: 0.38">{{@index}} -</span> {{this.original_name}}.jpg
+        <span style="opacity: 0.38">{{@index}} -</span> {{photo.original_name}}.jpg
 
-        {{#if this.tags}}
+        {{#if photo.tags}}
           <p class="tags">
-            {{#each this.tags}}
+            {{#each photo.tags}}
               <span class="tag">{{this}}</span>
             {{/each}}
           </p>
         {{/if}}
 
-        
-        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty photo ../sortAttribute}}
       </p>
     </div>
   {{/each}}

@@ -1,0 +1,10 @@
+<!-- ./views/persons.hbs -->
+
+<h1>People in Album</h1>
+<a href="/album/{{albumUUID}}">Back to Album</a>
+
+<ul>
+  {{#each people as |person|}}
+    <li><a href="/album/{{albumUUID}}/person/{{person}}">{{person}}</a></li>
+  {{/each}}
+</ul>
