@@ -1,5 +1,68 @@
 # Development Plan
 
+## Update: Implementing Album/Person Sub-Routes
+
+**Date:** December 7, 2024
+
+### Decision
+
+- **Implement Person-Specific Sub-Routes Within an Album**:  
+  Add routes that focus on individuals recognized in the album’s photos. When viewing an album, the user can navigate to a sub-route listing all people who appear in the album. From there, they can select a person to view only the photos containing that individual, with the same sorting interface currently available at the album level.
+
+### Rationale
+
+- **Inclusivity of Individuals**:  
+  Similar to ensuring coverage of all guests at a wedding, this feature helps ensure event photography doesn’t miss key participants. By focusing on each person, the user can quickly find the best photos of them.
+- **Consistent UX**:  
+  The person-level photo view should mirror existing album-level sorting and navigation, providing a familiar interface and workflow for the user.
+
+- **Efficiency**:  
+  With large albums, filtering by individuals and sorting helps the user quickly find representative images of each participant.
+
+### Implementation Steps
+
+1. **Extract People Data from `photos.json`**:
+   - Update or confirm the `photos.json` generation includes a `persons` array (or similar) indicating which people appear in each photo.
+2. **Backend Routes for People**:
+
+   - Create a backend endpoint to list all unique people found in a given album’s photos (e.g. `GET /api/albums/:albumUUID/persons`).
+   - Create a backend endpoint to fetch photos filtered by a specific person within that album (e.g. `GET /api/albums/:albumUUID/person/:personName`).
+
+3. **Frontend Nested Routes**:
+
+   - Add Ember.js routes to display:
+     - A list of people in the album at `albums/album/persons`.
+     - A person-specific route at `albums/album/persons/person/:person_name`.
+   - These routes will accept `sort` and `order` query parameters to replicate the sorting behavior seen at the album level.
+
+4. **UI Enhancements**:
+
+   - On the album page, add a link to the people list sub-route.
+   - The people list page shows all recognized persons as clickable links.
+   - The person page shows filtered photos of that individual with the same sorting UI as the album page.
+
+5. **Testing and Validation**:
+
+   - Write tests to ensure that the new endpoints and routes return the expected data.
+   - Verify the user can sort photos by various attributes when viewing an individual’s photos.
+
+6. **Documentation**:
+   - Update `DEVELOPMENT_PLAN.md` (this file) to reflect the addition of album/person routes.
+   - Once implemented, update `README.md`, `ISSUES.md`, and other documentation files as needed.
+
+### Potential Challenges
+
+- **Data Availability**:  
+  Ensuring that the people information is correctly included in `photos.json`.
+
+- **Edge Cases**:  
+  Handling albums with no recognized people or handling photos where a person’s name may be duplicated with slight variations.
+
+- **Performance**:  
+  Filtering and sorting large albums for many individuals could be intensive. Consider caching or efficient indexing if performance becomes an issue.
+
+---
+
 ## Update: Implementing Nested Routes and UI Enhancements
 
 **Date:** November 12, 2024
@@ -37,7 +100,7 @@
 
 5. **Implement Photo Selection Mechanism**:
 
-   - Create a selection service (`app/services/selection.js`) to manage selected photos.
+   - Create a selection service (`app/services/selection.js`) to manage selection state.
    - Update `albums/album.hbs` and `albums/album.js` to handle photo selection.
 
 6. **Implement Export Functionality**:

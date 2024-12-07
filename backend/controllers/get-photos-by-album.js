@@ -78,7 +78,7 @@ export const getPhotosByAlbum = async (req, res) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
 
-    const limit = 50;
+    const limit = 60;
 
     // List of attributes to process
     const attributesToProcess = [

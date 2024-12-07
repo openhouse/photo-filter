@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
-
-Generated on: Tue Nov 19 16:38:34 CET 2024
+-e 
+Generated on: Sat Dec  7 12:07:15 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -16,6 +16,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── ISSUES.md
 ├── README.md
 ├── backend
+│   ├── .DS_Store
 │   ├── .babelrc
 │   ├── .nvmrc
 │   ├── controllers
@@ -28,21 +29,31 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── get-photos-by-album.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── --albums.json
+│   │   ├── -albums.json
 │   │   ├── .DS_Store
 │   │   ├── albums
-│   │   │   ├── .DS_Store
-│   │   │   ├── 45D42E51-EF1D-4773-BA2E-0E2A9621E960
-│   │   │   ├── 88DE9057-862E-4ED9-83BD-D96F7D77F3CD
+│   │   │   ├── 0CE433FA-F9BD-436E-BA0D-68B155229E16
 │   │   │   │   └── photos.json
-│   │   │   ├── EEB5CC1C-4BF6-43EC-A0AD-107FE7298D44
-│   │   │   │   ├── .DS_Store
+│   │   │   ├── 1FA3106D-E434-4F44-9A1D-9D9CC55461A4
 │   │   │   │   └── photos.json
-│   │   │   └── F892C968-0ACF-4FF6-B387-0BEA05052E2A
+│   │   │   ├── 2E2FA464-1C19-43E4-8F69-1C31661223A5
+│   │   │   │   └── photos.json
+│   │   │   ├── 561CCDD4-26A7-4898-8514-ECE1AABF1409
+│   │   │   │   └── photos.json
+│   │   │   ├── 67F2EC0F-02E3-406E-8703-02324299F9EC
+│   │   │   │   └── photos.json
+│   │   │   ├── 6D0E4FA5-B9B2-47E2-B4DE-84F30F73AC24
+│   │   │   │   └── photos.json
+│   │   │   ├── A14DD479-DBDB-47E0-A4F3-0A57E3F897A2
+│   │   │   │   └── photos.json
+│   │   │   └── BF7EF091-7335-4582-A5A2-A44871ACC5D4
 │   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
+│   ├── osxphotos_crash.log
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── public
@@ -178,7 +189,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-56 directories, 113 files
+60 directories, 120 files
 ```
 
 ---
@@ -188,6 +199,69 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ### **./DEVELOPMENT_PLAN.md**
 ```
 # Development Plan
+
+## Update: Implementing Album/Person Sub-Routes
+
+**Date:** December 7, 2024
+
+### Decision
+
+- **Implement Person-Specific Sub-Routes Within an Album**:  
+  Add routes that focus on individuals recognized in the album’s photos. When viewing an album, the user can navigate to a sub-route listing all people who appear in the album. From there, they can select a person to view only the photos containing that individual, with the same sorting interface currently available at the album level.
+
+### Rationale
+
+- **Inclusivity of Individuals**:  
+  Similar to ensuring coverage of all guests at a wedding, this feature helps ensure event photography doesn’t miss key participants. By focusing on each person, the user can quickly find the best photos of them.
+- **Consistent UX**:  
+  The person-level photo view should mirror existing album-level sorting and navigation, providing a familiar interface and workflow for the user.
+
+- **Efficiency**:  
+  With large albums, filtering by individuals and sorting helps the user quickly find representative images of each participant.
+
+### Implementation Steps
+
+1. **Extract People Data from `photos.json`**:
+   - Update or confirm the `photos.json` generation includes a `persons` array (or similar) indicating which people appear in each photo.
+2. **Backend Routes for People**:
+
+   - Create a backend endpoint to list all unique people found in a given album’s photos (e.g. `GET /api/albums/:albumUUID/persons`).
+   - Create a backend endpoint to fetch photos filtered by a specific person within that album (e.g. `GET /api/albums/:albumUUID/person/:personName`).
+
+3. **Frontend Nested Routes**:
+
+   - Add Ember.js routes to display:
+     - A list of people in the album at `albums/album/persons`.
+     - A person-specific route at `albums/album/persons/person/:person_name`.
+   - These routes will accept `sort` and `order` query parameters to replicate the sorting behavior seen at the album level.
+
+4. **UI Enhancements**:
+
+   - On the album page, add a link to the people list sub-route.
+   - The people list page shows all recognized persons as clickable links.
+   - The person page shows filtered photos of that individual with the same sorting UI as the album page.
+
+5. **Testing and Validation**:
+
+   - Write tests to ensure that the new endpoints and routes return the expected data.
+   - Verify the user can sort photos by various attributes when viewing an individual’s photos.
+
+6. **Documentation**:
+   - Update `DEVELOPMENT_PLAN.md` (this file) to reflect the addition of album/person routes.
+   - Once implemented, update `README.md`, `ISSUES.md`, and other documentation files as needed.
+
+### Potential Challenges
+
+- **Data Availability**:  
+  Ensuring that the people information is correctly included in `photos.json`.
+
+- **Edge Cases**:  
+  Handling albums with no recognized people or handling photos where a person’s name may be duplicated with slight variations.
+
+- **Performance**:  
+  Filtering and sorting large albums for many individuals could be intensive. Consider caching or efficient indexing if performance becomes an issue.
+
+---
 
 ## Update: Implementing Nested Routes and UI Enhancements
 
@@ -226,7 +300,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 
 5. **Implement Photo Selection Mechanism**:
 
-   - Create a selection service (`app/services/selection.js`) to manage selected photos.
+   - Create a selection service (`app/services/selection.js`) to manage selection state.
    - Update `albums/album.hbs` and `albums/album.js` to handle photo selection.
 
 6. **Implement Export Functionality**:
@@ -1876,7 +1950,7 @@ export const getPhotosByAlbum = async (req, res) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
 
-    const limit = 50;
+    const limit = 60;
 
     // List of attributes to process
     const attributesToProcess = [
@@ -2059,6 +2133,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 }
 ```
 
+### **./backend/data/--albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
 ### **./backend/data/albums.json**
 ```json
 [
@@ -2084,22 +2183,147 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
-### **./backend/data/albums/EEB5CC1C-4BF6-43EC-A0AD-107FE7298D44/photos.json**
+### **./backend/data/-albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/2E2FA464-1C19-43E4-8F69-1C31661223A5/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Brooklyn",
+            "FujiFilm x100v: All, Full Res"
+        ],
+        "burst": false,
+        "cloud_guid": "ARlSAYDGvCvjCuvnJiW/dBT5Heqa",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-28 23:22:52.851393-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-28 19:57:01-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 800,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/0CE433FA-F9BD-436E-BA0D-68B155229E16/photos.json**
+```json
+[
+    {
+        "albums": [
+            "196 Blulbs",
+            "2024-12-01-day",
+            "FujiFilm x100v: All, Full Res"
+        ],
+        "burst": false,
+        "cloud_guid": "AYb8yeUxUYOD4yxwAvDh0b3UBV7l",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-30 22:39:15.494889-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-30 21:52:27-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 2500,
+            "metering_mode": 5,
+...
+```
+
+### **./backend/data/albums/BF7EF091-7335-4582-A5A2-A44871ACC5D4/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Austria",
+            "FujiFilm x100v: All, Full Res",
+            "Ukraine",
+            "Wien, Austria (Vienna)"
+        ],
+        "burst": false,
+        "cloud_guid": "AcBZptLF5QswNAqAWVFOHWXiXSJc",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-19 22:54:32.914870+01:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-19 19:34:11+01:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 500,
+...
+```
+
+### **./backend/data/albums/6D0E4FA5-B9B2-47E2-B4DE-84F30F73AC24/photos.json**
 ```json
 [
     {
         "albums": [
             "FujiFilm x100v: All, Full Res",
-            "Studio3"
+            "MIT",
+            "MIT-Day-02"
         ],
         "burst": false,
-        "cloud_guid": "AeYanNpn+78RnmuKdBkVH8exg96c",
+        "cloud_guid": "AUDTqphuh6I7Bt0FnubVWcXfR2mc",
         "cloud_owner_hashed_id": null,
         "comments": [],
-        "date_added": "2024-11-15 18:02:02.568318+01:00",
+        "date_added": "2024-12-06 17:51:37.298699-05:00",
         "date_modified": null,
         "date_trashed": null,
-        "date": "2024-11-15 17:13:24+01:00",
+        "date": "2024-12-06 17:05:52-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 250,
+            "metering_mode": 5,
+...
+```
+
+### **./backend/data/albums/67F2EC0F-02E3-406E-8703-02324299F9EC/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V",
+            "MIT"
+        ],
+        "burst": false,
+        "cloud_guid": "ATugRSKlRvsagyKkkrW8HWPBE5FM",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-05 20:24:37.739260-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-05 19:35:17-05:00",
         "description": null,
         "exif_info": {
             "flash_fired": false,
@@ -2109,46 +2333,71 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
-### **./backend/data/albums/88DE9057-862E-4ED9-83BD-D96F7D77F3CD/photos.json**
+### **./backend/data/albums/561CCDD4-26A7-4898-8514-ECE1AABF1409/photos.json**
 ```json
 [
     {
         "albums": [
+            "2024-12-01-day",
             "FujiFilm x100v: All, Full Res",
-            "Innsbruck Family"
+            "Mir & Max"
         ],
         "burst": false,
-        "cloud_guid": "AYaUuJtA5yA6XXDRPyhyj5y6JVIU",
+        "cloud_guid": "AcSEPiuXBZgwpoiypBMP7q0DWUTt",
         "cloud_owner_hashed_id": null,
         "comments": [],
-        "date_added": "2024-11-17 17:37:33.167930+01:00",
+        "date_added": "2024-11-30 20:35:09.211243-05:00",
         "date_modified": null,
         "date_trashed": null,
-        "date": "2024-11-17 10:25:23+01:00",
+        "date": "2024-11-30 19:07:52-05:00",
         "description": null,
         "exif_info": {
             "flash_fired": false,
             "iso": 160,
             "metering_mode": 5,
-            "sample_rate": null,
 ...
 ```
 
-### **./backend/data/albums/F892C968-0ACF-4FF6-B387-0BEA05052E2A/photos.json**
+### **./backend/data/albums/1FA3106D-E434-4F44-9A1D-9D9CC55461A4/photos.json**
 ```json
 [
     {
         "albums": [
-            "Dawn Riddle \ud83c\udf9e\ufe0f On a Roll"
+            "196 Blulbs",
+            "2024-12-01-day",
+            "FujiFilm x100v: All, Full Res"
         ],
         "burst": false,
-        "cloud_guid": "ARoRNA4UZ5Cb0dqUdEVM/fOnPQ2n",
+        "cloud_guid": "AYb8yeUxUYOD4yxwAvDh0b3UBV7l",
         "cloud_owner_hashed_id": null,
         "comments": [],
-        "date_added": "2024-10-06 19:00:43.723274-04:00",
+        "date_added": "2024-11-30 22:39:15.494889-05:00",
         "date_modified": null,
         "date_trashed": null,
-        "date": "2024-10-06 19:00:43.720590-04:00",
+        "date": "2024-11-30 21:52:27-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 2500,
+            "metering_mode": 5,
+...
+```
+
+### **./backend/data/albums/A14DD479-DBDB-47E0-A4F3-0A57E3F897A2/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Mir Thanksgiving 2024"
+        ],
+        "burst": false,
+        "cloud_guid": "AS/ovvJBILoYiWunEvMEIZJ8hd55",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-02 16:55:29.270375-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-02 16:55:29-05:00",
         "description": null,
         "exif_info": {
             "flash_fired": false,
