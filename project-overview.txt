@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec  7 12:17:39 EST 2024
+Generated on: Sat Dec  7 12:35:09 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -28,6 +28,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── api-controller.js
 │   │   ├── get-albums.js
 │   │   ├── get-photos-by-album.js
+│   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
 │   │   ├── --albums.json
@@ -83,8 +84,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── views
 │   │   ├── albums.hbs
 │   │   ├── index.hbs
-│   │   └── layouts
-│   │       └── main.hbs
+│   │   ├── layouts
+│   │   │   └── main.hbs
+│   │   ├── person.hbs
+│   │   └── persons.hbs
 │   └── yarn.lock
 ├── data
 │   └── albums
@@ -201,7 +204,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-66 directories, 126 files
+66 directories, 129 files
 ```
 
 ---
@@ -1614,6 +1617,135 @@ export const getAlbums = async (req, res) => {
 };
 ```
 
+### **./backend/controllers/people-legacy-controller.js**
+```
+// backend/controllers/people-legacy-controller.js
+
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Helper to get nested property
+function getNestedProperty(obj, propertyPath) {
+  return propertyPath
+    .split(".")
+    .reduce(
+      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
+      obj
+    );
+}
+
+// Show all people in an album
+export const getPeopleInAlbumLegacy = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const dataDir = path.join(__dirname, "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+
+    if (!(await fs.pathExists(photosPath))) {
+      return res.status(404).send("Album not found or no photos available");
+    }
+
+    const photosData = await fs.readJson(photosPath);
+    console.log("albumUUID:", albumUUID);
+    console.log("req.params:", req.params);
+
+    // Gather all distinct people
+    const allPersons = new Set();
+    for (const photo of photosData) {
+      if (Array.isArray(photo.persons)) {
+        photo.persons.forEach((p) => allPersons.add(p));
+      }
+    }
+
+    const people = Array.from(allPersons).sort();
+
+    // Render persons.hbs view
+    res.render("persons", { albumUUID, people });
+  } catch (error) {
+    console.error("Error fetching people in album:", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+
+// Show photos of a single person in the album
+export const getPhotosByPersonLegacy = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const personName = req.params.personName;
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
+
+    const dataDir = path.join(__dirname, "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+
+    if (!(await fs.pathExists(photosPath))) {
+      return res.status(404).send("Album not found or no photos available");
+    }
+
+    const photosData = await fs.readJson(photosPath);
+
+    // Filter photos by person
+    const filteredPhotos = photosData.filter((photo) => {
+      return Array.isArray(photo.persons) && photo.persons.includes(personName);
+    });
+
+    if (filteredPhotos.length === 0) {
+      // No photos of this person
+      return res.render("person", {
+        albumUUID,
+        personName,
+        photos: [],
+        scoreAttributes: [],
+        sortAttribute,
+        sortOrder,
+      });
+    }
+
+    // Add original_name property
+    filteredPhotos.forEach((photo) => {
+      photo.original_name = path.parse(photo.original_filename).name;
+    });
+
+    // Extract score attributes from the first photo
+    const scoreAttributes = Object.keys(filteredPhotos[0].score);
+
+    // Sort photos based on the requested attribute
+    filteredPhotos.sort((a, b) => {
+      const aValue = getNestedProperty(a, sortAttribute);
+      const bValue = getNestedProperty(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      if (sortOrder === "asc") {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+
+    // Render person.hbs view
+    res.render("person", {
+      albumUUID,
+      personName,
+      photos: filteredPhotos,
+      scoreAttributes,
+      sortAttribute,
+      sortOrder,
+    });
+  } catch (error) {
+    console.error("Error fetching photos for person:", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+```
+
 ### **./backend/controllers/photo-controller.js**
 ```
 // ./controllers/photo-controller.js
@@ -2623,7 +2755,8 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
   }
 </style>
 <h1>Photos in Album</h1>
-<a href="/">Back to Albums</a>
+<a href="/">Back to Albums</a> | 
+<a href="/album/{{albumUUID}}/persons">View People in this Album</a>
 
 <form method="GET" action="/album/{{albumUUID}}">
   <label for="sortAttribute">Sort by:</label>
@@ -2686,9 +2819,91 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
   </body>
 </html>```
 
+### **./backend/views/person.hbs**
+```
+<!-- ./views/person.hbs -->
+<style>
+  img {
+    width: 30rem;
+    max-width: 100%;
+  }
+
+  .tags {
+    margin-top: 5px;
+  }
+
+  .tag {
+    display: inline-block;
+    background-color: #eee;
+    padding: 2px 5px;
+    margin: 2px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+</style>
+<h1>Photos of {{personName}} in Album</h1>
+<a href="/album/{{albumUUID}}/persons">Back to People</a>
+
+<form method="GET" action="/album/{{albumUUID}}/person/{{personName}}">
+  <label for="sortAttribute">Sort by:</label>
+  <select name="sort" id="sortAttribute">
+    {{#each scoreAttributes}}
+      <option value="score.{{this}}" {{#if (eq ../sortAttribute (concat "score." this))}}selected{{/if}}>
+        {{capitalize this}}
+      </option>
+    {{/each}}
+  </select>
+
+  <label for="sortOrder">Order:</label>
+  <select name="order" id="sortOrder">
+    <option value="desc" {{#if (eq sortOrder 'desc')}}selected{{/if}}>Descending</option>
+    <option value="asc" {{#if (eq sortOrder 'asc')}}selected{{/if}}>Ascending</option>
+  </select>
+
+  <button type="submit">Sort</button>
+</form>
+
+<div class="photo-grid">
+  {{#each photos as |photo|}}
+    <div class="photo-item">
+      <img
+        src="/images/{{../albumUUID}}/{{photo.original_name}}.jpg"
+        alt="{{photo.original_name}}"
+        loading="lazy"
+      />
+      <p>
+        <span style="opacity: 0.38">{{@index}} -</span> {{photo.original_name}}.jpg
+
+        {{#if photo.tags}}
+          <p class="tags">
+            {{#each photo.tags}}
+              <span class="tag">{{this}}</span>
+            {{/each}}
+          </p>
+        {{/if}}
+
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty photo ../sortAttribute}}
+      </p>
+    </div>
+  {{/each}}
+</div>```
+
+### **./backend/views/persons.hbs**
+```
+<!-- ./views/persons.hbs -->
+
+<h1>People in Album</h1>
+<a href="/album/{{albumUUID}}">Back to Album</a>
+
+<ul>
+  {{#each people as |person|}}
+    <li><a href="/album/{{albumUUID}}/person/{{person}}">{{person}}</a></li>
+  {{/each}}
+</ul>```
+
 ### **./backend/routes/index.js**
 ```
-// ./routes/index.js
+// backend/routes/index.js
 
 import express from "express";
 import {
@@ -2696,12 +2911,20 @@ import {
   getPhotosByAlbum,
 } from "../controllers/photo-controller.js";
 import apiRouter from "./api.js";
+import {
+  getPeopleInAlbumLegacy,
+  getPhotosByPersonLegacy,
+} from "../controllers/people-legacy-controller.js";
 
 const router = express.Router();
 
 // Existing routes for the legacy UI
 router.get("/", getAlbums);
 router.get("/album/:albumUUID", getPhotosByAlbum);
+
+// New legacy routes for persons
+router.get("/album/:albumUUID/persons", getPeopleInAlbumLegacy);
+router.get("/album/:albumUUID/person/:personName", getPhotosByPersonLegacy);
 
 // Mount the API router under '/api'
 router.use("/api", apiRouter);
