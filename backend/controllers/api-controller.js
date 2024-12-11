@@ -1,71 +1,34 @@
-// ./controllers/api-controller.js
+// backend/controllers/api/photos-controller.js
 
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { runPythonScript } from "../utils/run-python-script.js";
-import { execCommand } from "../utils/exec-command.js";
+import { runPythonScript } from "../../utils/run-python-script.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper function to format data in JSON:API format
-function formatJsonApi(type, data) {
-  if (Array.isArray(data)) {
-    return data.map((item) => ({
-      type,
-      id: item.uuid || item.id,
-      attributes: { ...item, id: undefined, uuid: undefined },
-    }));
-  } else {
-    return {
-      type,
-      id: data.uuid || data.id,
-      attributes: { ...data, id: undefined, uuid: undefined },
-    };
-  }
-}
+// Ensure 'type' is 'photo' and prevent pluralization
+const PhotoSerializer = new Serializer("photo", {
+  id: "uuid", // Use 'uuid' as the 'id' field
+  attributes: [
+    "originalName",
+    "originalFilename",
+    "filename",
+    "score",
+    "exifInfo",
+  ],
+  keyForAttribute: "camelCase",
+  relationships: {
+    album: {
+      type: "album", // Use singular 'album' for the relationship
+    },
+  },
+  pluralizeType: false, // Prevent automatic pluralization
+});
 
-// Function to get albums data
-export const getAlbumsData = async (req, res) => {
-  try {
-    const dataDir = path.join(__dirname, "..", "data");
-    const albumsPath = path.join(dataDir, "albums.json");
-    const venvDir = path.join(__dirname, "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "scripts",
-      "export_albums.py"
-    );
-
-    // Ensure data directory exists
-    await fs.ensureDir(dataDir);
-
-    // Check if albums.json exists
-    if (!(await fs.pathExists(albumsPath))) {
-      console.log("albums.json not found. Exporting albums using osxphotos...");
-
-      // Export albums using the Python script
-      await runPythonScript(pythonPath, scriptPath, [], albumsPath);
-    }
-
-    // Read albums data
-    const albumsData = await fs.readJson(albumsPath);
-
-    // Transform to JSON:API format
-    const jsonApiData = formatJsonApi("albums", albumsData);
-
-    // Send JSON response
-    res.json({ data: jsonApiData });
-  } catch (error) {
-    console.error("Error fetching albums:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
-  }
-};
-
-// Function to get photos by album UUID with sorting
 export const getPhotosByAlbumData = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
@@ -73,14 +36,15 @@ export const getPhotosByAlbumData = async (req, res) => {
     const sortOrder = req.query.order || "desc"; // Default sort order
 
     // Paths
-    const dataDir = path.join(__dirname, "..", "data");
+    const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = path.join(photosDir, "images");
-    const venvDir = path.join(__dirname, "..", "venv");
+    const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
       __dirname,
+      "..",
       "..",
       "scripts",
       "export_photos_in_album.py"
@@ -102,14 +66,17 @@ export const getPhotosByAlbumData = async (req, res) => {
         imagesDir,
         photosPath
       );
+
+      // After exporting, rename files to prepend the photo's capture date
+      await renameExportedImages(imagesDir, photosPath);
     }
 
     // Read photos data
     const photosData = await fs.readJson(photosPath);
 
-    // Add 'original_name' property to each photo
+    // Add 'originalName' property to each photo
     photosData.forEach((photo) => {
-      photo.original_name = path.parse(photo.original_filename).name;
+      photo.originalName = path.parse(photo.original_filename).name;
     });
 
     // Extract the list of score attributes
@@ -130,27 +97,17 @@ export const getPhotosByAlbumData = async (req, res) => {
       }
     });
 
-    const jsonApiPhotos = photosData.map((photo) => ({
-      type: "photos",
-      id: photo.uuid,
-      attributes: {
-        ...photo,
-        id: undefined,
-        uuid: undefined,
-      },
-      relationships: {
-        album: {
-          data: {
-            type: "albums",
-            id: albumUUID,
-          },
-        },
-      },
-    }));
+    // Add album relationship
+    photosData.forEach((photo) => {
+      photo.album = albumUUID;
+    });
+
+    // Serialize data
+    const jsonApiData = PhotoSerializer.serialize(photosData);
 
     // Send JSON response with photos and available score attributes
     res.json({
-      data: jsonApiPhotos,
+      ...jsonApiData,
       meta: {
         albumUUID,
         sortAttribute,
@@ -187,6 +144,47 @@ async function runOsxphotosExportImages(
 
   console.log(`Executing command:\n${commandImages}`);
   await execCommand(commandImages, "Error exporting album images:");
+}
+
+// Rename exported images with date-based filenames
+async function renameExportedImages(imagesDir, photosPath) {
+  const photosData = await fs.readJson(photosPath);
+
+  for (const photo of photosData) {
+    const originalName = path.parse(photo.original_filename).name; // e.g., DSCF1191
+    const photoDate = new Date(photo.date); // Parse the photo’s date field
+    const formattedDate = formatPhotoDate(photoDate); // YYYYMMDD-HHMMSS
+    const oldPath = path.join(imagesDir, `${originalName}.jpg`);
+
+    if (await fs.pathExists(oldPath)) {
+      let newFilename = `${formattedDate}-${originalName}.jpg`;
+      let finalPath = path.join(imagesDir, newFilename);
+
+      // Check for collisions
+      let counter = 1;
+      while (await fs.pathExists(finalPath)) {
+        newFilename = `${formattedDate}-${originalName}-${counter}.jpg`;
+        finalPath = path.join(imagesDir, newFilename);
+        counter++;
+      }
+
+      await fs.rename(oldPath, finalPath);
+      console.log(`Renamed ${originalName}.jpg to ${newFilename}`);
+    } else {
+      console.warn(`File not found for rename: ${oldPath}`);
+    }
+  }
+}
+
+// Format the photo date as YYYYMMDD-HHMMSS
+function formatPhotoDate(dateObj) {
+  const YYYY = dateObj.getFullYear();
+  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const DD = String(dateObj.getDate()).padStart(2, "0");
+  const HH = String(dateObj.getHours()).padStart(2, "0");
+  const mm = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
 }
 
 // Helper function to get nested properties safely

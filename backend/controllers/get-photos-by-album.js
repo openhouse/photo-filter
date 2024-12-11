@@ -4,15 +4,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
-import { execCommand } from "../utils/exec-command.js";
+import {
+  runOsxphotosExportImages,
+  renameExportedImages,
+  getNestedProperty,
+} from "../utils/export-images.js";
 import plist from "plist";
 import { exec } from "child_process";
-
 import os from "os";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const tag = require("osx-tag");
@@ -31,14 +30,15 @@ async function setFinderTags(filePath, tags) {
   });
 }
 
-// Function to get photos by album UUID with sorting and tagging
 export const getPhotosByAlbum = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall"; // Default sort attribute
-    const sortOrder = req.query.order || "desc"; // Default sort order
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
 
-    // Paths
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
     const dataDir = path.join(__dirname, "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
@@ -53,11 +53,9 @@ export const getPhotosByAlbum = async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Ensure directories exist
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // Check if photos.json exists
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
@@ -68,19 +66,19 @@ export const getPhotosByAlbum = async (req, res) => {
         imagesDir,
         photosPath
       );
+      // Now also rename them to have the date prefix
+      await renameExportedImages(imagesDir, photosPath);
     }
 
-    // Read photos data
     const photosData = await fs.readJson(photosPath);
 
-    // Add 'original_name' property to each photo
+    // Add 'original_name' property
     photosData.forEach((photo) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
 
     const limit = 60;
 
-    // List of attributes to process
     const attributesToProcess = [
       { name: "score.overall", order: "desc", limit: limit },
       { name: "score.curation", order: "desc", limit: limit },
@@ -107,67 +105,44 @@ export const getPhotosByAlbum = async (req, res) => {
       { name: "score.well_timed_shot", order: "desc", limit: limit },
     ];
 
-    // Initialize a map to keep track of tags for each photo
     const photoTags = {};
 
-    // For each attribute, compute the top N photos
     attributesToProcess.forEach(({ name, order, limit }) => {
-      // Sort photos based on the attribute
       const sortedPhotos = [...photosData].sort((a, b) => {
         const aValue = getNestedProperty(a, name);
         const bValue = getNestedProperty(b, name);
-
         if (aValue === undefined || aValue === null) return 1;
         if (bValue === undefined || bValue === null) return -1;
-
-        if (order === "asc") {
-          return aValue - bValue;
-        } else {
-          return bValue - aValue;
-        }
+        return order === "asc" ? aValue - bValue : bValue - aValue;
       });
 
-      // Take the top N photos
       const topPhotos = sortedPhotos.slice(0, limit);
-
-      // Add the attribute name to the tags for each top photo
       topPhotos.forEach((photo) => {
-        const photoId = photo.uuid;
-        if (!photoTags[photoId]) {
-          photoTags[photoId] = [];
+        if (!photoTags[photo.uuid]) {
+          photoTags[photo.uuid] = [];
         }
-        // Extract the attribute display name
         const attributeDisplayName = capitalizeAttributeName(name);
-        if (!photoTags[photoId].includes(attributeDisplayName)) {
-          photoTags[photoId].push(attributeDisplayName);
+        if (!photoTags[photo.uuid].includes(attributeDisplayName)) {
+          photoTags[photo.uuid].push(attributeDisplayName);
         }
       });
     });
 
-    // Now, when rendering the photos, include the tags
     photosData.forEach((photo) => {
       photo.tags = photoTags[photo.uuid] || [];
     });
 
-    // Extract the list of score attributes for the dropdown
     const scoreAttributes = Object.keys(photosData[0].score);
 
-    // Sort photos based on the requested attribute
+    // Sort the photos by requested attribute
     photosData.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
-
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
-
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // Pass the photos and score attributes to the view
     res.render("index", {
       photos: photosData,
       albumUUID,
@@ -184,45 +159,7 @@ export const getPhotosByAlbum = async (req, res) => {
   }
 };
 
-// Helper function to export images using osxphotos
-async function runOsxphotosExportImages(
-  osxphotosPath,
-  albumUUID,
-  imagesDir,
-  photosPath
-) {
-  // Read photo UUIDs from photos.json
-  const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
-  await fs.ensureDir(imagesDir);
-
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
-
-  // Use {original_name} template to avoid double extensions
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
-
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
-}
-
-// Helper function to get nested properties safely
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath.split(".").reduce((acc, part) => {
-    if (acc && acc[part] !== undefined) {
-      return acc[part];
-    } else {
-      return null;
-    }
-  }, obj);
-}
-
-// Helper function to capitalize attribute names
 function capitalizeAttributeName(attributeName) {
-  // Convert 'score.overall' to 'Overall'
   const nameParts = attributeName.split(".");
   const lastPart = nameParts[nameParts.length - 1];
   return lastPart
@@ -231,16 +168,11 @@ function capitalizeAttributeName(attributeName) {
     .join(" ");
 }
 
-// Function to set tags on exported images
 async function setTagsOnExportedImages(imagesDir, photosData) {
   for (const photo of photosData) {
     const tags = photo.tags || [];
+    if (tags.length === 0) continue;
 
-    if (tags.length === 0) {
-      continue; // No tags to set
-    }
-
-    // **Add the count tag**
     const countTag = `${tags.length} Tags`;
     tags.push(countTag);
 

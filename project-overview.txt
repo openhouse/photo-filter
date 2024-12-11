@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec  7 12:35:09 EST 2024
+Generated on: Wed Dec 11 17:12:26 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -31,27 +31,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   ├── --albums.json
-│   │   ├── -albums.json
-│   │   ├── .DS_Store
-│   │   ├── albums
-│   │   │   ├── 0CE433FA-F9BD-436E-BA0D-68B155229E16
-│   │   │   │   └── photos.json
-│   │   │   ├── 1FA3106D-E434-4F44-9A1D-9D9CC55461A4
-│   │   │   │   └── photos.json
-│   │   │   ├── 2E2FA464-1C19-43E4-8F69-1C31661223A5
-│   │   │   │   └── photos.json
-│   │   │   ├── 561CCDD4-26A7-4898-8514-ECE1AABF1409
-│   │   │   │   └── photos.json
-│   │   │   ├── 67F2EC0F-02E3-406E-8703-02324299F9EC
-│   │   │   │   └── photos.json
-│   │   │   ├── 6D0E4FA5-B9B2-47E2-B4DE-84F30F73AC24
-│   │   │   │   └── photos.json
-│   │   │   ├── A14DD479-DBDB-47E0-A4F3-0A57E3F897A2
-│   │   │   │   └── photos.json
-│   │   │   └── BF7EF091-7335-4582-A5A2-A44871ACC5D4
-│   │   │       └── photos.json
-│   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
@@ -89,10 +68,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── person.hbs
 │   │   └── persons.hbs
 │   └── yarn.lock
-├── data
-│   └── albums
-│       └── 8F27C9E8-F5CD-42AA-97A2-5DC49E0A4AB1
-│           └── photos.json
 ├── frontend
 │   └── photo-filter-frontend
 │       ├── .editorconfig
@@ -204,7 +179,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-66 directories, 129 files
+54 directories, 116 files
 ```
 
 ---
@@ -508,6 +483,38 @@ Allow users to perform actions on the selected photos, such as exporting them to
 
 - **Implement Actual Export Logic:** Complete the backend function to export photos.
 - **Enhance User Feedback:** Provide better UI notifications and progress indicators.
+
+---
+
+## Issue 16: Filename Collisions When Reconstructing Directory Structure
+
+**Opened By:** [Your Name] on Dec 11, 2024
+
+**Status:** **Resolved**
+
+### Description
+
+Previously, when exporting images from Apple Photos to a flat directory structure, multiple images shared the same `original_name` (e.g., `DSCF1191.jpg`) leading to collisions and confusion. This happened because we lost the original directory context and ended up with multiple files named identically.
+
+### Resolution
+
+- **Chosen Solution**: Prepend the date/time the photo was taken (derived from EXIF or `photos.json` metadata) to the filename.
+- **Format**: `YYYYMMDD-HHMMSS-OriginalFilename.jpg`
+- **Example**: `20241209-215443-DSCF1191.jpg`
+
+This ensures chronological sorting by filename and reduces the risk of collisions. In the rare event of a collision (multiple photos taken at the exact same second with the same original name), we append a counter (`-1`, `-2`, etc.) until we find a unique name.
+
+### Actions Taken
+
+- Implemented a post-export step in `photos-controller.js` that:
+  1. Reads the `date` field from each photo in `photos.json`.
+  2. Formats the date/time as `YYYYMMDD-HHMMSS`.
+  3. Renames the exported `original_name.jpg` file to include the date/time prefix.
+  4. Checks for collisions and resolves them by incrementing a counter if needed.
+
+### Outcome
+
+With this new naming scheme, sorting by filename in a file browser reflects the chronological order of when photos were taken, and file collisions are prevented.
 
 ---
 
@@ -1366,74 +1373,37 @@ const execAsync = promisify(exec);
 
 ### **./backend/controllers/api-controller.js**
 ```
-// ./controllers/api-controller.js
+// backend/controllers/api/photos-controller.js
 
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { runPythonScript } from "../utils/run-python-script.js";
-import { execCommand } from "../utils/exec-command.js";
+import { runPythonScript } from "../../utils/run-python-script.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Helper function to format data in JSON:API format
-function formatJsonApi(type, data) {
-  if (Array.isArray(data)) {
-    return data.map((item) => ({
-      type,
-      id: item.uuid || item.id,
-      attributes: { ...item, id: undefined, uuid: undefined },
-    }));
-  } else {
-    return {
-      type,
-      id: data.uuid || data.id,
-      attributes: { ...data, id: undefined, uuid: undefined },
-    };
-  }
-}
+// Ensure 'type' is 'photo' and prevent pluralization
+const PhotoSerializer = new Serializer("photo", {
+  id: "uuid", // Use 'uuid' as the 'id' field
+  attributes: [
+    "originalName",
+    "originalFilename",
+    "filename",
+    "score",
+    "exifInfo",
+  ],
+  keyForAttribute: "camelCase",
+  relationships: {
+    album: {
+      type: "album", // Use singular 'album' for the relationship
+    },
+  },
+  pluralizeType: false, // Prevent automatic pluralization
+});
 
-// Function to get albums data
-export const getAlbumsData = async (req, res) => {
-  try {
-    const dataDir = path.join(__dirname, "..", "data");
-    const albumsPath = path.join(dataDir, "albums.json");
-    const venvDir = path.join(__dirname, "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "scripts",
-      "export_albums.py"
-    );
-
-    // Ensure data directory exists
-    await fs.ensureDir(dataDir);
-
-    // Check if albums.json exists
-    if (!(await fs.pathExists(albumsPath))) {
-      console.log("albums.json not found. Exporting albums using osxphotos...");
-
-      // Export albums using the Python script
-      await runPythonScript(pythonPath, scriptPath, [], albumsPath);
-    }
-
-    // Read albums data
-    const albumsData = await fs.readJson(albumsPath);
-
-    // Transform to JSON:API format
-    const jsonApiData = formatJsonApi("albums", albumsData);
-
-    // Send JSON response
-    res.json({ data: jsonApiData });
-  } catch (error) {
-    console.error("Error fetching albums:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
-  }
-};
-
-// Function to get photos by album UUID with sorting
 export const getPhotosByAlbumData = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
@@ -1441,14 +1411,15 @@ export const getPhotosByAlbumData = async (req, res) => {
     const sortOrder = req.query.order || "desc"; // Default sort order
 
     // Paths
-    const dataDir = path.join(__dirname, "..", "data");
+    const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = path.join(photosDir, "images");
-    const venvDir = path.join(__dirname, "..", "venv");
+    const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
       __dirname,
+      "..",
       "..",
       "scripts",
       "export_photos_in_album.py"
@@ -1470,14 +1441,17 @@ export const getPhotosByAlbumData = async (req, res) => {
         imagesDir,
         photosPath
       );
+
+      // After exporting, rename files to prepend the photo's capture date
+      await renameExportedImages(imagesDir, photosPath);
     }
 
     // Read photos data
     const photosData = await fs.readJson(photosPath);
 
-    // Add 'original_name' property to each photo
+    // Add 'originalName' property to each photo
     photosData.forEach((photo) => {
-      photo.original_name = path.parse(photo.original_filename).name;
+      photo.originalName = path.parse(photo.original_filename).name;
     });
 
     // Extract the list of score attributes
@@ -1498,27 +1472,17 @@ export const getPhotosByAlbumData = async (req, res) => {
       }
     });
 
-    const jsonApiPhotos = photosData.map((photo) => ({
-      type: "photos",
-      id: photo.uuid,
-      attributes: {
-        ...photo,
-        id: undefined,
-        uuid: undefined,
-      },
-      relationships: {
-        album: {
-          data: {
-            type: "albums",
-            id: albumUUID,
-          },
-        },
-      },
-    }));
+    // Add album relationship
+    photosData.forEach((photo) => {
+      photo.album = albumUUID;
+    });
+
+    // Serialize data
+    const jsonApiData = PhotoSerializer.serialize(photosData);
 
     // Send JSON response with photos and available score attributes
     res.json({
-      data: jsonApiPhotos,
+      ...jsonApiData,
       meta: {
         albumUUID,
         sortAttribute,
@@ -1555,6 +1519,47 @@ async function runOsxphotosExportImages(
 
   console.log(`Executing command:\n${commandImages}`);
   await execCommand(commandImages, "Error exporting album images:");
+}
+
+// Rename exported images with date-based filenames
+async function renameExportedImages(imagesDir, photosPath) {
+  const photosData = await fs.readJson(photosPath);
+
+  for (const photo of photosData) {
+    const originalName = path.parse(photo.original_filename).name; // e.g., DSCF1191
+    const photoDate = new Date(photo.date); // Parse the photo’s date field
+    const formattedDate = formatPhotoDate(photoDate); // YYYYMMDD-HHMMSS
+    const oldPath = path.join(imagesDir, `${originalName}.jpg`);
+
+    if (await fs.pathExists(oldPath)) {
+      let newFilename = `${formattedDate}-${originalName}.jpg`;
+      let finalPath = path.join(imagesDir, newFilename);
+
+      // Check for collisions
+      let counter = 1;
+      while (await fs.pathExists(finalPath)) {
+        newFilename = `${formattedDate}-${originalName}-${counter}.jpg`;
+        finalPath = path.join(imagesDir, newFilename);
+        counter++;
+      }
+
+      await fs.rename(oldPath, finalPath);
+      console.log(`Renamed ${originalName}.jpg to ${newFilename}`);
+    } else {
+      console.warn(`File not found for rename: ${oldPath}`);
+    }
+  }
+}
+
+// Format the photo date as YYYYMMDD-HHMMSS
+function formatPhotoDate(dateObj) {
+  const YYYY = dateObj.getFullYear();
+  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const DD = String(dateObj.getDate()).padStart(2, "0");
+  const HH = String(dateObj.getHours()).padStart(2, "0");
+  const mm = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
 }
 
 // Helper function to get nested properties safely
@@ -1651,8 +1656,6 @@ export const getPeopleInAlbumLegacy = async (req, res) => {
     }
 
     const photosData = await fs.readJson(photosPath);
-    console.log("albumUUID:", albumUUID);
-    console.log("req.params:", req.params);
 
     // Gather all distinct people
     const allPersons = new Set();
@@ -2444,281 +2447,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 }
 ```
 
-### **./backend/data/--albums.json**
-```json
-[
-    {
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
-        "title": "Inner Space"
-    },
-    {
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
-        "title": "Carmen"
-    },
-    {
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
-        "title": "Jamie"
-    },
-    {
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
-        "title": "LoVid"
-    },
-    {
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
-        "title": "Lera Show"
-...
-```
-
-### **./backend/data/albums.json**
-```json
-[
-    {
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
-        "title": "Inner Space"
-    },
-    {
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
-        "title": "Carmen"
-    },
-    {
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
-        "title": "Jamie"
-    },
-    {
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
-        "title": "LoVid"
-    },
-    {
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
-        "title": "Lera Show"
-...
-```
-
-### **./backend/data/-albums.json**
-```json
-[
-    {
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
-        "title": "Inner Space"
-    },
-    {
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
-        "title": "Carmen"
-    },
-    {
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
-        "title": "Jamie"
-    },
-    {
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
-        "title": "LoVid"
-    },
-    {
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
-        "title": "Lera Show"
-...
-```
-
-### **./backend/data/albums/2E2FA464-1C19-43E4-8F69-1C31661223A5/photos.json**
-```json
-[
-    {
-        "albums": [
-            "Brooklyn",
-            "FujiFilm x100v: All, Full Res"
-        ],
-        "burst": false,
-        "cloud_guid": "ARlSAYDGvCvjCuvnJiW/dBT5Heqa",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-11-28 23:22:52.851393-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-11-28 19:57:01-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 800,
-            "metering_mode": 5,
-            "sample_rate": null,
-...
-```
-
-### **./backend/data/albums/0CE433FA-F9BD-436E-BA0D-68B155229E16/photos.json**
-```json
-[
-    {
-        "albums": [
-            "196 Blulbs",
-            "2024-12-01-day",
-            "FujiFilm x100v: All, Full Res"
-        ],
-        "burst": false,
-        "cloud_guid": "AYb8yeUxUYOD4yxwAvDh0b3UBV7l",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-11-30 22:39:15.494889-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-11-30 21:52:27-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 2500,
-            "metering_mode": 5,
-...
-```
-
-### **./backend/data/albums/BF7EF091-7335-4582-A5A2-A44871ACC5D4/photos.json**
-```json
-[
-    {
-        "albums": [
-            "Austria",
-            "FujiFilm x100v: All, Full Res",
-            "Ukraine",
-            "Wien, Austria (Vienna)"
-        ],
-        "burst": false,
-        "cloud_guid": "AcBZptLF5QswNAqAWVFOHWXiXSJc",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-11-19 22:54:32.914870+01:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-11-19 19:34:11+01:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 500,
-...
-```
-
-### **./backend/data/albums/6D0E4FA5-B9B2-47E2-B4DE-84F30F73AC24/photos.json**
-```json
-[
-    {
-        "albums": [
-            "FujiFilm x100v: All, Full Res",
-            "MIT",
-            "MIT-Day-02"
-        ],
-        "burst": false,
-        "cloud_guid": "AUDTqphuh6I7Bt0FnubVWcXfR2mc",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-12-06 17:51:37.298699-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-12-06 17:05:52-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 250,
-            "metering_mode": 5,
-...
-```
-
-### **./backend/data/albums/67F2EC0F-02E3-406E-8703-02324299F9EC/photos.json**
-```json
-[
-    {
-        "albums": [
-            "FUJIFILM X100V",
-            "MIT"
-        ],
-        "burst": false,
-        "cloud_guid": "ATugRSKlRvsagyKkkrW8HWPBE5FM",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-12-05 20:24:37.739260-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-12-05 19:35:17-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 3200,
-            "metering_mode": 5,
-            "sample_rate": null,
-...
-```
-
-### **./backend/data/albums/561CCDD4-26A7-4898-8514-ECE1AABF1409/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2024-12-01-day",
-            "FujiFilm x100v: All, Full Res",
-            "Mir & Max"
-        ],
-        "burst": false,
-        "cloud_guid": "AcSEPiuXBZgwpoiypBMP7q0DWUTt",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-11-30 20:35:09.211243-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-11-30 19:07:52-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 160,
-            "metering_mode": 5,
-...
-```
-
-### **./backend/data/albums/1FA3106D-E434-4F44-9A1D-9D9CC55461A4/photos.json**
-```json
-[
-    {
-        "albums": [
-            "196 Blulbs",
-            "2024-12-01-day",
-            "FujiFilm x100v: All, Full Res"
-        ],
-        "burst": false,
-        "cloud_guid": "AYb8yeUxUYOD4yxwAvDh0b3UBV7l",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-11-30 22:39:15.494889-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-11-30 21:52:27-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 2500,
-            "metering_mode": 5,
-...
-```
-
-### **./backend/data/albums/A14DD479-DBDB-47E0-A4F3-0A57E3F897A2/photos.json**
-```json
-[
-    {
-        "albums": [
-            "Mir Thanksgiving 2024"
-        ],
-        "burst": false,
-        "cloud_guid": "AS/ovvJBILoYiWunEvMEIZJ8hd55",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-12-02 16:55:29.270375-05:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2024-12-02 16:55:29-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": null,
-            "metering_mode": null,
-            "sample_rate": null,
-            "track_format": null,
-...
-```
-
 ### **./backend/views/albums.hbs**
 ```
 <!-- ./views/albums.hbs -->
@@ -2897,7 +2625,7 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 
 <ul>
   {{#each people as |person|}}
-    <li><a href="/album/{{albumUUID}}/person/{{person}}">{{person}}</a></li>
+    <li><a href="/album/{{../albumUUID}}/person/{{person}}">{{person}}</a></li>
   {{/each}}
 </ul>```
 

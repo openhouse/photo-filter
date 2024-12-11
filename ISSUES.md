@@ -97,4 +97,36 @@ Allow users to perform actions on the selected photos, such as exporting them to
 
 ---
 
+## Issue 16: Filename Collisions When Reconstructing Directory Structure
+
+**Opened By:** [Your Name] on Dec 11, 2024
+
+**Status:** **Resolved**
+
+### Description
+
+Previously, when exporting images from Apple Photos to a flat directory structure, multiple images shared the same `original_name` (e.g., `DSCF1191.jpg`) leading to collisions and confusion. This happened because we lost the original directory context and ended up with multiple files named identically.
+
+### Resolution
+
+- **Chosen Solution**: Prepend the date/time the photo was taken (derived from EXIF or `photos.json` metadata) to the filename.
+- **Format**: `YYYYMMDD-HHMMSS-OriginalFilename.jpg`
+- **Example**: `20241209-215443-DSCF1191.jpg`
+
+This ensures chronological sorting by filename and reduces the risk of collisions. In the rare event of a collision (multiple photos taken at the exact same second with the same original name), we append a counter (`-1`, `-2`, etc.) until we find a unique name.
+
+### Actions Taken
+
+- Implemented a post-export step in `photos-controller.js` that:
+  1. Reads the `date` field from each photo in `photos.json`.
+  2. Formats the date/time as `YYYYMMDD-HHMMSS`.
+  3. Renames the exported `original_name.jpg` file to include the date/time prefix.
+  4. Checks for collisions and resolves them by incrementing a counter if needed.
+
+### Outcome
+
+With this new naming scheme, sorting by filename in a file browser reflects the chronological order of when photos were taken, and file collisions are prevented.
+
+---
+
 # End of Issues Log
