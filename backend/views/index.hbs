@@ -1,4 +1,4 @@
-<!-- ./views/index.hbs -->
+<!-- backend/views/index.hbs -->
 <style>
   img {
     width: 30rem;
@@ -45,12 +45,12 @@
   {{#each photos}}
     <div class="photo-item">
       <img
-        src="/images/{{../albumUUID}}/{{this.original_name}}.jpg"
-        alt="{{this.original_name}}"
+        src="/images/{{../albumUUID}}/{{this.exported_filename}}"
+        alt="{{this.exported_filename}}"
         loading="lazy"
       />
       <p>
-        <span style="opacity: 0.38">{{@index}} -</span> {{this.original_name}}.jpg
+        <span style="opacity: 0.38">{{@index}} -</span> {{this.exported_filename}}
 
         {{#if this.tags}}
           <p class="tags">
@@ -60,8 +60,7 @@
           </p>
         {{/if}}
 
-        
-        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{get-nested-property this ../sortAttribute}}
       </p>
     </div>
   {{/each}}

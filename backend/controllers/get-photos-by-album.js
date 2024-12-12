@@ -6,7 +6,6 @@ import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
 import {
   runOsxphotosExportImages,
-  renameExportedImages,
   getNestedProperty,
 } from "../utils/export-images.js";
 import plist from "plist";
@@ -59,20 +58,19 @@ export const getPhotosByAlbum = async (req, res) => {
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-      // Export images
+      // Export images with osxphotos (directly uses date/time prefix)
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
         imagesDir,
         photosPath
       );
-      // Now also rename them to have the date prefix
-      await renameExportedImages(imagesDir, photosPath);
     }
 
     const photosData = await fs.readJson(photosPath);
 
     // Add 'original_name' property
+    // Since images are now named with a prefix, original_filename should reflect that.
     photosData.forEach((photo) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });

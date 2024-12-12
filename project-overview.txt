@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Wed Dec 11 17:12:26 EST 2024
+Generated on: Thu Dec 12 11:45:46 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -31,6 +31,11 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── albums
+│   │   │   ├── .DS_Store
+│   │   │   └── 6956E064-5A0E-4451-8A75-FC6724FED866
+│   │   │       └── photos.json
+│   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
@@ -58,6 +63,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │           └── photos-controller.test.js
 │   ├── utils
 │   │   ├── exec-command.js
+│   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
 │   │   └── run-python-script.js
 │   ├── views
@@ -91,7 +97,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   └── photo.js
 │       │   ├── app.js
 │       │   ├── components
-│       │   │   └── .gitkeep
+│       │   │   ├── .gitkeep
+│       │   │   ├── photo-grid.hbs
+│       │   │   └── photo-grid.js
 │       │   ├── controllers
 │       │   │   ├── .gitkeep
 │       │   │   └── albums
@@ -102,6 +110,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── helpers
 │       │   │   ├── .gitkeep
 │       │   │   ├── capitalize.js
+│       │   │   ├── eq.js
 │       │   │   ├── get-nested-property.js
 │       │   │   └── replace.js
 │       │   ├── index.html
@@ -179,7 +188,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-54 directories, 116 files
+56 directories, 123 files
 ```
 
 ---
@@ -490,31 +499,32 @@ Allow users to perform actions on the selected photos, such as exporting them to
 
 **Opened By:** [Your Name] on Dec 11, 2024
 
-**Status:** **Resolved**
+**Status:** **Open** (Reopened December 12, 2024)
 
 ### Description
 
-Previously, when exporting images from Apple Photos to a flat directory structure, multiple images shared the same `original_name` (e.g., `DSCF1191.jpg`) leading to collisions and confusion. This happened because we lost the original directory context and ended up with multiple files named identically.
+When exporting images from Apple Photos to a flat directory structure, multiple images can share the same `original_name` (e.g., `DSCF1191.jpg`). This leads to filename collisions and confusion when we lose the original directory context. The initial solution was to prepend the date/time to the filename during post-export renaming steps. However, we must verify that this approach works completely and consistently before marking the issue as resolved.
 
-### Resolution
+### Current Approach (Under Testing)
 
-- **Chosen Solution**: Prepend the date/time the photo was taken (derived from EXIF or `photos.json` metadata) to the filename.
-- **Format**: `YYYYMMDD-HHMMSS-OriginalFilename.jpg`
-- **Example**: `20241209-215443-DSCF1191.jpg`
+- **Date/Time Prefix**: Prepending the date/time (`YYYYMMDD-HHMMSS`) to the filename to ensure uniqueness and chronological sorting by filename.
+- **Collision Handling**: If two photos have the exact same timestamp and original name, append a counter (`-1`, `-2`, etc.) until a unique name is found.
+- **Integration with `osxphotos`**: Instead of renaming after export, we've adjusted our approach to use `osxphotos` filename templates so that the exported files have the correct names right after export, ideally removing the need for a separate rename step. We need to confirm that our entire pipeline, including all references in our app, uses the correct filenames and that this approach truly resolves collisions.
 
-This ensures chronological sorting by filename and reduces the risk of collisions. In the rare event of a collision (multiple photos taken at the exact same second with the same original name), we append a counter (`-1`, `-2`, etc.) until we find a unique name.
+### Action Items
 
-### Actions Taken
-
-- Implemented a post-export step in `photos-controller.js` that:
-  1. Reads the `date` field from each photo in `photos.json`.
-  2. Formats the date/time as `YYYYMMDD-HHMMSS`.
-  3. Renames the exported `original_name.jpg` file to include the date/time prefix.
-  4. Checks for collisions and resolves them by incrementing a counter if needed.
+- [ ] Verify that `osxphotos` filename templates work as intended and no collisions occur directly after export.
+- [ ] Confirm that the rest of the application references the correct filenames consistently.
+- [ ] Apply and test the fix in a real environment to confirm no collisions and that sorting by filename works as desired.
 
 ### Outcome
 
-With this new naming scheme, sorting by filename in a file browser reflects the chronological order of when photos were taken, and file collisions are prevented.
+This issue remains open until:
+
+1. The solution is applied by the real person managing the system.
+2. Verification in a real environment confirms that the fix works as intended.
+
+No premature marking of "Resolved" is allowed until these conditions are met.
 
 ---
 
@@ -613,232 +623,149 @@ Project Guidelines
 
 Table of Contents
 
-    •	Project Philosophy
-    •	Keeping Up with Dependencies
-    •	Data Formats
-    •	Data Synchronization and Caching
-    •	Ensuring Complete Project Overviews
-    •	Coding Standards
-    •	Naming Conventions
-    •	Directory Structure
-    •	Documentation Practices
-    •	Privacy and Data Handling
-    •	Project State and Continuity
-    •	Issue Tracking and Debugging
-    •	Collaboration Guidelines
-    •	Environment and Dependency Management
-    •	Error Handling and Logging
-    •	Security Best Practices
-    •	Testing
-    •	Deployment and Operations
-    •	Performance Optimization
+- Project Philosophy
+- Keeping Up with Dependencies
+- Data Formats
+- Data Synchronization and Caching
+- Ensuring Complete Project Overviews
+- Coding Standards
+- Naming Conventions
+- Directory Structure
+- Documentation Practices
+- Privacy and Data Handling
+- Project State and Continuity
+- Issue Tracking and Debugging
+- Collaboration Guidelines
+- Environment and Dependency Management
+- Error Handling and Logging
+- Security Best Practices
+- Testing
+- Deployment and Operations
+- Performance Optimization
 
-Project Philosophy
+---
 
-    •	User-Centric Design: Develop features that meet the specific needs of photographers working with large photo libraries.
-    •	Interactivity and Engagement: Create an intuitive and engaging user experience, especially for complex tasks like photo selection and management.
-    •	Clarity and Readability: Code should be easy to read and understand by humans and AI alike.
-    •	Modularity: Break down the application into small, manageable modules.
-    •	Consistency: Follow established conventions throughout the project.
-    •	Ember.js Conventions: Default to current Ember.js conventions and standards across the frontend and backend unless there is a strong reason to do otherwise in the backend.
-    •	Privacy and Security: Handle sensitive user data responsibly, ensuring personal data remains private.
-    •	Performance: Optimize for handling large datasets efficiently.
-    •	Scalability: Design the application architecture to accommodate future growth and additional features.
-    •	Embrace Iterative Understanding: Recognize that solutions are provisional and open to revision. Document and revisit solutions over time, framing them as hypotheses effective under current understanding but adaptable as new insights emerge.
+## Project Philosophy
 
-Keeping Up with Dependencies
+- User-Centric Design, Interactivity, Clarity, Modularity, Consistency.
+- Ember.js Conventions: Follow Ember.js patterns.
+- Privacy, Security, Performance, Scalability.
+- Embrace Iterative Understanding: Treat solutions as provisional and open to revision.
 
-    •	Awareness of Rapid Changes: Acknowledge that open-source projects and dependencies, such as Ember.js, are rapidly evolving. Stay informed about the latest versions and updates.
-    •	Proactive Research: Regularly check for updates and changes in the dependencies used in the project. Utilize tools, AI assistants with web access, and official documentation to stay current.
-    •	Compatibility Checks: Ensure that updates to dependencies do not break existing functionality. Test thoroughly when upgrading to new versions.
-    •	Document Changes: Keep a log of dependency versions and update notes in the project’s documentation, including any migration steps or deprecated features.
-    •	Community Engagement: Participate in the communities of key dependencies to stay ahead of upcoming changes and contribute when possible.
+## Keeping Up with Dependencies
 
-Data Formats
+- Stay informed of the latest versions and updates.
+- Test thoroughly after upgrading dependencies.
+- Document changes and version notes.
 
-    •	JSON:API Format: Use the JSON:API specification for data exchange between the frontend and backend to ensure consistency and compatibility, especially with Ember Data.
-    •	JSON:API Serializer: Utilize packages like jsonapi-serializer on the backend to format responses according to the JSON:API specification, enhancing maintainability and compliance.
+## Data Formats
 
-Data Synchronization and Caching
+- Use JSON:API for backend/frontend integration.
+- Utilize `jsonapi-serializer` on the backend.
 
-    •	Cache Invalidation: Implement cache invalidation strategies to ensure the application reflects the most recent data from the Apple Photos library.
-    •	Timestamp Comparison: Use the last modified timestamps of the Photos library and cached data to determine when to refresh the cache.
-    •	Performance Balance: Strive for a balance between data freshness and application performance.
+## Data Synchronization and Caching
 
-Ensuring Complete Project Overviews
+- Implement cache invalidation using timestamps.
+- Balance data freshness with performance.
 
-Including all relevant files in the project overview helps maintain transparency and aids in collaboration, especially when multiple contributors are involved. The generate-overview.sh script should be kept up to date to include all necessary files, such as root-level markdown files (DEVELOPMENT_PLAN.md, ISSUES.md, project-guidelines.md, README.md), and any other files critical to the project’s understanding. The script should balance the need for completeness with the practicality of input constraints in collaborative tools.
-• Updating generate-overview.sh: When new important files are added to the project, or when the inclusion criteria change, update generate-overview.sh to reflect these changes.
-• Reviewing Project Overviews: Regularly generate and review project-overview.txt to ensure it accurately represents the project’s current state.
+## Ensuring Complete Project Overviews
 
-Coding Standards
+- Include all relevant files in generated overviews.
+- Update `generate-overview.sh` as the project evolves.
+- Regularly review project-overview.txt for accuracy.
 
-    •	Use consistent indentation (2 spaces).
-    •	Follow naming conventions:
-    •	Variables and Functions: camelCase
-    •	Classes and Constructors: PascalCase
-    •	Constants: UPPER_SNAKE_CASE
-    •	Write comments for complex code blocks.
-    •	Avoid global variables; use modules and closures.
-    •	Use ES6+ features where appropriate.
-    •	Ember.js Standards: Follow Ember.js coding conventions and best practices in both the frontend and backend where applicable. This includes file naming, directory structure, and coding styles recommended by Ember.js.
+## Coding Standards
 
-Naming Conventions
+- Consistent indentation (2 spaces).
+- camelCase for variables/functions, PascalCase for classes, UPPER_SNAKE_CASE for constants.
+- Avoid globals; use modules.
+- Follow Ember.js coding conventions where applicable.
 
-    •	Use dasherized filenames for files (e.g., photo-controller.js).
-    •	Directories and files should be lowercase with hyphens.
-    •	Keep filenames descriptive and concise.
+## Naming Conventions
 
-Directory Structure
+- Dasherized filenames (e.g., `photo-controller.js`).
+- Descriptive and concise filenames.
 
-    •	backend/: Express.js server and API endpoints.
-    •	frontend/: Ember.js application.
-    •	config/: Configuration files.
-    •	controllers/: Application logic and request handlers.
-    •	models/: Database models and data structures.
-    •	routes/: Route definitions and middleware.
-    •	views/: Template files (if any remain).
-    •	public/: Static assets (CSS, JavaScript, images).
-    •	data/: Data files and temporary caches (excluded from git).
-    •	exports/: Exported photos (excluded from git).
-    •	scripts/: Utility scripts (e.g., generate-overview.sh).
-    •	utils/: Utility functions and helpers.
-    •	tests/: Automated tests.
+## Directory Structure
 
-Documentation Practices
+- `backend/`: Express.js server and APIs
+- `frontend/`: Ember.js app
+- `data/`, `exports/`, `scripts/`, `utils/`, `tests/`
+- Keep structure organized and consistent.
 
-    •	Update README.md with project information, setup instructions, and usage examples.
-    •	Use generate-overview.sh to generate project overviews automatically.
-    •	Include All Relevant Files: Ensure that the project overview includes the contents of all relevant files, excluding personal data and photos.
-    •	Include inline documentation in code files using JSDoc comments where appropriate.
-    •	Maintain a changelog (CHANGELOG.md) to track changes over time.
-    •	Document any architectural decisions in an ARCHITECTURE.md file.
-    •	Incorporate “Questions to Consider”: In documentation and code comments, include open-ended questions that highlight potential uncertainties or areas for further exploration. This invites contributors to approach the project with a proactive, questioning mindset.
+## Documentation Practices
 
-Privacy and Data Handling
+- Update `README.md`, `DEVELOPMENT_PLAN.md`, `ISSUES.md`, `project-guidelines.md`.
+- Use inline code comments and JSDoc.
+- Maintain a changelog and consider `ARCHITECTURE.md` for big-picture decisions.
+- Include “Questions to Consider” to highlight uncertainties.
 
-    •	Data Exclusion: Do not include personal data or photos in the git repository.
-    •	Local Storage: Store temporary caches and exported data securely on the user’s local machine.
-    •	User Consent: Ensure any data processing is transparent to the user.
+## Privacy and Data Handling
 
-Project State and Continuity
+- Do not store personal data in git.
+- Be transparent about data processing.
 
-    •	Portability: Ensure the project’s state is fully contained within the project files for new collaborators or assistants.
-    •	Agile State Documentation: Include the current project state, pending tasks, and future plans within the project files.
-    •	Self-Containment: The project should be self-contained, requiring no external context to understand its current state and next steps.
+## Project State and Continuity
 
-Issue Tracking and Debugging
+- Self-contained documentation.
+- Reflect current state, pending tasks, and future plans within the project files.
 
-    •	Use ISSUES.md to log open issues, steps taken to resolve them, and their eventual resolutions.
-    •	Introduce an Uncertainty Tag: For issues with aspects that remain unclear or unresolved, add an “Uncertain” status or tag. This encourages documenting both what’s known and unknown, creating a rich context that invites collective problem-solving.
-    •	When an issue is identified:
-    •	Describe the problem clearly.
-    •	Document the steps you’ve taken to diagnose and attempt to fix it.
-    •	Collaborate by inviting input from others, including role-playing as experts or utilizing AI assistants.
-    •	Reflect on the solution by asking, “What assumptions did we rely on?” or “What could still be unclear?”
-    •	Update the issue log with any new findings or solutions.
-    •	Resolutions as Provisional Truths: Frame issue resolutions as effective under current tests but open to improvement. This perspective respects the unknown and encourages team members to share doubts or questions.
-    •	This practice ensures transparency and helps prevent redundant work.
+## Issue Tracking and Debugging
 
-Collaboration Guidelines
+- Log issues in `ISSUES.md`.
+- Document steps taken and current status.
+- **Do Not Mark Issues as Resolved Until Verified**:  
+  **No issue should be marked as "Resolved" until the fix is actually applied by the real person managing the system, and tested to confirm it works in reality.**
+- Use "Uncertain" tags if needed to highlight unresolved aspects.
+- Treat resolutions as provisional truths.
 
-    •	Communication:
-    •	Provide clear and concise messages when collaborating.
-    •	Use full file contents for any file to be modified or created to ensure verifiability.
-    •	Include all necessary information in the project overview for effective collaboration.
-    •	Code Provisioning:
-    •	Full File Replacements: Always provide full files for any code changes to facilitate copy-paste replacement.
-    •	Project Organization: Organize the project into smaller, manageable files to support this method.
-    •	Include Git Commit Messages: When making changes to project files, always include a clear and descriptive git commit message in replies.
-    •	Version Control:
-    •	Commit small, logical changes with clear commit messages.
-    •	Use branches for new features or bug fixes.
-    •	Code Review:
-    •	Review and test contributions thoroughly before merging.
-    •	Encourage collaborative problem-solving.
-    •	Problem-Solving Approach:
-    •	Identify the issue and document it in ISSUES.md.
-    •	Brainstorm potential solutions, possibly involving role-play or consulting experts.
-    •	Test each solution systematically, noting outcomes.
-    •	Reflect on the process to improve future problem-solving efforts.
-    •	Embrace Iteration and Learning: Recognize that being unsure is a natural part of the process and an opportunity for growth.
-    •	Best Practices:
-    •	Keep the project composed of many small files to facilitate full file replacement via copy-paste from collaboration outputs.
+## Collaboration Guidelines
 
-Environment and Dependency Management
+- Communicate clearly and concisely.
+- Provide full file replacements for verifiable changes.
+- Keep project composed of smaller files for easy copy-paste integration.
+- Include clear commit messages.
 
-    •	Use .nvmrc to specify Node.js versions.
-    •	Keep dependencies up to date; use yarn or npm consistently.
-    •	Regular Updates:
-    •	Schedule regular intervals to check for updates to dependencies.
-    •	Use tools like npm-check-updates to identify outdated packages.
-    •	Testing After Updates:
-    •	After updating dependencies, run the full test suite to catch any compatibility issues.
-    •	Be cautious with major version updates that may introduce breaking changes.
-    •	Documentation of Versions:
-    •	Document the versions of critical dependencies in the README.md or a dedicated VERSIONS.md file.
-    •	Include notes on any significant changes or migration steps required.
-    •	Exclude unnecessary files and directories using .gitignore (e.g., node_modules/, public/images/, data/, exports/).
-    •	Integrate External Tools: Manage calls to external tools (like osxphotos) within the Node.js application.
-    •	Ember.js Integration: Ensure that Ember.js and its dependencies are properly managed and documented.
-    •	JSON:API Compliance: Ensure that the backend APIs conform to the JSON:API specification to facilitate seamless integration with Ember Data.
+## Environment and Dependency Management
 
-Error Handling and Logging
+- Use `.nvmrc` for Node.js versions.
+- Keep dependencies updated and tested.
+- Store config in environment variables.
+- Adhere to JSON:API specs to ensure frontend-backend compatibility.
 
-    •	Implement robust error handling in all asynchronous code.
-    •	Provide meaningful error messages.
-    •	Use logging to aid in debugging and monitoring application health.
+## Error Handling and Logging
 
-Security Best Practices
+- Implement robust error handling in async code.
+- Provide meaningful error messages.
+- Use logging for debugging and monitoring.
 
-    •	Do not commit sensitive information to version control.
-    •	Use environment variables for configuration where necessary.
-    •	Sanitize and validate all user inputs to prevent injection attacks.
+## Security Best Practices
 
-Testing
+- No sensitive info in version control.
+- Validate/sanitize user inputs.
+- Use environment variables for credentials.
 
-    •	Importance of Testing: Testing is crucial to ensure that our application functions correctly now and in the future. It helps us catch bugs early and provides confidence when making changes.
-    •	Test Coverage: Aim for comprehensive test coverage, including unit tests, integration tests, and acceptance tests for both the backend and frontend.
-    •	Testing Frameworks:
-    •	Backend: Use Jest for testing Node.js code in the backend.
-    •	Configuration: Ensure Jest is configured to work with ES modules.
-    •	Test Files: Place test files under backend/tests/ with a structure mirroring the source code.
-    •	Mocking: Use mocks to isolate tests from external dependencies like file systems or network requests.
-    •	Frontend: Use Ember CLI’s built-in testing tools.
-    •	Test Types:
-    •	Unit Tests: Test individual functions, helpers, and components.
-    •	Integration Tests: Test interactions between components.
-    •	Acceptance Tests: Test user flows and interactions with the app.
-    •	Test Files: Place test files under frontend/photo-filter-frontend/tests/.
-    •	Best Practices:
-    •	Write Tests Alongside Code: Whenever new code is added, corresponding tests should be written.
-    •	Automate Testing: Use scripts (npm test or yarn test) to automate running tests.
-    •	Continuous Integration: Set up CI/CD pipelines to run tests automatically on commits and pull requests.
-    •	Mock External Dependencies: Avoid relying on real external services or data in tests. Use mocking to simulate responses.
-    •	Clear Test Descriptions: Test names should clearly describe the functionality being tested.
-    •	Avoid Flaky Tests: Ensure tests are reliable and do not fail intermittently.
-    •	Maintaining Tests:
-    •	Update Tests with Code Changes: When modifying code, update the tests to reflect the changes.
-    •	Review Test Coverage: Regularly review test coverage reports to identify untested parts of the codebase.
-    •	Refactor Tests: Keep test code clean and maintainable, applying the same coding standards as production code.
-    •	Tools and Libraries:
-    •	Code Coverage Tools: Use tools like Istanbul or nyc for backend and built-in coverage tools in Ember CLI for frontend to measure code coverage.
-    •	Linting: Lint test code as rigorously as production code.
+## Testing
 
-Deployment and Operations
+- Comprehensive test coverage: unit, integration, acceptance.
+- Use Jest (backend) and Ember CLI testing tools (frontend).
+- Mock external dependencies.
+- Write tests alongside code changes.
+- Keep tests reliable and maintainable.
 
-    •	Document deployment processes.
-    •	Use environment-specific configurations.
-    •	Monitor application performance and errors in production environments.
+## Deployment and Operations
 
-Performance Optimization
+- Document deployment processes.
+- Use environment-specific configs.
+- Monitor performance and errors in production.
 
-    •	Optimize code for performance when handling large datasets.
-    •	Use caching strategies where appropriate.
-    •	Profile and monitor resource usage.
-    •	Implement lazy loading and other performance enhancements in the frontend.
+## Performance Optimization
 
-Note: These guidelines should be reviewed and updated regularly as the project evolves, embracing uncertainty and adapting to new insights. Staying current with the latest versions of dependencies and being proactive in managing updates is crucial for the project’s long-term success.
+- Optimize large dataset handling.
+- Use caching and lazy loading.
+- Profile resource usage.
+
+---
 ```
 
 ## Backend Files
@@ -1154,6 +1081,62 @@ export async function getPhotosLibraryLastModified() {
 
   const stats = await fs.stat(photosLibraryPath);
   return stats.mtime;
+}
+```
+
+### **./backend/utils/export-images.js**
+```
+// backend/utils/export-images.js
+
+import fs from "fs-extra";
+import path from "path";
+import { execCommand } from "./exec-command.js";
+
+/**
+ * Export images using osxphotos for a given album.
+ * @param {string} osxphotosPath - Path to the osxphotos executable in the virtualenv.
+ * @param {string} albumUUID - The UUID of the album to export.
+ * @param {string} imagesDir - The directory to which images will be exported.
+ * @param {string} photosPath - The path to the photos.json file.
+ */
+export async function runOsxphotosExportImages(
+  osxphotosPath,
+  albumUUID,
+  imagesDir,
+  photosPath
+) {
+  // Read photo UUIDs from photos.json
+  const photosData = await fs.readJson(photosPath);
+  const uuids = photosData.map((photo) => photo.uuid).join("\n");
+  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
+
+  // Ensure imagesDir exists
+  await fs.ensureDir(imagesDir);
+
+  // Write UUIDs to uuids.txt
+  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
+
+  // Use a date/time prefix and original_name directly via osxphotos template:
+  // {created.strftime,%Y%m%d-%H%M%S}-{original_name}
+  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{created.strftime,%Y%m%d-%H%M%S}-{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
+
+  console.log(`Executing command:\n${commandImages}`);
+  await execCommand(commandImages, "Error exporting album images:");
+}
+
+/**
+ * Safely get a nested property from an object.
+ * @param {object} obj - The object to retrieve the property from.
+ * @param {string} propertyPath - The dot-separated path (e.g. "score.overall").
+ * @returns {*} - The property value or null if not found.
+ */
+export function getNestedProperty(obj, propertyPath) {
+  return propertyPath
+    .split(".")
+    .reduce(
+      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
+      obj
+    );
 }
 ```
 
@@ -2027,23 +2010,25 @@ export const getPhotosByPerson = async (req, res) => {
 ### **./backend/controllers/api/photos-controller.js**
 ```
 // backend/controllers/api/photos-controller.js
-
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
-import { execCommand } from "../../utils/exec-command.js";
 import { Serializer } from "jsonapi-serializer";
+import {
+  runOsxphotosExportImages,
+  getNestedProperty,
+} from "../../utils/export-images.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure 'type' is 'photo' and prevent pluralization
 const PhotoSerializer = new Serializer("photo", {
-  id: "uuid", // Use 'uuid' as the 'id' field
+  id: "uuid",
   attributes: [
     "originalName",
     "originalFilename",
+    "exportedFilename",
     "filename",
     "score",
     "exifInfo",
@@ -2051,19 +2036,18 @@ const PhotoSerializer = new Serializer("photo", {
   keyForAttribute: "camelCase",
   relationships: {
     album: {
-      type: "album", // Use singular 'album' for the relationship
+      type: "album",
     },
   },
-  pluralizeType: false, // Prevent automatic pluralization
+  pluralizeType: false,
 });
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall"; // Default sort attribute
-    const sortOrder = req.query.order || "desc"; // Default sort order
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
 
-    // Paths
     const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
@@ -2079,14 +2063,14 @@ export const getPhotosByAlbumData = async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Ensure directories exist
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // Check if photos.json exists
+    // If photos.json doesn't exist, export metadata and images
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+
       // Export images
       await runOsxphotosExportImages(
         osxphotosPath,
@@ -2094,20 +2078,21 @@ export const getPhotosByAlbumData = async (req, res) => {
         imagesDir,
         photosPath
       );
+      // If the filename template in osxphotos already includes a date/time prefix,
+      // no additional rename step should be necessary.
     }
 
-    // Read photos data
     const photosData = await fs.readJson(photosPath);
 
-    // Add 'originalName' property to each photo
+    // Add 'originalName' and 'exportedFilename'
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
+      photo.exportedFilename = generateExportedFilename(photo);
     });
 
-    // Extract the list of score attributes
     const scoreAttributes = Object.keys(photosData[0].score);
 
-    // Sort photos based on the requested attribute
+    // Sort photos
     photosData.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
@@ -2115,22 +2100,14 @@ export const getPhotosByAlbumData = async (req, res) => {
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
 
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // Add album relationship
     photosData.forEach((photo) => {
       photo.album = albumUUID;
     });
 
-    // Serialize data
     const jsonApiData = PhotoSerializer.serialize(photosData);
-
-    // Send JSON response with photos and available score attributes
     res.json({
       ...jsonApiData,
       meta: {
@@ -2146,39 +2123,21 @@ export const getPhotosByAlbumData = async (req, res) => {
   }
 };
 
-// Helper function to export images using osxphotos
-async function runOsxphotosExportImages(
-  osxphotosPath,
-  albumUUID,
-  imagesDir,
-  photosPath
-) {
-  // Read photo UUIDs from photos.json
-  const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
-  await fs.ensureDir(imagesDir);
-
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
-
-  // Use {original_name} template to avoid double extensions
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
-
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
-}
-
-// Helper function to get nested properties safely
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
+/**
+ * Generate the exported filename based on the photo's date and original filename.
+ * If your osxphotos export command already includes a date/time prefix in the filename,
+ * adjust this function accordingly or remove it if not needed.
+ */
+function generateExportedFilename(photo) {
+  const dateObj = new Date(photo.date);
+  const YYYY = dateObj.getFullYear();
+  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const DD = String(dateObj.getDate()).padStart(2, "0");
+  const HH = String(dateObj.getHours()).padStart(2, "0");
+  const mm = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  const originalName = path.parse(photo.original_filename).name;
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}-${originalName}.jpg`;
 }
 ```
 
@@ -2190,15 +2149,13 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
-import { execCommand } from "../utils/exec-command.js";
+import {
+  runOsxphotosExportImages,
+  getNestedProperty,
+} from "../utils/export-images.js";
 import plist from "plist";
 import { exec } from "child_process";
-
 import os from "os";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const tag = require("osx-tag");
@@ -2217,14 +2174,15 @@ async function setFinderTags(filePath, tags) {
   });
 }
 
-// Function to get photos by album UUID with sorting and tagging
 export const getPhotosByAlbum = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall"; // Default sort attribute
-    const sortOrder = req.query.order || "desc"; // Default sort order
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
 
-    // Paths
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
     const dataDir = path.join(__dirname, "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
@@ -2239,15 +2197,13 @@ export const getPhotosByAlbum = async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Ensure directories exist
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // Check if photos.json exists
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-      // Export images
+      // Export images with osxphotos (directly uses date/time prefix)
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
@@ -2256,17 +2212,16 @@ export const getPhotosByAlbum = async (req, res) => {
       );
     }
 
-    // Read photos data
     const photosData = await fs.readJson(photosPath);
 
-    // Add 'original_name' property to each photo
+    // Add 'original_name' property
+    // Since images are now named with a prefix, original_filename should reflect that.
     photosData.forEach((photo) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
 
     const limit = 60;
 
-    // List of attributes to process
     const attributesToProcess = [
       { name: "score.overall", order: "desc", limit: limit },
       { name: "score.curation", order: "desc", limit: limit },
@@ -2293,67 +2248,44 @@ export const getPhotosByAlbum = async (req, res) => {
       { name: "score.well_timed_shot", order: "desc", limit: limit },
     ];
 
-    // Initialize a map to keep track of tags for each photo
     const photoTags = {};
 
-    // For each attribute, compute the top N photos
     attributesToProcess.forEach(({ name, order, limit }) => {
-      // Sort photos based on the attribute
       const sortedPhotos = [...photosData].sort((a, b) => {
         const aValue = getNestedProperty(a, name);
         const bValue = getNestedProperty(b, name);
-
         if (aValue === undefined || aValue === null) return 1;
         if (bValue === undefined || bValue === null) return -1;
-
-        if (order === "asc") {
-          return aValue - bValue;
-        } else {
-          return bValue - aValue;
-        }
+        return order === "asc" ? aValue - bValue : bValue - aValue;
       });
 
-      // Take the top N photos
       const topPhotos = sortedPhotos.slice(0, limit);
-
-      // Add the attribute name to the tags for each top photo
       topPhotos.forEach((photo) => {
-        const photoId = photo.uuid;
-        if (!photoTags[photoId]) {
-          photoTags[photoId] = [];
+        if (!photoTags[photo.uuid]) {
+          photoTags[photo.uuid] = [];
         }
-        // Extract the attribute display name
         const attributeDisplayName = capitalizeAttributeName(name);
-        if (!photoTags[photoId].includes(attributeDisplayName)) {
-          photoTags[photoId].push(attributeDisplayName);
+        if (!photoTags[photo.uuid].includes(attributeDisplayName)) {
+          photoTags[photo.uuid].push(attributeDisplayName);
         }
       });
     });
 
-    // Now, when rendering the photos, include the tags
     photosData.forEach((photo) => {
       photo.tags = photoTags[photo.uuid] || [];
     });
 
-    // Extract the list of score attributes for the dropdown
     const scoreAttributes = Object.keys(photosData[0].score);
 
-    // Sort photos based on the requested attribute
+    // Sort the photos by requested attribute
     photosData.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
-
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
-
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // Pass the photos and score attributes to the view
     res.render("index", {
       photos: photosData,
       albumUUID,
@@ -2370,45 +2302,7 @@ export const getPhotosByAlbum = async (req, res) => {
   }
 };
 
-// Helper function to export images using osxphotos
-async function runOsxphotosExportImages(
-  osxphotosPath,
-  albumUUID,
-  imagesDir,
-  photosPath
-) {
-  // Read photo UUIDs from photos.json
-  const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
-  await fs.ensureDir(imagesDir);
-
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
-
-  // Use {original_name} template to avoid double extensions
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
-
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
-}
-
-// Helper function to get nested properties safely
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath.split(".").reduce((acc, part) => {
-    if (acc && acc[part] !== undefined) {
-      return acc[part];
-    } else {
-      return null;
-    }
-  }, obj);
-}
-
-// Helper function to capitalize attribute names
 function capitalizeAttributeName(attributeName) {
-  // Convert 'score.overall' to 'Overall'
   const nameParts = attributeName.split(".");
   const lastPart = nameParts[nameParts.length - 1];
   return lastPart
@@ -2417,16 +2311,11 @@ function capitalizeAttributeName(attributeName) {
     .join(" ");
 }
 
-// Function to set tags on exported images
 async function setTagsOnExportedImages(imagesDir, photosData) {
   for (const photo of photosData) {
     const tags = photo.tags || [];
+    if (tags.length === 0) continue;
 
-    if (tags.length === 0) {
-      continue; // No tags to set
-    }
-
-    // **Add the count tag**
     const countTag = `${tags.length} Tags`;
     tags.push(countTag);
 
@@ -2447,6 +2336,56 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 }
 ```
 
+### **./backend/data/albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/6956E064-5A0E-4451-8A75-FC6724FED866/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2024-12-09",
+            "2024-12-11-Last Month",
+            "FujiFilm x100v: All, Full Res"
+        ],
+        "burst": false,
+        "cloud_guid": "AbZe/Yx1gH5bPgoyi7FqXRZz8YrC",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-09 16:58:31.698262-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-09 11:03:56-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 320,
+            "metering_mode": 5,
+...
+```
+
 ### **./backend/views/albums.hbs**
 ```
 <!-- ./views/albums.hbs -->
@@ -2462,7 +2401,7 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 
 ### **./backend/views/index.hbs**
 ```
-<!-- ./views/index.hbs -->
+<!-- backend/views/index.hbs -->
 <style>
   img {
     width: 30rem;
@@ -2509,12 +2448,12 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
   {{#each photos}}
     <div class="photo-item">
       <img
-        src="/images/{{../albumUUID}}/{{this.original_name}}.jpg"
-        alt="{{this.original_name}}"
+        src="/images/{{../albumUUID}}/{{this.exported_filename}}"
+        alt="{{this.exported_filename}}"
         loading="lazy"
       />
       <p>
-        <span style="opacity: 0.38">{{@index}} -</span> {{this.original_name}}.jpg
+        <span style="opacity: 0.38">{{@index}} -</span> {{this.exported_filename}}
 
         {{#if this.tags}}
           <p class="tags">
@@ -2524,8 +2463,7 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
           </p>
         {{/if}}
 
-        
-        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty this ../sortAttribute}}
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{get-nested-property this ../sortAttribute}}
       </p>
     </div>
   {{/each}}
@@ -2549,7 +2487,7 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 
 ### **./backend/views/person.hbs**
 ```
-<!-- ./views/person.hbs -->
+<!-- backend/views/person.hbs -->
 <style>
   img {
     width: 30rem;
@@ -2595,12 +2533,12 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
   {{#each photos as |photo|}}
     <div class="photo-item">
       <img
-        src="/images/{{../albumUUID}}/{{photo.original_name}}.jpg"
-        alt="{{photo.original_name}}"
+        src="/images/{{../albumUUID}}/{{photo.exported_filename}}"
+        alt="{{photo.exported_filename}}"
         loading="lazy"
       />
       <p>
-        <span style="opacity: 0.38">{{@index}} -</span> {{photo.original_name}}.jpg
+        <span style="opacity: 0.38">{{@index}} -</span> {{photo.exported_filename}}
 
         {{#if photo.tags}}
           <p class="tags">
@@ -2610,7 +2548,7 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
           </p>
         {{/if}}
 
-        {{capitalize (replace ../sortAttribute "score." "")}}: {{getNestedProperty photo ../sortAttribute}}
+        {{capitalize (replace ../sortAttribute "score." "")}}: {{get-nested-property photo ../sortAttribute}}
       </p>
     </div>
   {{/each}}
@@ -2741,13 +2679,13 @@ export default class AlbumModel extends Model {
 ### **./frontend/photo-filter-frontend/app/models/photo.js**
 ```
 // app/models/photo.js
-
 import Model, { attr, belongsTo } from '@ember-data/model';
 
 export default class PhotoModel extends Model {
   @attr('string') originalName;
   @attr('string') originalFilename;
   @attr('string') filename;
+  @attr('string') exportedFilename;
   @attr() score;
   @attr() exifInfo;
   @belongsTo('album', { async: true, inverse: 'photos' }) album;
@@ -2791,7 +2729,33 @@ export default class PhotoAdapter extends ApplicationAdapter {
 
 ### **./frontend/photo-filter-frontend/app/styles/app.scss**
 ```
-/* frontend/photo-filter-frontend/app/styles/app.scss */
+.albums-layout {
+  display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+}
+
+.albums-sidebar {
+  width: 250px;
+  background: #f5f5f5;
+  border-right: 1px solid #ddd;
+  padding: 20px;
+}
+
+.albums-content {
+  flex: 1;
+  padding: 20px;
+}
+
+.albums-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.album-item {
+  margin-bottom: 10px;
+}
 
 .smart-album-label {
   font-style: italic;
@@ -2799,8 +2763,57 @@ export default class PhotoAdapter extends ApplicationAdapter {
 }
 ```
 
+### **./frontend/photo-filter-frontend/app/components/photo-grid.hbs**
+```
+<!-- app/components/photo-grid.hbs -->
+{{#let (get (get-owner this).resolveRegistration('config:environment') 'APP.apiHost') as |apiHost|}}
+<div class="photo-grid">
+  {{#each @photos as |photo index|}}
+    <div class="photo-item">
+      <img
+        src="{{apiHost}}/images/{{@albumUUID}}/{{photo.exportedFilename}}"
+        alt="{{photo.exportedFilename}}"
+        loading="lazy"
+      />
+      <p>
+        <span style="opacity: 0.38">{{index}} -</span>
+        {{photo.exportedFilename}}
+
+        {{#if photo.tags}}
+          <p class="tags">
+            {{#each photo.tags as |tag|}}
+              <span class="tag">{{tag}}</span>
+            {{/each}}
+          </p>
+        {{/if}}
+
+        {{capitalize (replace @sortAttribute "score." "")}}:
+        {{get-nested-property photo @sortAttribute}}
+      </p>
+    </div>
+  {{/each}}
+</div>
+{{/let}}```
+
+### **./frontend/photo-filter-frontend/app/components/photo-grid.js**
+```
+import Component from '@glimmer/component';
+
+/**
+ * PhotoGrid Component
+ *
+ * Arguments:
+ * - @photos: An array of photo objects.
+ * - @albumUUID: The album's UUID for constructing image URLs.
+ * - @sortAttribute: The current sorting attribute to display values for.
+ */
+export default class PhotoGridComponent extends Component {}
+```
+
 ### **./frontend/photo-filter-frontend/app/router.js**
 ```
+// frontend/photo-filter-frontend/app/router.js
+
 import EmberRouter from '@ember/routing/router';
 import config from 'photo-filter-frontend/config/environment';
 
@@ -2811,28 +2824,41 @@ export default class Router extends EmberRouter {
 
 Router.map(function () {
   this.route('albums', function () {
-    this.route('album', { path: '/:album_id' });
+    this.route('album', { path: '/:album_id' }, function () {
+      this.route('persons', function () {
+        this.route('person', { path: '/:person_name' });
+      });
+    });
   });
 });
 ```
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<!-- frontend/photo-filter-frontend/app/templates/albums.hbs -->
-
 <h1>Select an Album</h1>
-<ul>
-  {{#each this.model as |album|}}
-    <li>
-      <LinkTo @route="albums.album" @model={{album.id}}>
-        {{album.title}}
-        {{#if album.isSmart}}
-          <span class="smart-album-label">(Smart Album)</span>
-        {{/if}}
-      </LinkTo>
-    </li>
-  {{/each}}
-</ul>```
+
+<!-- Wrap in a container with two columns: left for album list, right for content -->
+<div class="albums-layout">
+  <div class="albums-sidebar">
+    <ul class="albums-list">
+      {{#each this.model as |album|}}
+        <li class="album-item">
+          <LinkTo @route="albums.album" @model={{album.id}}>
+            {{album.title}}
+            {{#if album.isSmart}}
+              <span class="smart-album-label">(Smart Album)</span>
+            {{/if}}
+          </LinkTo>
+        </li>
+      {{/each}}
+    </ul>
+  </div>
+
+  <div class="albums-content">
+    {{! Nested routes (like albums.album, albums.album.persons) will render here }}
+    {{outlet}}
+  </div>
+</div>```
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
 ```
@@ -2842,15 +2868,13 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album.hbs**
 ```
-<!-- app/templates/albums/album.hbs -->
-
 <h1>{{this.model.album.title}}</h1>
-{{#link-to "albums"}}Back to Albums{{/link-to}}
+<LinkTo @route="albums">Back to Albums</LinkTo>
 
 <p>
-  {{#link-to "albums.album.persons" this.model.album.id}}
+  <LinkTo @route="albums.album.persons" @model={{this.model.album.id}}>
     View People in this Album
-  {{/link-to}}
+  </LinkTo>
 </p>
 
 <form {{on "submit" this.updateSort}}>
@@ -2878,25 +2902,18 @@ Router.map(function () {
   <button type="submit">Sort</button>
 </form>
 
-<div class="photo-grid">
-  {{#each this.model.photos as |photo|}}
-    <div class="photo-item">
-      <img
-        src="/images/{{this.model.albumUUID}}/{{photo.originalName}}.jpg"
-        alt="{{photo.originalName}}"
-      />
-      <p>
-        {{capitalize (replace this.model.sortAttribute "score." "")}}:
-        {{getNestedProperty photo this.model.sortAttribute}}
-      </p>
-    </div>
-  {{/each}}
-</div>```
+<!-- Use the PhotoGrid component for displaying photos -->
+<PhotoGrid
+  @photos={{this.model.photos}}
+  @albumUUID={{this.model.albumUUID}}
+  @sortAttribute={{this.model.sortAttribute}}
+/>```
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album/persons/person.hbs**
 ```
 <h2>Photos of {{this.model.personName}} in {{this.model.album.title}}</h2>
-{{#link-to "albums.album.persons" this.model.album.id}}Back to People{{/link-to}}
+<LinkTo @route="albums.album.persons" @model={{this.model.album.id}}>Back to
+  People</LinkTo>
 
 <form {{on "submit" (fn (mut (this.sortChanged)) true)}}>
   <label for="sortAttribute">Sort by:</label>
@@ -2926,20 +2943,12 @@ Router.map(function () {
   <button type="submit">Sort</button>
 </form>
 
-<div class="photo-grid">
-  {{#each this.model.photos as |photoObj|}}
-    <div class="photo-item">
-      <img
-        src="/images/{{this.model.albumUUID}}/{{photoObj.attributes.originalName}}.jpg"
-        alt="{{photoObj.attributes.originalName}}"
-      />
-      <p>
-        {{capitalize (replace this.model.sortAttribute "score." "")}}:
-        {{getNestedProperty photoObj.attributes this.model.sortAttribute}}
-      </p>
-    </div>
-  {{/each}}
-</div>```
+<!-- Use the PhotoGrid component -->
+<PhotoGrid
+  @photos={{this.model.photos}}
+  @albumUUID={{this.model.albumUUID}}
+  @sortAttribute={{this.model.sortAttribute}}
+/>```
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album/persons.hbs**
 ```
@@ -2947,14 +2956,17 @@ Router.map(function () {
 <ul>
   {{#each this.model.people as |person|}}
     <li>
-      {{#link-to "albums.album.persons.person" this.model.album.id person}}
+      <LinkTo
+        @route="albums.album.persons.person"
+        @models={{array this.model.album.id person}}
+      >
         {{person}}
-      {{/link-to}}
+      </LinkTo>
     </li>
   {{/each}}
 </ul>
 
-{{#link-to "albums.album" this.model.album.id}}Back to Album{{/link-to}}```
+<LinkTo @route="albums.album" @model={{this.model.album.id}}>Back to Album</LinkTo>```
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
@@ -3161,6 +3173,17 @@ export default class AlbumsAlbumPersonsPersonRoute extends Route {
     };
   }
 }
+```
+
+### **./frontend/photo-filter-frontend/app/helpers/eq.js**
+```
+// frontend/photo-filter-frontend/app/helpers/eq.js
+
+import { helper } from '@ember/component/helper';
+
+export default helper(function eq([a, b]) {
+  return a === b;
+});
 ```
 
 ### **./frontend/photo-filter-frontend/app/helpers/capitalize.js**
