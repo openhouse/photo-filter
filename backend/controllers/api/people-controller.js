@@ -6,11 +6,11 @@ import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { execCommand } from "../../utils/exec-command.js";
 import { Serializer } from "jsonapi-serializer";
+import { getNestedProperty } from "../../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// We'll reuse the PhotoSerializer from photos-controller or create a new one here.
 const PhotoSerializer = new Serializer("photo", {
   id: "uuid",
   attributes: [
@@ -29,16 +29,6 @@ const PhotoSerializer = new Serializer("photo", {
   },
   pluralizeType: false,
 });
-
-// Helper function to safely get nested property
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
-}
 
 // List all people in an album
 export const getPeopleInAlbum = async (req, res) => {
@@ -66,8 +56,6 @@ export const getPeopleInAlbum = async (req, res) => {
       }
     }
 
-    // Return the list of people as a simple JSON structure
-    // Not JSON:API, just a simple array for now (we could also do JSON:API if desired)
     res.json({ data: Array.from(allPersons) });
   } catch (error) {
     console.error("Error fetching people in album:", error);
@@ -80,8 +68,8 @@ export const getPhotosByPerson = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
     const personName = req.params.personName;
-    const sortAttribute = req.query.sort || "score.overall"; // Default
-    const sortOrder = req.query.order || "desc"; // Default
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
@@ -121,10 +109,8 @@ export const getPhotosByPerson = async (req, res) => {
       photo.originalName = path.parse(photo.original_filename).name;
     });
 
-    // Extract score attributes from first photo
     const scoreAttributes = Object.keys(filteredPhotos[0].score);
 
-    // Sort the photos
     filteredPhotos.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
@@ -132,14 +118,9 @@ export const getPhotosByPerson = async (req, res) => {
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
 
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // Add album relationship
     filteredPhotos.forEach((photo) => {
       photo.album = albumUUID;
     });

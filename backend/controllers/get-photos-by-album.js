@@ -4,14 +4,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
-import {
-  runOsxphotosExportImages,
-  getNestedProperty,
-} from "../utils/export-images.js";
+import { runOsxphotosExportImages } from "../utils/export-images.js";
 import plist from "plist";
 import { exec } from "child_process";
 import os from "os";
 import { createRequire } from "module";
+import {
+  getNestedProperty,
+  capitalizeAttributeName,
+} from "../utils/helpers.js";
+
 const require = createRequire(import.meta.url);
 const tag = require("osx-tag");
 
@@ -70,7 +72,6 @@ export const getPhotosByAlbum = async (req, res) => {
     const photosData = await fs.readJson(photosPath);
 
     // Add 'original_name' property
-    // Since images are now named with a prefix, original_filename should reflect that.
     photosData.forEach((photo) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
@@ -156,15 +157,6 @@ export const getPhotosByAlbum = async (req, res) => {
     res.status(500).send("Internal Server Error");
   }
 };
-
-function capitalizeAttributeName(attributeName) {
-  const nameParts = attributeName.split(".");
-  const lastPart = nameParts[nameParts.length - 1];
-  return lastPart
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 async function setTagsOnExportedImages(imagesDir, photosData) {
   for (const photo of photosData) {

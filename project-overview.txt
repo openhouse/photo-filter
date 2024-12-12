@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Thu Dec 12 11:45:46 EST 2024
+Generated on: Thu Dec 12 13:42:04 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -33,6 +33,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── data
 │   │   ├── albums
 │   │   │   ├── .DS_Store
+│   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
+│   │   │   │   └── photos.json
 │   │   │   └── 6956E064-5A0E-4451-8A75-FC6724FED866
 │   │   │       └── photos.json
 │   │   └── albums.json
@@ -65,6 +67,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── exec-command.js
 │   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
+│   │   ├── helpers.js
 │   │   └── run-python-script.js
 │   ├── views
 │   │   ├── albums.hbs
@@ -188,7 +191,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-56 directories, 123 files
+57 directories, 125 files
 ```
 
 ---
@@ -1084,6 +1087,42 @@ export async function getPhotosLibraryLastModified() {
 }
 ```
 
+### **./backend/utils/helpers.js**
+```
+// backend/utils/helpers.js
+
+export function getNestedProperty(obj, propertyPath) {
+  if (!propertyPath || typeof propertyPath !== "string") {
+    return null;
+  }
+  return propertyPath
+    .split(".")
+    .reduce(
+      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
+      obj
+    );
+}
+
+export function formatPhotoDate(dateObj) {
+  const YYYY = dateObj.getFullYear();
+  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const DD = String(dateObj.getDate()).padStart(2, "0");
+  const HH = String(dateObj.getHours()).padStart(2, "0");
+  const mm = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
+}
+
+export function capitalizeAttributeName(attributeName) {
+  const nameParts = attributeName.split(".");
+  const lastPart = nameParts[nameParts.length - 1];
+  return lastPart
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+```
+
 ### **./backend/utils/export-images.js**
 ```
 // backend/utils/export-images.js
@@ -1612,19 +1651,10 @@ export const getAlbums = async (req, res) => {
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
+import { getNestedProperty } from "../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Helper to get nested property
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
-}
 
 // Show all people in an album
 export const getPeopleInAlbumLegacy = async (req, res) => {
@@ -1709,11 +1739,7 @@ export const getPhotosByPersonLegacy = async (req, res) => {
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
 
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
     // Render person.hbs view
@@ -1850,11 +1876,11 @@ import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { execCommand } from "../../utils/exec-command.js";
 import { Serializer } from "jsonapi-serializer";
+import { getNestedProperty } from "../../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// We'll reuse the PhotoSerializer from photos-controller or create a new one here.
 const PhotoSerializer = new Serializer("photo", {
   id: "uuid",
   attributes: [
@@ -1873,16 +1899,6 @@ const PhotoSerializer = new Serializer("photo", {
   },
   pluralizeType: false,
 });
-
-// Helper function to safely get nested property
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
-}
 
 // List all people in an album
 export const getPeopleInAlbum = async (req, res) => {
@@ -1910,8 +1926,6 @@ export const getPeopleInAlbum = async (req, res) => {
       }
     }
 
-    // Return the list of people as a simple JSON structure
-    // Not JSON:API, just a simple array for now (we could also do JSON:API if desired)
     res.json({ data: Array.from(allPersons) });
   } catch (error) {
     console.error("Error fetching people in album:", error);
@@ -1924,8 +1938,8 @@ export const getPhotosByPerson = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
     const personName = req.params.personName;
-    const sortAttribute = req.query.sort || "score.overall"; // Default
-    const sortOrder = req.query.order || "desc"; // Default
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
@@ -1965,10 +1979,8 @@ export const getPhotosByPerson = async (req, res) => {
       photo.originalName = path.parse(photo.original_filename).name;
     });
 
-    // Extract score attributes from first photo
     const scoreAttributes = Object.keys(filteredPhotos[0].score);
 
-    // Sort the photos
     filteredPhotos.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
@@ -1976,14 +1988,9 @@ export const getPhotosByPerson = async (req, res) => {
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
 
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // Add album relationship
     filteredPhotos.forEach((photo) => {
       photo.album = albumUUID;
     });
@@ -2010,15 +2017,14 @@ export const getPhotosByPerson = async (req, res) => {
 ### **./backend/controllers/api/photos-controller.js**
 ```
 // backend/controllers/api/photos-controller.js
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { Serializer } from "jsonapi-serializer";
-import {
-  runOsxphotosExportImages,
-  getNestedProperty,
-} from "../../utils/export-images.js";
+import { runOsxphotosExportImages } from "../../utils/export-images.js";
+import { getNestedProperty, formatPhotoDate } from "../../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2078,8 +2084,7 @@ export const getPhotosByAlbumData = async (req, res) => {
         imagesDir,
         photosPath
       );
-      // If the filename template in osxphotos already includes a date/time prefix,
-      // no additional rename step should be necessary.
+      // No additional rename step needed if osxphotos template handles date/time prefix
     }
 
     const photosData = await fs.readJson(photosPath);
@@ -2087,7 +2092,10 @@ export const getPhotosByAlbumData = async (req, res) => {
     // Add 'originalName' and 'exportedFilename'
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
-      photo.exportedFilename = generateExportedFilename(photo);
+      const dateObj = new Date(photo.date);
+      const formattedDate = formatPhotoDate(dateObj);
+      const originalName = path.parse(photo.original_filename).name;
+      photo.exportedFilename = `${formattedDate}-${originalName}.jpg`;
     });
 
     const scoreAttributes = Object.keys(photosData[0].score);
@@ -2122,23 +2130,6 @@ export const getPhotosByAlbumData = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
-
-/**
- * Generate the exported filename based on the photo's date and original filename.
- * If your osxphotos export command already includes a date/time prefix in the filename,
- * adjust this function accordingly or remove it if not needed.
- */
-function generateExportedFilename(photo) {
-  const dateObj = new Date(photo.date);
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  const originalName = path.parse(photo.original_filename).name;
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}-${originalName}.jpg`;
-}
 ```
 
 ### **./backend/controllers/get-photos-by-album.js**
@@ -2149,14 +2140,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
-import {
-  runOsxphotosExportImages,
-  getNestedProperty,
-} from "../utils/export-images.js";
+import { runOsxphotosExportImages } from "../utils/export-images.js";
 import plist from "plist";
 import { exec } from "child_process";
 import os from "os";
 import { createRequire } from "module";
+import {
+  getNestedProperty,
+  capitalizeAttributeName,
+} from "../utils/helpers.js";
+
 const require = createRequire(import.meta.url);
 const tag = require("osx-tag");
 
@@ -2215,7 +2208,6 @@ export const getPhotosByAlbum = async (req, res) => {
     const photosData = await fs.readJson(photosPath);
 
     // Add 'original_name' property
-    // Since images are now named with a prefix, original_filename should reflect that.
     photosData.forEach((photo) => {
       photo.original_name = path.parse(photo.original_filename).name;
     });
@@ -2302,15 +2294,6 @@ export const getPhotosByAlbum = async (req, res) => {
   }
 };
 
-function capitalizeAttributeName(attributeName) {
-  const nameParts = attributeName.split(".");
-  const lastPart = nameParts[nameParts.length - 1];
-  return lastPart
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 async function setTagsOnExportedImages(imagesDir, photosData) {
   for (const photo of photosData) {
     const tags = photo.tags || [];
@@ -2358,6 +2341,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     {
         "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
         "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/16BC5397-4A87-49A1-8404-85D6473F3931/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2024-12-11-Last Month"
+        ],
+        "burst": false,
+        "cloud_guid": "AUe3MMiGEMSXiJQFq+RdRUZ6gohE",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-09 21:54:44.122153-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-09 21:54:43.398000-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 2000,
+            "metering_mode": 5,
+            "sample_rate": null,
+            "track_format": null,
 ...
 ```
 
@@ -2761,43 +2769,54 @@ export default class PhotoAdapter extends ApplicationAdapter {
   font-style: italic;
   color: gray;
 }
+
+.photo-grid {
+  .photo-item {
+    img {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  }
+}
 ```
 
 ### **./frontend/photo-filter-frontend/app/components/photo-grid.hbs**
 ```
-<!-- app/components/photo-grid.hbs -->
-{{#let (get (get-owner this).resolveRegistration('config:environment') 'APP.apiHost') as |apiHost|}}
 <div class="photo-grid">
   {{#each @photos as |photo index|}}
     <div class="photo-item">
       <img
-        src="{{apiHost}}/images/{{@albumUUID}}/{{photo.exportedFilename}}"
+        src="{{this.apiHost}}/images/{{@albumUUID}}/{{photo.exportedFilename}}"
         alt="{{photo.exportedFilename}}"
         loading="lazy"
       />
       <p>
         <span style="opacity: 0.38">{{index}} -</span>
         {{photo.exportedFilename}}
+      </p>
 
-        {{#if photo.tags}}
-          <p class="tags">
-            {{#each photo.tags as |tag|}}
-              <span class="tag">{{tag}}</span>
-            {{/each}}
-          </p>
-        {{/if}}
+      {{#if photo.tags}}
+        <div class="tags">
+          {{#each photo.tags as |tag|}}
+            <span class="tag">{{tag}}</span>
+          {{/each}}
+        </div>
+      {{/if}}
 
+      <p>
         {{capitalize (replace @sortAttribute "score." "")}}:
         {{get-nested-property photo @sortAttribute}}
       </p>
     </div>
   {{/each}}
-</div>
-{{/let}}```
+</div>```
 
 ### **./frontend/photo-filter-frontend/app/components/photo-grid.js**
 ```
 import Component from '@glimmer/component';
+import config from 'photo-filter-frontend/config/environment';
 
 /**
  * PhotoGrid Component
@@ -2807,7 +2826,11 @@ import Component from '@glimmer/component';
  * - @albumUUID: The album's UUID for constructing image URLs.
  * - @sortAttribute: The current sorting attribute to display values for.
  */
-export default class PhotoGridComponent extends Component {}
+export default class PhotoGridComponent extends Component {
+  get apiHost() {
+    return config.APP.apiHost;
+  }
+}
 ```
 
 ### **./frontend/photo-filter-frontend/app/router.js**

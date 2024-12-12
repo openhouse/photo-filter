@@ -3,19 +3,10 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
+import { getNestedProperty } from "../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Helper to get nested property
-function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
-}
 
 // Show all people in an album
 export const getPeopleInAlbumLegacy = async (req, res) => {
@@ -100,11 +91,7 @@ export const getPhotosByPersonLegacy = async (req, res) => {
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
 
-      if (sortOrder === "asc") {
-        return aValue - bValue;
-      } else {
-        return bValue - aValue;
-      }
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
     // Render person.hbs view
