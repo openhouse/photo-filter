@@ -39,11 +39,9 @@ export const getPeopleInAlbum = async (req, res) => {
     const photosPath = path.join(photosDir, "photos.json");
 
     if (!(await fs.pathExists(photosPath))) {
-      return res
-        .status(404)
-        .json({
-          errors: [{ detail: "Album not found or no photos available" }],
-        });
+      return res.status(404).json({
+        errors: [{ detail: "Album not found or no photos available" }],
+      });
     }
 
     const photosData = await fs.readJson(photosPath);
@@ -76,11 +74,9 @@ export const getPhotosByPerson = async (req, res) => {
     const photosPath = path.join(photosDir, "photos.json");
 
     if (!(await fs.pathExists(photosPath))) {
-      return res
-        .status(404)
-        .json({
-          errors: [{ detail: "Album not found or no photos available" }],
-        });
+      return res.status(404).json({
+        errors: [{ detail: "Album not found or no photos available" }],
+      });
     }
 
     const photosData = await fs.readJson(photosPath);

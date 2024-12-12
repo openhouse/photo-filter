@@ -143,5 +143,3 @@ Table of Contents
 - Optimize large dataset handling.
 - Use caching and lazy loading.
 - Profile resource usage.
-
----

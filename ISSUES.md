@@ -1,133 +1,130 @@
 # Issues and Resolutions
 
-This file serves as a log of open issues, debugging steps taken, and resolutions. It's intended to facilitate collaborative problem-solving and prevent redundant efforts.
+This file logs open issues and their statuses. Update it as new issues arise and existing ones progress.
 
 ---
 
 ## Issue 15: Nested Routes Not Rendering Child Templates
 
-**Opened By:** [Your Name] on Nov 12, 2024
-
+**Opened By:** [Your Name], Nov 12, 2024  
 **Status:** **Resolved**
 
 ### Description
 
-The `albums/album` route was not rendering its template within the `albums` route as expected. Clicking on an album link did not display the album's photos.
-
-### Error Observed
-
-- The child route's template was not rendering within the parent route's template.
+`albums/album` route’s template not rendering correctly.
 
 ### Resolution
 
-- **Root Cause:** The `albums.hbs` template lacked an `{{outlet}}`, which is necessary for rendering nested routes in Ember.js.
-- **Solution:** Added an `{{outlet}}` to `app/templates/albums.hbs`.
-- **Commit:** Added outlet to `albums.hbs` to render album content and updated styles.
-
-### Action Items
-
-- Updated `albums.hbs` to include `{{outlet}}`.
-- Restructured the template to include a left navigation column and content area.
-- Restarted the Ember server to apply changes.
-- Verified that the child route's content renders correctly.
+- Added `{{outlet}}` to `albums.hbs`.
+- Verified proper rendering.
 
 ---
 
-## Issue 14: 404 Error When Fetching Album Data in Ember.js Application
+## Issue 14: 404 Error When Fetching Album Data
 
-**Opened By:** [Your Name] on Nov 10, 2024
-
+**Opened By:** [Your Name], Nov 10, 2024  
 **Status:** **Resolved**
 
 ### Description
 
-The Ember.js application encountered a 404 Not Found error when attempting to fetch album data from the endpoint `/api/albums/:albumUUID`.
+`GET /api/albums/:albumUUID` returned 404.
 
 ### Resolution
 
-- **Root Cause:** The backend API did not have an endpoint to handle GET requests to `/api/albums/:albumUUID`.
-- **Solution:** Implemented the missing endpoint on the backend to handle GET requests to `/api/albums/:albumUUID`.
-- **Commit:** Implemented backend endpoint for fetching single album data.
+- Implemented `GET /api/albums/:albumUUID`.
+- Confirmed endpoint now works as expected.
 
 ---
 
 ## Issue 8: Implementing Interactive Photo Selection and Persistence
 
-**Opened By:** [Your Name] on Oct 27, 2024
-
+**Opened By:** [Your Name], Oct 27, 2024  
 **Status:** **In Progress**
 
 ### Description
 
-We need to implement the ability for users to select multiple photos by clicking and dragging the mouse over them. Selections should persist as users switch between different sorting attributes.
+Need multi-photo selection persistence across sorting and filtering changes.
 
-### Action Items
+### Actions
 
-- **Create Selection Service:** Implemented `app/services/selection.js` to manage selection state.
-- **Update Photo Grid:** Modified `albums/album.hbs` to handle photo selection and display selected state.
-- **Implement Selection Persistence:** Ensure that selections persist across sorting and navigation.
+- Created `selection.js` service to manage selected photos.
+- Selections persist when changing sort order or navigating within the album.
 
 ### Next Steps
 
-- **Expand Selection Feature:** Implement functionality to include photos taken immediately before and after selected photos.
-- **Testing:** Write tests to ensure selection works as expected.
+- Integrate with multi-person filtering now that filtering is query-param-based.
+- Ensure that selected photos remain selected as users toggle people filters.
+- Write more comprehensive tests for selection persistence.
 
 ---
 
-## Issue 9: Adding Actions for Selected Photos
+## Issue 9: Adding Actions for Selected Photos (Export Functionality)
 
-**Opened By:** [Your Name] on Oct 27, 2024
-
+**Opened By:** [Your Name], Oct 27, 2024  
 **Status:** **In Progress**
 
 ### Description
 
-Allow users to perform actions on the selected photos, such as exporting them to a directory.
+Need to export selected photos from the backend once chosen on the frontend.
 
-### Action Items
+### Actions
 
-- **Backend API Endpoint:** Created `/api/photos/export` to handle exporting photos.
-- **Frontend Integration:** Updated `albums/album.js` to send selected photo IDs to the backend.
-- **User Feedback:** Added alert messages to inform users about the export status.
+- Created `/api/photos/export` endpoint.
+- Frontend can send selected photo IDs to initiate export.
+- Basic user alerts implemented to inform the user of export status.
 
 ### Next Steps
 
-- **Implement Actual Export Logic:** Complete the backend function to export photos.
-- **Enhance User Feedback:** Provide better UI notifications and progress indicators.
+- Implement actual export logic on the backend.
+- Add progress indicators (e.g., a progress bar) in the UI.
+- Validate that exported filenames handle duplicates properly.
 
 ---
 
-## Issue 16: Filename Collisions When Reconstructing Directory Structure
+## Issue 16: Filename Collisions in Exports
 
-**Opened By:** [Your Name] on Dec 11, 2024
-
-**Status:** **Open** (Reopened December 12, 2024)
+**Opened By:** [Your Name], Dec 11, 2024  
+**Status:** **Open** (Reopened Dec 12, 2024)
 
 ### Description
 
-When exporting images from Apple Photos to a flat directory structure, multiple images can share the same `original_name` (e.g., `DSCF1191.jpg`). This leads to filename collisions and confusion when we lose the original directory context. The initial solution was to prepend the date/time to the filename during post-export renaming steps. However, we must verify that this approach works completely and consistently before marking the issue as resolved.
+When exporting images, sometimes duplicate filenames occur.
 
-### Current Approach (Under Testing)
+### Current Approach
 
-- **Date/Time Prefix**: Prepending the date/time (`YYYYMMDD-HHMMSS`) to the filename to ensure uniqueness and chronological sorting by filename.
-- **Collision Handling**: If two photos have the exact same timestamp and original name, append a counter (`-1`, `-2`, etc.) until a unique name is found.
-- **Integration with `osxphotos`**: Instead of renaming after export, we've adjusted our approach to use `osxphotos` filename templates so that the exported files have the correct names right after export, ideally removing the need for a separate rename step. We need to confirm that our entire pipeline, including all references in our app, uses the correct filenames and that this approach truly resolves collisions.
+- Prepend date/time to filenames.
+- Append counters for duplicates.
 
-### Action Items
+### Next Steps
 
-- [ ] Verify that `osxphotos` filename templates work as intended and no collisions occur directly after export.
-- [ ] Confirm that the rest of the application references the correct filenames consistently.
-- [ ] Apply and test the fix in a real environment to confirm no collisions and that sorting by filename works as desired.
+- Confirm that this approach truly prevents collisions.
+- Test extensively in a real environment before marking resolved.
 
-### Outcome
+---
 
-This issue remains open until:
+## Newly Considered Issue: Replacing Person Sub-Routes with Query Params
 
-1. The solution is applied by the real person managing the system.
-2. Verification in a real environment confirms that the fix works as intended.
+**Opened By:** [Your Name], Dec 12, 2024  
+**Status:** **In Planning**
 
-No premature marking of "Resolved" is allowed until these conditions are met.
+### Description
+
+We initially implemented `albums/album/persons` sub-routes. We now want to remove them in favor of query params on the main album route. This will unify navigation and filtering, removing the need for “Back” or “View People” links.
+
+### Actions
+
+- Update `DEVELOPMENT_PLAN.md` to reflect query-param-based person filtering.
+- Adjust frontend UI to list people under the album in the left nav.
+- Remove old person sub-route code once the new system is tested.
+
+### Next Steps
+
+- Implement toggles for people in the sidebar.
+- Update the album route model hook to filter photos by selected people.
+- Fully test the new approach.
 
 ---
 
 # End of Issues Log
+
+**Note:** No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.

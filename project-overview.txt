@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Thu Dec 12 13:42:04 EST 2024
+Generated on: Thu Dec 12 17:53:21 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -35,7 +35,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   ├── .DS_Store
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
 │   │   │   │   └── photos.json
-│   │   │   └── 6956E064-5A0E-4451-8A75-FC6724FED866
+│   │   │   ├── 6956E064-5A0E-4451-8A75-FC6724FED866
+│   │   │   │   └── photos.json
+│   │   │   └── 918451EC-C6A5-416D-B919-D23AE46FEBBF
 │   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
@@ -108,11 +110,11 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   └── albums
 │       │   │       ├── album
 │       │   │       │   └── persons
-│       │   │       │       └── person.js
 │       │   │       └── album.js
 │       │   ├── helpers
 │       │   │   ├── .gitkeep
 │       │   │   ├── capitalize.js
+│       │   │   ├── contains.js
 │       │   │   ├── eq.js
 │       │   │   ├── get-nested-property.js
 │       │   │   └── replace.js
@@ -126,9 +128,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   ├── .gitkeep
 │       │   │   ├── albums
 │       │   │   │   ├── album
-│       │   │   │   │   ├── persons
-│       │   │   │   │   │   └── person.js
-│       │   │   │   │   └── persons.js
+│       │   │   │   │   └── persons
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
 │       │   │   └── index.js
@@ -139,9 +139,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   └── templates
 │       │       ├── albums
 │       │       │   ├── album
-│       │       │   │   ├── persons
-│       │       │   │   │   └── person.hbs
-│       │       │   │   └── persons.hbs
+│       │       │   │   └── persons
 │       │       │   └── album.hbs
 │       │       ├── albums.hbs
 │       │       └── application.hbs
@@ -191,7 +189,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-57 directories, 125 files
+58 directories, 122 files
 ```
 
 ---
@@ -202,336 +200,250 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ```
 # Development Plan
 
-## Update: Implementing Album/Person Sub-Routes
+## Update: Transition to Query-Param-Based Faceted Person Filtering
 
-**Date:** December 7, 2024
-
-### Decision
-
-- **Implement Person-Specific Sub-Routes Within an Album**:  
-  Add routes that focus on individuals recognized in the album’s photos. When viewing an album, the user can navigate to a sub-route listing all people who appear in the album. From there, they can select a person to view only the photos containing that individual, with the same sorting interface currently available at the album level.
-
-### Rationale
-
-- **Inclusivity of Individuals**:  
-  Similar to ensuring coverage of all guests at a wedding, this feature helps ensure event photography doesn’t miss key participants. By focusing on each person, the user can quickly find the best photos of them.
-- **Consistent UX**:  
-  The person-level photo view should mirror existing album-level sorting and navigation, providing a familiar interface and workflow for the user.
-
-- **Efficiency**:  
-  With large albums, filtering by individuals and sorting helps the user quickly find representative images of each participant.
-
-### Implementation Steps
-
-1. **Extract People Data from `photos.json`**:
-   - Update or confirm the `photos.json` generation includes a `persons` array (or similar) indicating which people appear in each photo.
-2. **Backend Routes for People**:
-
-   - Create a backend endpoint to list all unique people found in a given album’s photos (e.g. `GET /api/albums/:albumUUID/persons`).
-   - Create a backend endpoint to fetch photos filtered by a specific person within that album (e.g. `GET /api/albums/:albumUUID/person/:personName`).
-
-3. **Frontend Nested Routes**:
-
-   - Add Ember.js routes to display:
-     - A list of people in the album at `albums/album/persons`.
-     - A person-specific route at `albums/album/persons/person/:person_name`.
-   - These routes will accept `sort` and `order` query parameters to replicate the sorting behavior seen at the album level.
-
-4. **UI Enhancements**:
-
-   - On the album page, add a link to the people list sub-route.
-   - The people list page shows all recognized persons as clickable links.
-   - The person page shows filtered photos of that individual with the same sorting UI as the album page.
-
-5. **Testing and Validation**:
-
-   - Write tests to ensure that the new endpoints and routes return the expected data.
-   - Verify the user can sort photos by various attributes when viewing an individual’s photos.
-
-6. **Documentation**:
-   - Update `DEVELOPMENT_PLAN.md` (this file) to reflect the addition of album/person routes.
-   - Once implemented, update `README.md`, `ISSUES.md`, and other documentation files as needed.
-
-### Potential Challenges
-
-- **Data Availability**:  
-  Ensuring that the people information is correctly included in `photos.json`.
-
-- **Edge Cases**:  
-  Handling albums with no recognized people or handling photos where a person’s name may be duplicated with slight variations.
-
-- **Performance**:  
-  Filtering and sorting large albums for many individuals could be intensive. Consider caching or efficient indexing if performance becomes an issue.
-
----
-
-## Update: Implementing Nested Routes and UI Enhancements
-
-**Date:** November 12, 2024
+**Date:** December 12, 2024
 
 ### Decision
 
-- **Implement Nested Routes with `{{outlet}}` in `albums.hbs`**: To properly render child routes within the parent `albums` route.
-- **Create Left Navigation Column**: Mimic the UI of the Apple Photos app by adding a left navigation column for album selection.
-- **Display Full Photo Library on Index Route**: Show all photos when no specific album is selected.
-- **Implement Expanded Sorting and Selection Features**: Allow sorting by various attributes and enable photo selection that persists across sorting changes.
+- Move from nested person-specific routes toward a unified album route that uses query parameters to filter by selected individuals.
+- The UI will display a list of people in the left navigation under the currently active album. Users can toggle individuals on or off (via checkboxes or links), and the album’s displayed photos will filter to include only photos with all selected individuals.
+- Remove the separate "View People in this Album" link and the “Back to Albums” link, as album navigation and person filtering are now integrated in the left nav.
+- Eventually incorporate a front-end UI framework (like Bootstrap or Material Design) for a more cohesive look and feel.
 
 ### Rationale
 
-- **User Experience**: Enhances navigation and usability by providing a familiar interface.
-- **Functionality**: Supports the requirement to sort photos by multiple attributes and manage selections effectively.
-- **Scalability**: Sets a foundation for future features like exporting and advanced photo management.
+- **Integrated Navigation**: Having all filtering (by album, by people) and sorting in one unified route simplifies the user experience.
+- **Improved UX**: No need to navigate to a separate persons sub-route. People-based filtering is just another facet of the main album view.
+- **Scalability**: Query params enable easy multi-person filtering. As the user selects multiple names, they appear in the URL’s query params, making the filtering state shareable and bookmarkable.
+- **Future-Ready**: Paves the way to easily add other facets (like tags, locations, or events) as query-parameter-based filters.
 
 ### Implementation Steps
 
-1. **Add `{{outlet}}` to `albums.hbs`**:
+1. **Remove Person Sub-Routes**:
 
-   - Update `app/templates/albums.hbs` to include `{{outlet}}` for rendering child routes.
+   - No longer need `albums/album/persons` or `albums/album/persons/person/:person_name`.
+   - Instead, retrieve people from `GET /api/albums/:albumUUID/persons` and display them under the selected album in the left nav.
 
-2. **Create Left Navigation Layout**:
+2. **Update Album Route to Use Query Params**:
 
-   - Structure `albums.hbs` to have a left navigation column (`albums-list`) and a content area (`album-content`).
+   - Add a `people` query param to `albums.album`.
+   - When a user toggles a person in the UI, update the `people` query param to reflect the currently selected individuals.
+   - Filter photos based on the intersection of all selected individuals’ sets of photos.
 
-3. **Display Full Photo Library When No Album is Selected**:
+3. **UI Updates**:
 
-   - Create `app/routes/albums/index.js` and `app/templates/albums/index.hbs` to fetch and display all photos.
+   - The left nav becomes scrollable and fixed in height, independent from the main content area.
+   - Display the currently selected album title, below it a list of people. Each name toggles inclusion in the `people` filter.
+   - No need for “Back to Albums” or “View People in This Album” links—navigation and filtering are seamlessly integrated.
 
-4. **Implement Expanded Sorting Functionality**:
+4. **Backend**:
 
-   - Update `app/controllers/albums/album.js` to handle additional sorting attributes and orders.
+   - The backend remains largely the same. The frontend can still fetch all people via `GET /api/albums/:albumUUID/persons`.
+   - For multiple individuals, the frontend will combine their names and request photos containing all of them, or request the full set and filter on the client side if needed. (Future optimization may be added on the backend.)
 
-5. **Implement Photo Selection Mechanism**:
+5. **Documentation**:
 
-   - Create a selection service (`app/services/selection.js`) to manage selection state.
-   - Update `albums/album.hbs` and `albums/album.js` to handle photo selection.
+   - Update `DEVELOPMENT_PLAN.md`, `ISSUES.md`, and `README.md` to reflect the new approach.
+   - Document how query parameters represent the filtering state.
 
-6. **Implement Export Functionality**:
-
-   - Add an endpoint in the backend (`backend/routes/api/photos.js`) to handle exporting selected photos.
-   - Update the frontend to send selected photo IDs to the backend for export.
-
-7. **Styling and Responsiveness**:
-
-   - Add CSS styles to `app/styles/app.css` to make the application visually appealing and responsive.
-
-8. **Testing**:
-
-   - Write tests for new features, especially the selection and export functionalities.
-
-9. **Documentation**:
-
-   - Update `README.md`, `DEVELOPMENT_PLAN.md`, `ISSUES.md`, and `project-guidelines.md` to reflect changes.
+6. **Testing and Validation**:
+   - Ensure that selecting multiple individuals updates the displayed photos correctly.
+   - Confirm that query params can be bookmarked and reloaded.
+   - Test sorting combined with person-based filtering.
 
 ### Potential Challenges
 
-- **Persistent Selection State**: Ensuring the selection persists across sorting and navigation changes.
-- **Performance**: Managing performance with large photo libraries, especially during selection and export.
-- **Backend Integration**: Properly handling the export functionality without affecting the Photos library integrity.
+- **Complex Filtering**: As multiple people are selected, performance could degrade for large albums. Consider caching or indexing if needed.
+- **UI Complexity**: Need a clear indication of which people are currently selected and how to reset filters.
+- **Backwards Compatibility**: Removing person sub-routes may require updating links or references.
 
 ---
 
 ## Previous Updates
 
-### Update: Implementing Cache Invalidation Based on Timestamps
-
-- **Date:** November 1, 2024
-- **Decision:** Implement cache invalidation to ensure data freshness.
-- **Implementation:** Created utility functions to check last modified times and regenerate cached data as needed.
-
-### Update: Integration of JSON:API Serializer
-
-- **Date:** October 30, 2024
-- **Decision:** Use `jsonapi-serializer` package to format API responses according to the JSON:API specification.
-- **Implementation:** Refactored backend controllers and updated dependencies.
+- **December 7, 2024**: Initial person-level sub-routes conceived.  
+  _Note:_ This approach is now evolving into a unified, query-param-based filter.
+- **November 12, 2024**: Introduced nested routes, left nav, and sorting.
+- **November 1, 2024**: Added cache invalidation for data freshness.
+- **October 30, 2024**: Adopted JSON:API serializer.
 
 ---
 
 ## Project Goal
 
-Develop a web application that interfaces with the user's macOS Photos library to enable interactive exploration, selection, and exporting of photos based on Apple's aesthetic scores and other metadata. The application aims to provide an engaging user experience by allowing users to select photos through intuitive interactions and perform actions like exporting selections.
+Create an intuitive, facet-based photo exploration tool integrated with macOS Photos data, enabling advanced sorting, selection, exporting, and multi-person filtering.
 
 ## Current State
 
-- **Frontend**: Ember.js application with nested routes and a left navigation layout.
-- **Backend**: Express.js server with API endpoints serving data in JSON:API format.
-- **Data Handling**: Uses `osxphotos` to extract data from the Photos library.
-- **Photo Selection**: Implemented using an Ember service to manage selection state.
-- **Export Functionality**: Backend API endpoint to handle exporting selected photos.
-- **Styling**: Basic CSS styling for responsive design.
-- **Documentation**: Project files (`README.md`, `ISSUES.md`, `DEVELOPMENT_PLAN.md`, `project-guidelines.md`) are updated.
+- **Frontend**: Ember.js with album-level sorting, person-based filters pending refinement.
+- **Backend**: Express.js, JSON:API, data from `osxphotos`.
+- **Data Handling**: `osxphotos` extracts metadata.
+- **Selection & Export**: In progress.
+- **Documentation & Styling**: Ongoing enhancements.
 
 ## Next Steps
 
-1. **Enhance Photo Selection Features**:
+1. **Implement Multi-Person Filtering with Query Params**:
 
-   - Implement the ability to expand the selection to include photos taken immediately before and after the selected photos.
-   - Ensure selection persistence across different sorting and navigation.
+   - Refactor UI to remove separate person routes.
+   - Add toggles in the left nav.
+   - Update the album route’s model hook to factor in `people` query param.
 
-2. **Complete Export Functionality**:
+2. **Improve Export Feature**:
 
-   - Implement the backend logic to actually export the selected photos to a designated directory.
-   - Provide user feedback on the export process.
+   - Integrate actual export logic on the backend.
+   - Show feedback to the user during export operations.
 
-3. **UI/UX Improvements**:
+3. **UX and Performance**:
 
-   - Refine the user interface for better intuitiveness.
-   - Add visual indicators for selected photos and selection expansion.
+   - Consider a UI framework for styling.
+   - Explore caching large album queries.
 
-4. **Performance Optimization**:
+4. **Testing & Quality Assurance**:
 
-   - Implement lazy loading for images.
-   - Optimize data fetching and rendering for large photo libraries.
+   - Test multi-person filtering thoroughly.
+   - Validate sorting and selection persistence.
 
-5. **Testing and Quality Assurance**:
-
-   - Write comprehensive tests for new features.
-   - Perform user testing to gather feedback.
-
-6. **Documentation and Cleanup**:
-
-   - Update documentation to reflect new features and changes.
+5. **Documentation & Cleanup**:
+   - Keep all documentation updated.
    - Refactor code for maintainability.
 
 ---
-
-**Note:** All changes should be committed to the repository with clear and descriptive commit messages to maintain project history and facilitate collaboration.
 ```
 
 ### **./ISSUES.md**
 ```
 # Issues and Resolutions
 
-This file serves as a log of open issues, debugging steps taken, and resolutions. It's intended to facilitate collaborative problem-solving and prevent redundant efforts.
+This file logs open issues and their statuses. Update it as new issues arise and existing ones progress.
 
 ---
 
 ## Issue 15: Nested Routes Not Rendering Child Templates
 
-**Opened By:** [Your Name] on Nov 12, 2024
-
+**Opened By:** [Your Name], Nov 12, 2024  
 **Status:** **Resolved**
 
 ### Description
 
-The `albums/album` route was not rendering its template within the `albums` route as expected. Clicking on an album link did not display the album's photos.
-
-### Error Observed
-
-- The child route's template was not rendering within the parent route's template.
+`albums/album` route’s template not rendering correctly.
 
 ### Resolution
 
-- **Root Cause:** The `albums.hbs` template lacked an `{{outlet}}`, which is necessary for rendering nested routes in Ember.js.
-- **Solution:** Added an `{{outlet}}` to `app/templates/albums.hbs`.
-- **Commit:** Added outlet to `albums.hbs` to render album content and updated styles.
-
-### Action Items
-
-- Updated `albums.hbs` to include `{{outlet}}`.
-- Restructured the template to include a left navigation column and content area.
-- Restarted the Ember server to apply changes.
-- Verified that the child route's content renders correctly.
+- Added `{{outlet}}` to `albums.hbs`.
+- Verified proper rendering.
 
 ---
 
-## Issue 14: 404 Error When Fetching Album Data in Ember.js Application
+## Issue 14: 404 Error When Fetching Album Data
 
-**Opened By:** [Your Name] on Nov 10, 2024
-
+**Opened By:** [Your Name], Nov 10, 2024  
 **Status:** **Resolved**
 
 ### Description
 
-The Ember.js application encountered a 404 Not Found error when attempting to fetch album data from the endpoint `/api/albums/:albumUUID`.
+`GET /api/albums/:albumUUID` returned 404.
 
 ### Resolution
 
-- **Root Cause:** The backend API did not have an endpoint to handle GET requests to `/api/albums/:albumUUID`.
-- **Solution:** Implemented the missing endpoint on the backend to handle GET requests to `/api/albums/:albumUUID`.
-- **Commit:** Implemented backend endpoint for fetching single album data.
+- Implemented `GET /api/albums/:albumUUID`.
+- Confirmed endpoint now works as expected.
 
 ---
 
 ## Issue 8: Implementing Interactive Photo Selection and Persistence
 
-**Opened By:** [Your Name] on Oct 27, 2024
-
+**Opened By:** [Your Name], Oct 27, 2024  
 **Status:** **In Progress**
 
 ### Description
 
-We need to implement the ability for users to select multiple photos by clicking and dragging the mouse over them. Selections should persist as users switch between different sorting attributes.
+Need multi-photo selection persistence across sorting and filtering changes.
 
-### Action Items
+### Actions
 
-- **Create Selection Service:** Implemented `app/services/selection.js` to manage selection state.
-- **Update Photo Grid:** Modified `albums/album.hbs` to handle photo selection and display selected state.
-- **Implement Selection Persistence:** Ensure that selections persist across sorting and navigation.
+- Created `selection.js` service to manage selected photos.
+- Selections persist when changing sort order or navigating within the album.
 
 ### Next Steps
 
-- **Expand Selection Feature:** Implement functionality to include photos taken immediately before and after selected photos.
-- **Testing:** Write tests to ensure selection works as expected.
+- Integrate with multi-person filtering now that filtering is query-param-based.
+- Ensure that selected photos remain selected as users toggle people filters.
+- Write more comprehensive tests for selection persistence.
 
 ---
 
-## Issue 9: Adding Actions for Selected Photos
+## Issue 9: Adding Actions for Selected Photos (Export Functionality)
 
-**Opened By:** [Your Name] on Oct 27, 2024
-
+**Opened By:** [Your Name], Oct 27, 2024  
 **Status:** **In Progress**
 
 ### Description
 
-Allow users to perform actions on the selected photos, such as exporting them to a directory.
+Need to export selected photos from the backend once chosen on the frontend.
 
-### Action Items
+### Actions
 
-- **Backend API Endpoint:** Created `/api/photos/export` to handle exporting photos.
-- **Frontend Integration:** Updated `albums/album.js` to send selected photo IDs to the backend.
-- **User Feedback:** Added alert messages to inform users about the export status.
+- Created `/api/photos/export` endpoint.
+- Frontend can send selected photo IDs to initiate export.
+- Basic user alerts implemented to inform the user of export status.
 
 ### Next Steps
 
-- **Implement Actual Export Logic:** Complete the backend function to export photos.
-- **Enhance User Feedback:** Provide better UI notifications and progress indicators.
+- Implement actual export logic on the backend.
+- Add progress indicators (e.g., a progress bar) in the UI.
+- Validate that exported filenames handle duplicates properly.
 
 ---
 
-## Issue 16: Filename Collisions When Reconstructing Directory Structure
+## Issue 16: Filename Collisions in Exports
 
-**Opened By:** [Your Name] on Dec 11, 2024
-
-**Status:** **Open** (Reopened December 12, 2024)
+**Opened By:** [Your Name], Dec 11, 2024  
+**Status:** **Open** (Reopened Dec 12, 2024)
 
 ### Description
 
-When exporting images from Apple Photos to a flat directory structure, multiple images can share the same `original_name` (e.g., `DSCF1191.jpg`). This leads to filename collisions and confusion when we lose the original directory context. The initial solution was to prepend the date/time to the filename during post-export renaming steps. However, we must verify that this approach works completely and consistently before marking the issue as resolved.
+When exporting images, sometimes duplicate filenames occur.
 
-### Current Approach (Under Testing)
+### Current Approach
 
-- **Date/Time Prefix**: Prepending the date/time (`YYYYMMDD-HHMMSS`) to the filename to ensure uniqueness and chronological sorting by filename.
-- **Collision Handling**: If two photos have the exact same timestamp and original name, append a counter (`-1`, `-2`, etc.) until a unique name is found.
-- **Integration with `osxphotos`**: Instead of renaming after export, we've adjusted our approach to use `osxphotos` filename templates so that the exported files have the correct names right after export, ideally removing the need for a separate rename step. We need to confirm that our entire pipeline, including all references in our app, uses the correct filenames and that this approach truly resolves collisions.
+- Prepend date/time to filenames.
+- Append counters for duplicates.
 
-### Action Items
+### Next Steps
 
-- [ ] Verify that `osxphotos` filename templates work as intended and no collisions occur directly after export.
-- [ ] Confirm that the rest of the application references the correct filenames consistently.
-- [ ] Apply and test the fix in a real environment to confirm no collisions and that sorting by filename works as desired.
+- Confirm that this approach truly prevents collisions.
+- Test extensively in a real environment before marking resolved.
 
-### Outcome
+---
 
-This issue remains open until:
+## Newly Considered Issue: Replacing Person Sub-Routes with Query Params
 
-1. The solution is applied by the real person managing the system.
-2. Verification in a real environment confirms that the fix works as intended.
+**Opened By:** [Your Name], Dec 12, 2024  
+**Status:** **In Planning**
 
-No premature marking of "Resolved" is allowed until these conditions are met.
+### Description
+
+We initially implemented `albums/album/persons` sub-routes. We now want to remove them in favor of query params on the main album route. This will unify navigation and filtering, removing the need for “Back” or “View People” links.
+
+### Actions
+
+- Update `DEVELOPMENT_PLAN.md` to reflect query-param-based person filtering.
+- Adjust frontend UI to list people under the album in the left nav.
+- Remove old person sub-route code once the new system is tested.
+
+### Next Steps
+
+- Implement toggles for people in the sidebar.
+- Update the album route model hook to filter photos by selected people.
+- Fully test the new approach.
 
 ---
 
 # End of Issues Log
+
+**Note:** No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
 ```
 
 ### **./README.md**
@@ -540,16 +452,42 @@ No premature marking of "Resolved" is allowed until these conditions are met.
 
 ## Overview
 
-This monorepo contains both the Ember.js frontend and the Express.js backend of the Photo Filter Application.
+This monorepo contains both the Ember.js frontend and the Express.js backend of the Photo Filter Application. It enables browsing, filtering, and exporting photos from your macOS Photos library.
 
 ## Project Structure
 
-- `backend/`: Contains the Express.js backend application.
-- `frontend/`: Contains the Ember.js frontend application.
-- `generate-overview.sh`: Script to generate the project overview.
-- `DEVELOPMENT_PLAN.md`: Development plan and objectives.
-- `ISSUES.md`: Log of issues and resolutions.
-- `project-guidelines.md`: Guidelines for collaboration and development.
+- **backend/**: Express.js backend application.
+- **frontend/**: Ember.js frontend application.
+- **DEVELOPMENT_PLAN.md**: Roadmap and implementation details.
+- **ISSUES.md**: Issues, debugging steps, and resolutions.
+- **project-guidelines.md**: Collaboration and coding standards.
+
+## Features
+
+- **Album Navigation**: Browse albums via a left-side navigation column.
+- **Photo Display**: View photos in selected albums with various sort options.
+- **Faceted Person-Based Filtering**:  
+  Under the currently active album, see a list of all recognized people.
+  - **Single Person Filter**: Click one person’s name to display only photos with that individual.
+  - **Multiple People Filter**: Select additional names to narrow photos down to those containing _all_ the chosen individuals, enabling powerful faceted search.
+- **Sorting**: Sort photos by various attributes (e.g., aesthetic scores).
+- **Photo Selection**: Select multiple photos; selections persist across sorting changes.
+- **Export Functionality**: Export selected photos to a directory.
+
+## Data Synchronization and Freshness
+
+- The backend checks for changes in the Photos library.
+- Cache invalidation ensures up-to-date album and photo data.
+
+## Performance and Optimization
+
+- JSON:API compliance for seamless Ember Data integration.
+- Plans to implement lazy loading and indexing for improved performance.
+
+## UI/UX
+
+- Nested routes (`{{outlet}}`) for clarity.
+- Future enhancements include more intuitive multi-person selection interfaces and better export feedback.
 
 ## Installation and Setup
 
@@ -558,64 +496,37 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
    ```bash
    git clone https://github.com/yourusername/photo-filter.git
    cd photo-filter
+
+   2.	Backend Setup:
    ```
 
-2. **Set Up the Backend**:
+cd backend
+npm install
+npm run setup
+npm run dev
 
-   ```bash
-   cd backend
-   npm install
-   npm run setup
-   npm run dev
-   ```
+    3.	Frontend Setup:
 
-3. **Set Up the Frontend**:
+Open a new terminal window:
 
-   Open a new terminal window:
+cd frontend/photo-filter-frontend
+npm install
+npm run start
 
-   ```bash
-   cd frontend/photo-filter-frontend
-   npm install
-   npm run start
-   ```
+    4.	Access the Application:
 
-4. **Access the Application**:
+Visit http://localhost:4200.
 
-   - Visit [http://localhost:4200](http://localhost:4200) to access the Ember.js frontend.
+Contributing
+• Use clear and descriptive commit messages.
+• Track issues in ISSUES.md.
+• Follow guidelines in project-guidelines.md.
 
-## Features
+Testing
+• Backend: Use Jest for tests (npm run test in backend/).
+• Frontend: Use Ember CLI testing (npm run test in frontend/).
 
-- **Album Navigation**: Browse albums using a left navigation column.
-- **Photo Display**: View photos within selected albums.
-- **Expanded Sorting**: Sort photos by various attributes, including aesthetic scores.
-- **Photo Selection**: Select photos by clicking; selections persist across sorting changes.
-- **Export Functionality**: Export selected photos to a directory.
-
-## Data Synchronization and Cache Invalidation
-
-- **Automatic Updates**: The backend checks for changes in the Photos library and updates cached data accordingly.
-- **Data Freshness**: Ensures users see the most recent albums and photos.
-- **Performance Optimization**: Avoids unnecessary data regeneration.
-
-## Development Notes
-
-- **Nested Routes**: Utilizes Ember.js nested routes with `{{outlet}}` to render child templates.
-- **Ember Services**: Uses a selection service to manage photo selection state.
-- **JSON:API Compliance**: Backend APIs conform to the JSON:API specification for seamless integration with Ember Data.
-- **Styling**: Basic responsive design implemented with CSS.
-
-## Contributing
-
-- **Git Commit Messages**: Include clear and descriptive commit messages with every change.
-- **Issue Tracking**: Use `ISSUES.md` to log problems and track resolutions.
-- **Collaboration Guidelines**: Refer to `project-guidelines.md` for best practices.
-
-## Testing
-
-- **Backend Tests**: Use Jest for testing backend code.
-- **Frontend Tests**: Use Ember CLI's testing tools.
-
-## License
+License
 
 This project is licensed under the MIT License.
 ```
@@ -767,8 +678,6 @@ Table of Contents
 - Optimize large dataset handling.
 - Use caching and lazy loading.
 - Profile resource usage.
-
----
 ```
 
 ## Backend Files
@@ -1909,11 +1818,9 @@ export const getPeopleInAlbum = async (req, res) => {
     const photosPath = path.join(photosDir, "photos.json");
 
     if (!(await fs.pathExists(photosPath))) {
-      return res
-        .status(404)
-        .json({
-          errors: [{ detail: "Album not found or no photos available" }],
-        });
+      return res.status(404).json({
+        errors: [{ detail: "Album not found or no photos available" }],
+      });
     }
 
     const photosData = await fs.readJson(photosPath);
@@ -1946,11 +1853,9 @@ export const getPhotosByPerson = async (req, res) => {
     const photosPath = path.join(photosDir, "photos.json");
 
     if (!(await fs.pathExists(photosPath))) {
-      return res
-        .status(404)
-        .json({
-          errors: [{ detail: "Album not found or no photos available" }],
-        });
+      return res.status(404).json({
+        errors: [{ detail: "Album not found or no photos available" }],
+      });
     }
 
     const photosData = await fs.readJson(photosPath);
@@ -2024,7 +1929,7 @@ import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { Serializer } from "jsonapi-serializer";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
-import { getNestedProperty, formatPhotoDate } from "../../utils/helpers.js";
+import { getNestedProperty } from "../../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2047,6 +1952,56 @@ const PhotoSerializer = new Serializer("photo", {
   },
   pluralizeType: false,
 });
+
+/**
+ * Format the photo's date/time including its timezone offset to match
+ * the osxphotos "{created.strftime,%Y%m%d-%H%M%S}" logic. This ensures
+ * exportedFilename matches exactly what osxphotos produces.
+ *
+ * @param {string} dateString - The photo.date string with timezone, e.g. "2022-11-06 17:52:18.936800+01:00"
+ * @returns {string} The formatted date/time string "YYYYMMDD-HHMMSS"
+ */
+function formatPhotoDateWithOffset(dateString) {
+  // Example: "2022-11-06 17:52:18.936800+01:00"
+  const match = dateString.match(
+    /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
+  );
+  if (!match) {
+    // Fallback if the format doesn't match
+    return fallbackFormat(new Date(dateString));
+  }
+
+  const datePart = match[1]; // "YYYY-MM-DD"
+  const timePart = match[2]; // "HH:MM:SS.fff"
+  const offsetPart = match[3]; // "+01:00" or similar
+
+  // The date/time plus offset describes local photo time.
+  // Parse out year, month, day, hour, minute, second from datePart/timePart:
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute, secondRaw] = timePart.split(":");
+  const hourNum = Number(hour);
+  const minuteNum = Number(minute);
+  const secondNum = Math.floor(Number(secondRaw));
+
+  const YYYY = String(year);
+  const MM = String(month).padStart(2, "0");
+  const DD = String(day).padStart(2, "0");
+  const HH = String(hourNum).padStart(2, "0");
+  const mm = String(minuteNum).padStart(2, "0");
+  const ss = String(secondNum).padStart(2, "0");
+
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
+}
+
+function fallbackFormat(dateObj) {
+  const YYYY = dateObj.getFullYear();
+  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const DD = String(dateObj.getDate()).padStart(2, "0");
+  const HH = String(dateObj.getHours()).padStart(2, "0");
+  const mm = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
+}
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
@@ -2072,30 +2027,30 @@ export const getPhotosByAlbumData = async (req, res) => {
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // If photos.json doesn't exist, export metadata and images
+    // If photos.json doesn't exist, export metadata and images first
     if (!(await fs.pathExists(photosPath))) {
-      // Export photos metadata
+      // Export metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
 
-      // Export images
+      // Export images using osxphotos with date/time prefix:
+      // {created.strftime,%Y%m%d-%H%M%S}-{original_name}.jpg
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
         imagesDir,
         photosPath
       );
-      // No additional rename step needed if osxphotos template handles date/time prefix
     }
 
     const photosData = await fs.readJson(photosPath);
 
     // Add 'originalName' and 'exportedFilename'
+    // exportedFilename = "YYYYMMDD-HHMMSS-{originalName}.jpg"
+    // Match exactly what osxphotos created.
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
-      const dateObj = new Date(photo.date);
-      const formattedDate = formatPhotoDate(dateObj);
-      const originalName = path.parse(photo.original_filename).name;
-      photo.exportedFilename = `${formattedDate}-${originalName}.jpg`;
+      const prefix = formatPhotoDateWithOffset(photo.date);
+      photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
     });
 
     const scoreAttributes = Object.keys(photosData[0].score);
@@ -2344,6 +2299,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/918451EC-C6A5-416D-B919-D23AE46FEBBF/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Sheep"
+        ],
+        "burst": false,
+        "cloud_guid": "AbkiIdG7V0IzR4NfC4f4B8JslwNm",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2022-11-06 11:52:19.752600-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2022-11-06 17:52:18.936800+01:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 1600,
+            "metering_mode": 5,
+            "sample_rate": null,
+            "track_format": null,
+...
+```
+
 ### **./backend/data/albums/16BC5397-4A87-49A1-8404-85D6473F3931/photos.json**
 ```json
 [
@@ -2495,7 +2475,7 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 
 ### **./backend/views/person.hbs**
 ```
-<!-- backend/views/person.hbs -->
+<!-- ./views/person.hbs -->
 <style>
   img {
     width: 30rem;
@@ -2744,14 +2724,19 @@ export default class PhotoAdapter extends ApplicationAdapter {
 }
 
 .albums-sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 250px;
+  overflow-y: auto;
   background: #f5f5f5;
   border-right: 1px solid #ddd;
   padding: 20px;
 }
 
 .albums-content {
-  flex: 1;
+  margin-left: 270px; // slightly more than sidebar width for spacing
   padding: 20px;
 }
 
@@ -2835,8 +2820,6 @@ export default class PhotoGridComponent extends Component {
 
 ### **./frontend/photo-filter-frontend/app/router.js**
 ```
-// frontend/photo-filter-frontend/app/router.js
-
 import EmberRouter from '@ember/routing/router';
 import config from 'photo-filter-frontend/config/environment';
 
@@ -2847,11 +2830,7 @@ export default class Router extends EmberRouter {
 
 Router.map(function () {
   this.route('albums', function () {
-    this.route('album', { path: '/:album_id' }, function () {
-      this.route('persons', function () {
-        this.route('person', { path: '/:person_name' });
-      });
-    });
+    this.route('album', { path: '/:album_id' });
   });
 });
 ```
@@ -2860,25 +2839,50 @@ Router.map(function () {
 ```
 <h1>Select an Album</h1>
 
-<!-- Wrap in a container with two columns: left for album list, right for content -->
 <div class="albums-layout">
-  <div class="albums-sidebar">
+  <!-- Make sidebar fixed and scrollable -->
+  <div
+    class="albums-sidebar"
+    style="position: fixed; top:0; bottom:0; left:0; width:250px; overflow-y:auto; background:#f5f5f5; border-right: 1px solid #ddd; padding:20px;"
+  >
     <ul class="albums-list">
       {{#each this.model as |album|}}
         <li class="album-item">
-          <LinkTo @route="albums.album" @model={{album.id}}>
-            {{album.title}}
-            {{#if album.isSmart}}
-              <span class="smart-album-label">(Smart Album)</span>
-            {{/if}}
-          </LinkTo>
+          <LinkTo
+            @route="albums.album"
+            @model={{album.id}}
+          >{{album.title}}</LinkTo>
         </li>
       {{/each}}
     </ul>
+
+    {{#if this.controller.model.album}}
+      <hr />
+      <h3>{{this.controller.model.album.title}}</h3>
+      <p>Filter by People:</p>
+      <ul>
+        {{#each this.controller.model.people as |person|}}
+          <li>
+            <label>
+              <input
+                type="checkbox"
+                checked={{if
+                  (contains person this.controller.people)
+                  true
+                  false
+                }}
+                {{on "change" (fn this.controller.togglePerson person)}}
+              />
+              {{person}}
+            </label>
+          </li>
+        {{/each}}
+      </ul>
+    {{/if}}
   </div>
 
-  <div class="albums-content">
-    {{! Nested routes (like albums.album, albums.album.persons) will render here }}
+  <!-- Add left margin to content to accommodate fixed sidebar -->
+  <div class="albums-content" style="margin-left:270px; padding:20px;">
     {{outlet}}
   </div>
 </div>```
@@ -2892,13 +2896,6 @@ Router.map(function () {
 ### **./frontend/photo-filter-frontend/app/templates/albums/album.hbs**
 ```
 <h1>{{this.model.album.title}}</h1>
-<LinkTo @route="albums">Back to Albums</LinkTo>
-
-<p>
-  <LinkTo @route="albums.album.persons" @model={{this.model.album.id}}>
-    View People in this Album
-  </LinkTo>
-</p>
 
 <form {{on "submit" this.updateSort}}>
   <label for="sortAttribute">Sort by:</label>
@@ -2925,128 +2922,51 @@ Router.map(function () {
   <button type="submit">Sort</button>
 </form>
 
-<!-- Use the PhotoGrid component for displaying photos -->
 <PhotoGrid
   @photos={{this.model.photos}}
   @albumUUID={{this.model.albumUUID}}
   @sortAttribute={{this.model.sortAttribute}}
 />```
-
-### **./frontend/photo-filter-frontend/app/templates/albums/album/persons/person.hbs**
-```
-<h2>Photos of {{this.model.personName}} in {{this.model.album.title}}</h2>
-<LinkTo @route="albums.album.persons" @model={{this.model.album.id}}>Back to
-  People</LinkTo>
-
-<form {{on "submit" (fn (mut (this.sortChanged)) true)}}>
-  <label for="sortAttribute">Sort by:</label>
-  <select id="sortAttribute" {{on "change" (fn this.selectSortAttribute)}}>
-    {{#each this.model.scoreAttributes as |attribute|}}
-      <option
-        value="score.{{attribute}}"
-        selected={{eq this.model.sortAttribute (concat "score." attribute)}}
-      >
-        {{capitalize attribute}}
-      </option>
-    {{/each}}
-  </select>
-
-  <label for="sortOrder">Order:</label>
-  <select id="sortOrder" {{on "change" (fn this.selectSortOrder)}}>
-    <option
-      value="desc"
-      selected={{eq this.model.sortOrder "desc"}}
-    >Descending</option>
-    <option
-      value="asc"
-      selected={{eq this.model.sortOrder "asc"}}
-    >Ascending</option>
-  </select>
-
-  <button type="submit">Sort</button>
-</form>
-
-<!-- Use the PhotoGrid component -->
-<PhotoGrid
-  @photos={{this.model.photos}}
-  @albumUUID={{this.model.albumUUID}}
-  @sortAttribute={{this.model.sortAttribute}}
-/>```
-
-### **./frontend/photo-filter-frontend/app/templates/albums/album/persons.hbs**
-```
-<h2>People in {{this.model.album.title}}</h2>
-<ul>
-  {{#each this.model.people as |person|}}
-    <li>
-      <LinkTo
-        @route="albums.album.persons.person"
-        @models={{array this.model.album.id person}}
-      >
-        {{person}}
-      </LinkTo>
-    </li>
-  {{/each}}
-</ul>
-
-<LinkTo @route="albums.album" @model={{this.model.album.id}}>Back to Album</LinkTo>```
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
-// app/controllers/albums/album.js
-
 import Controller from '@ember/controller';
-import { action } from '@ember/object';
+import { action, set } from '@ember/object';
+import { tracked } from '@glimmer/tracking';
 
 export default class AlbumsAlbumController extends Controller {
-  queryParams = ['sort', 'order'];
+  queryParams = ['sort', 'order', 'people'];
   sort = 'score.overall';
   order = 'desc';
+  // people is an array of selected individual's names
+  @tracked people = [];
 
   @action
   updateSort(event) {
     event.preventDefault();
-    // Properties are bound to query params; the model will refresh automatically
+    // Bound to query params; model will refresh automatically
   }
 
   @action
   selectSortAttribute(event) {
-    this.set('sort', event.target.value);
+    this.sort = event.target.value;
   }
 
   @action
   selectSortOrder(event) {
-    this.set('order', event.target.value);
-  }
-}
-```
-
-### **./frontend/photo-filter-frontend/app/controllers/albums/album/persons/person.js**
-```
-// app/controllers/albums/album/persons/person.js
-
-import Controller from '@ember/controller';
-import { action } from '@ember/object';
-
-export default class AlbumsAlbumPersonsPersonController extends Controller {
-  queryParams = ['sort', 'order'];
-  sort = 'score.overall';
-  order = 'desc';
-
-  @action
-  selectSortAttribute(event) {
-    this.set('sort', event.target.value);
+    this.order = event.target.value;
   }
 
   @action
-  selectSortOrder(event) {
-    this.set('order', event.target.value);
-  }
-
-  @action
-  updateSort(event) {
-    event.preventDefault();
-    // Trigger route refresh due to query param binding
+  togglePerson(personName) {
+    // Toggle the presence of personName in the people array
+    let selected = this.people.slice(); // clone array
+    if (selected.includes(personName)) {
+      selected = selected.filter((p) => p !== personName);
+    } else {
+      selected.push(personName);
+    }
+    this.people = selected;
   }
 }
 ```
@@ -3087,112 +3007,63 @@ export default class AlbumsRoute extends Route {
 
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
+import fetch from 'fetch';
 
 export default class AlbumsAlbumRoute extends Route {
   @service store;
 
   queryParams = {
-    sort: {
-      refreshModel: true,
-    },
-    order: {
-      refreshModel: true,
-    },
+    sort: { refreshModel: true },
+    order: { refreshModel: true },
+    people: { refreshModel: true },
   };
 
   async model(params) {
-    const { album_id, sort = 'score.overall', order = 'desc' } = params;
+    const {
+      album_id,
+      sort = 'score.overall',
+      order = 'desc',
+      people = [],
+    } = params;
 
-    // Fetch the album without including photos
+    // Fetch the album
     const album = await this.store.findRecord('album', album_id);
 
-    // Fetch photos associated with the album using store.query
+    // Fetch all photos from the backend using store.query
     const photos = await this.store.query('photo', {
       album_id,
       sort,
       order,
     });
 
-    // Get meta data from the photos response
-    const meta = photos.meta || {};
+    // Fetch the list of people from the backend
+    let peopleResponse = await fetch(
+      `${this.store.adapterFor('application').host}/api/albums/${album_id}/persons`,
+    );
+    let peopleData = await peopleResponse.json();
+    const allPeople = peopleData.data || [];
+
+    // Convert the photos RecordArray to a plain array
+    let filteredPhotos = photos;
+
+    // If people query param is not empty, filter photos that contain all selected people
+    if (people.length > 0) {
+      filteredPhotos = filteredPhotos.filter((photo) => {
+        // Assume photo has a persons attribute. If not, the backend must include it or
+        // we need to adjust this logic. For now, assume `photo.persons` exists.
+        const photoPeople = photo.persons || [];
+        return people.every((personName) => photoPeople.includes(personName));
+      });
+    }
 
     return {
       album,
-      photos,
-      albumUUID: meta.albumUUID || album_id,
-      sortAttribute: meta.sortAttribute || sort,
-      sortOrder: meta.sortOrder || order,
-      scoreAttributes: meta.scoreAttributes || [],
-    };
-  }
-}
-```
-
-### **./frontend/photo-filter-frontend/app/routes/albums/album/persons.js**
-```
-// app/routes/albums/album/persons.js
-
-import Route from '@ember/routing/route';
-import { inject as service } from '@ember/service';
-import fetch from 'fetch';
-
-export default class AlbumsAlbumPersonsRoute extends Route {
-  @service store;
-
-  async model(params) {
-    const { album_id } = this.paramsFor('albums.album');
-    // Fetch the list of people from the backend
-    const response = await fetch(
-      `${this.store.adapterFor('application').host}/api/albums/${album_id}/persons`,
-    );
-    const data = await response.json();
-
-    return {
-      album: await this.store.findRecord('album', album_id),
-      people: data.data || [],
-    };
-  }
-}
-```
-
-### **./frontend/photo-filter-frontend/app/routes/albums/album/persons/person.js**
-```
-// app/routes/albums/album/persons/person.js
-
-import Route from '@ember/routing/route';
-import { inject as service } from '@ember/service';
-import fetch from 'fetch';
-
-export default class AlbumsAlbumPersonsPersonRoute extends Route {
-  @service store;
-
-  queryParams = {
-    sort: { refreshModel: true },
-    order: { refreshModel: true },
-  };
-
-  async model(params) {
-    const { album_id } = this.paramsFor('albums.album');
-    const { person_name } = params;
-    const sort = params.sort || 'score.overall';
-    const order = params.order || 'desc';
-
-    const url = `${this.store.adapterFor('application').host}/api/albums/${album_id}/person/${encodeURIComponent(person_name)}?sort=${sort}&order=${order}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const photos = data.data || [];
-    const meta = data.meta || {};
-
-    return {
-      album: await this.store.findRecord('album', album_id),
-      personName: person_name,
-      photos,
-      albumUUID: meta.albumUUID || album_id,
-      sortAttribute: meta.sortAttribute || sort,
-      sortOrder: meta.sortOrder || order,
-      scoreAttributes: meta.scoreAttributes || [],
+      photos: filteredPhotos,
+      albumUUID: photos.meta?.albumUUID || album_id,
+      sortAttribute: photos.meta?.sortAttribute || sort,
+      sortOrder: photos.meta?.sortOrder || order,
+      scoreAttributes: photos.meta?.scoreAttributes || [],
+      people: allPeople,
     };
   }
 }
@@ -3228,6 +3099,15 @@ import { helper } from '@ember/component/helper';
 
 export default helper(function replace([str, find, replace]) {
   return str.replace(find, replace);
+});
+```
+
+### **./frontend/photo-filter-frontend/app/helpers/contains.js**
+```
+import { helper } from '@ember/component/helper';
+
+export default helper(function contains([item, array]) {
+  return array.includes(item);
 });
 ```
 
