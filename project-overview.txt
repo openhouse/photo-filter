@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec 14 13:52:10 EST 2024
+Generated on: Sat Dec 14 15:37:59 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -1752,8 +1752,6 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// We'll create a Person serializer and an Album serializer.
-// Person serializer
 const PersonSerializer = new Serializer("person", {
   id: "id",
   attributes: ["name"],
@@ -1761,9 +1759,8 @@ const PersonSerializer = new Serializer("person", {
   pluralizeType: false,
 });
 
-// Album serializer: now includes a relationship to persons
 const AlbumSerializer = new Serializer("album", {
-  id: "uuid", // Use 'uuid' as the 'id' field
+  id: "uuid",
   attributes: ["title"],
   keyForAttribute: "camelCase",
   pluralizeType: false,
@@ -1788,19 +1785,14 @@ export const getAlbumsData = async (req, res) => {
       "export_albums.py"
     );
 
-    // Ensure data directory exists
     await fs.ensureDir(dataDir);
 
-    // Check if albums.json exists
     if (!(await fs.pathExists(albumsPath))) {
       console.log("albums.json not found. Exporting albums using osxphotos...");
       await runPythonScript(pythonPath, scriptPath, [], albumsPath);
     }
 
-    // Read albums data
     const albumsData = await fs.readJson(albumsPath);
-
-    // Serialize data (no persons here yet)
     const jsonApiData = AlbumSerializer.serialize(albumsData);
     res.json(jsonApiData);
   } catch (error) {
@@ -1824,20 +1816,15 @@ export const getAlbumById = async (req, res) => {
       return res.status(404).json({ errors: [{ detail: "Album not found" }] });
     }
 
-    // If we have photos for this album, we can find persons
     let persons = [];
     if (await fs.pathExists(photosPath)) {
       const photosData = await fs.readJson(photosPath);
-
-      // Extract persons from all photos
       const allPersons = new Set();
       photosData.forEach((photo) => {
         if (Array.isArray(photo.persons)) {
           photo.persons.forEach((name) => allPersons.add(name));
         }
       });
-
-      // Create person objects
       persons = Array.from(allPersons).map((name) => {
         return {
           id: slugifyName(name),
@@ -1846,26 +1833,19 @@ export const getAlbumById = async (req, res) => {
       });
     }
 
-    // Now we need to include these persons in the album JSON:API response.
-    // Add a relationships.persons to the album record:
     const albumRecord = {
       uuid: album.uuid,
       title: album.title,
     };
 
-    // Serialize the album alone first
     let albumJsonApi = AlbumSerializer.serialize(albumRecord);
-
-    // Now add persons to the album’s relationships:
     albumJsonApi.data.relationships = albumJsonApi.data.relationships || {};
     albumJsonApi.data.relationships.persons = {
       data: persons.map((p) => ({ type: "person", id: p.id })),
     };
 
-    // Serialize persons separately
     const personJsonApi = PersonSerializer.serialize(persons);
 
-    // Merge included persons
     const merged = {
       data: albumJsonApi.data,
       included: personJsonApi.data,
@@ -1879,7 +1859,6 @@ export const getAlbumById = async (req, res) => {
   }
 };
 
-// Helper function to slugify person names
 function slugifyName(name) {
   return name
     .toLowerCase()
@@ -3058,20 +3037,19 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<h1 class="text-3xl font-bold mb-4">Select an Album</h1>
+<div class="flex h-screen">
 
-<div class="flex flex-row h-screen">
   <!-- Sidebar -->
   <div
-    class="w-64 bg-base-100 border-r border-base-300 h-full overflow-y-auto p-4"
+    class="fixed top-0 left-0 w-64 bg-base-100 border-r border-base-300 h-screen overflow-y-auto p-4"
   >
-    <ul class="menu w-full">
+    <ul class="menu p-0 w-full">
       {{#each this.model as |album|}}
-        <li class="mb-1">
+        <li>
           <LinkTo
             @route="albums.album"
             @model={{album.id}}
-            class="rounded hover:bg-base-300"
+            class="rounded hover:bg-base-300 px-2 py-1"
           >
             {{album.title}}
           </LinkTo>
@@ -3080,9 +3058,11 @@ Router.map(function () {
     </ul>
   </div>
 
-  <div class="flex-1 p-6">
+  <!-- Main content area -->
+  <div class="flex-1 ml-64 p-6">
     {{outlet}}
   </div>
+
 </div>```
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
@@ -3108,59 +3088,64 @@ Router.map(function () {
 ```
 <h1 class="text-2xl font-bold mb-4">{{this.model.album.title}}</h1>
 
-<div class="mb-4">
-  <h3 class="text-lg font-semibold">{{this.model.album.title}}</h3>
-  <p class="mb-2">Filter by Persons:</p>
-  <ul class="space-y-2">
-    {{#each this.model.persons as |person|}}
-      <li>
-        <label class="cursor-pointer flex items-center space-x-2">
-          <input
-            type="checkbox"
-            class="checkbox checkbox-primary"
-            checked={{if (contains person this.persons) true false}}
-            {{on "change" (fn this.togglePerson person)}}
-          />
-          <span>{{person}}</span>
-        </label>
-      </li>
-    {{/each}}
-  </ul>
+<div class="flex items-center justify-between mb-4">
+  <div class="text-lg font-semibold">{{this.model.album.title}}</div>
+  <div class="flex items-center space-x-4">
+
+    <!-- Sort by attribute -->
+    <div class="form-control">
+      <label class="label text-sm font-semibold">Sort by</label>
+      <select
+        id="sortAttribute"
+        class="select select-bordered select-sm"
+        {{on "change" this.selectSortAttribute}}
+      >
+        {{#each this.model.scoreAttributes as |attribute|}}
+          <option
+            value="score.{{attribute}}"
+            selected={{eq this.sort (concat "score." attribute)}}
+          >
+            {{capitalize attribute}}
+          </option>
+        {{/each}}
+      </select>
+    </div>
+
+    <!-- Order (asc/desc) -->
+    <div class="form-control">
+      <label class="label text-sm font-semibold">Order</label>
+      <select
+        id="sortOrder"
+        class="select select-bordered select-sm"
+        {{on "change" this.selectSortOrder}}
+      >
+        <option
+          value="desc"
+          selected={{eq this.order "desc"}}
+        >Descending</option>
+        <option value="asc" selected={{eq this.order "asc"}}>Ascending</option>
+      </select>
+    </div>
+  </div>
 </div>
 
-<form {{on "submit" this.updateSort}} class="mb-6 flex items-center space-x-4">
-  <div>
-    <label for="sortAttribute" class="mr-2 font-semibold">Sort by:</label>
-    <select
-      id="sortAttribute"
-      {{on "change" this.selectSortAttribute}}
-      class="select select-bordered"
+<!-- Person filters -->
+<div class="flex justify-center mb-6 flex-wrap gap-2">
+  {{#each this.model.persons as |person|}}
+    <button
+      type="button"
+      class="btn btn-sm rounded-full px-4 normal-case
+        {{if
+          (contains person this.persons)
+          'btn-accent text-white'
+          'btn-outline'
+        }}"
+      {{on "click" (fn this.togglePerson person)}}
     >
-      {{#each this.model.scoreAttributes as |attribute|}}
-        <option
-          value="score.{{attribute}}"
-          selected={{eq this.sort (concat "score." attribute)}}
-        >
-          {{capitalize attribute}}
-        </option>
-      {{/each}}
-    </select>
-  </div>
-
-  <div>
-    <label for="sortOrder" class="mr-2 font-semibold">Order:</label>
-    <select
-      id="sortOrder"
-      {{on "change" this.selectSortOrder}}
-      class="select select-bordered"
-    >
-      <option value="desc" selected={{eq this.order "desc"}}>Descending</option>
-      <option value="asc" selected={{eq this.order "asc"}}>Ascending</option>
-    </select>
-  </div>
-
-  <button type="submit" class="btn btn-primary">Sort</button>
-</form>
+      {{person}}
+    </button>
+  {{/each}}
+</div>
 
 <PhotoGrid
   @photos={{this.model.photos}}
@@ -3170,6 +3155,7 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
+// frontend/photo-filter-frontend/app/controllers/albums/album.js
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
@@ -3179,13 +3165,7 @@ export default class AlbumsAlbumController extends Controller {
 
   @tracked sort = 'score.overall';
   @tracked order = 'desc';
-  @tracked persons = []; // Array of currently selected persons
-
-  @action
-  updateSort(event) {
-    event.preventDefault();
-    // Since sort and order are query params, the model will refresh automatically
-  }
+  @tracked persons = [];
 
   @action
   selectSortAttribute(event) {
@@ -3199,8 +3179,7 @@ export default class AlbumsAlbumController extends Controller {
 
   @action
   togglePerson(personName) {
-    // Toggle selected person in the persons array
-    let selected = this.persons.slice();
+    let selected = [...this.persons];
     if (selected.includes(personName)) {
       selected = selected.filter((p) => p !== personName);
     } else {
@@ -3243,8 +3222,7 @@ export default class AlbumsRoute extends Route {
 
 ### **./frontend/photo-filter-frontend/app/routes/albums/album.js**
 ```
-// app/routes/albums/album.js
-
+// frontend/photo-filter-frontend/app/routes/albums/album.js
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
 
@@ -3265,24 +3243,22 @@ export default class AlbumsAlbumRoute extends Route {
       persons = [],
     } = params;
 
-    // Fetch the album record, which includes the person data
-    // We rely on the included data to load persons, so make sure the backend returns them in `included`.
+    // Fetch the album with included persons
     const album = await this.store.findRecord('album', album_id, {
       include: 'persons',
     });
 
-    // Fetch the photos for the album
+    // Fetch photos
     const photos = await this.store.query('photo', {
       album_id,
       sort,
       order,
     });
 
-    // Await album.persons to ensure the data is fully loaded
     const loadedPersons = await album.persons;
     const allPersons = loadedPersons.map((person) => person.name);
 
-    // Filter photos if persons are selected
+    // Filter photos by selected persons
     let filteredPhotos = photos;
     if (persons.length > 0) {
       filteredPhotos = filteredPhotos.filter((photo) =>
@@ -3297,7 +3273,7 @@ export default class AlbumsAlbumRoute extends Route {
       sortAttribute: photos.meta?.sortAttribute || sort,
       sortOrder: photos.meta?.sortOrder || order,
       scoreAttributes: photos.meta?.scoreAttributes || [],
-      persons: allPersons, // Now we have the fully loaded list of person names
+      persons: allPersons,
     };
   }
 }

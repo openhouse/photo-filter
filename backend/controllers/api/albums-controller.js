@@ -9,8 +9,6 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// We'll create a Person serializer and an Album serializer.
-// Person serializer
 const PersonSerializer = new Serializer("person", {
   id: "id",
   attributes: ["name"],
@@ -18,9 +16,8 @@ const PersonSerializer = new Serializer("person", {
   pluralizeType: false,
 });
 
-// Album serializer: now includes a relationship to persons
 const AlbumSerializer = new Serializer("album", {
-  id: "uuid", // Use 'uuid' as the 'id' field
+  id: "uuid",
   attributes: ["title"],
   keyForAttribute: "camelCase",
   pluralizeType: false,
@@ -45,19 +42,14 @@ export const getAlbumsData = async (req, res) => {
       "export_albums.py"
     );
 
-    // Ensure data directory exists
     await fs.ensureDir(dataDir);
 
-    // Check if albums.json exists
     if (!(await fs.pathExists(albumsPath))) {
       console.log("albums.json not found. Exporting albums using osxphotos...");
       await runPythonScript(pythonPath, scriptPath, [], albumsPath);
     }
 
-    // Read albums data
     const albumsData = await fs.readJson(albumsPath);
-
-    // Serialize data (no persons here yet)
     const jsonApiData = AlbumSerializer.serialize(albumsData);
     res.json(jsonApiData);
   } catch (error) {
@@ -81,20 +73,15 @@ export const getAlbumById = async (req, res) => {
       return res.status(404).json({ errors: [{ detail: "Album not found" }] });
     }
 
-    // If we have photos for this album, we can find persons
     let persons = [];
     if (await fs.pathExists(photosPath)) {
       const photosData = await fs.readJson(photosPath);
-
-      // Extract persons from all photos
       const allPersons = new Set();
       photosData.forEach((photo) => {
         if (Array.isArray(photo.persons)) {
           photo.persons.forEach((name) => allPersons.add(name));
         }
       });
-
-      // Create person objects
       persons = Array.from(allPersons).map((name) => {
         return {
           id: slugifyName(name),
@@ -103,26 +90,19 @@ export const getAlbumById = async (req, res) => {
       });
     }
 
-    // Now we need to include these persons in the album JSON:API response.
-    // Add a relationships.persons to the album record:
     const albumRecord = {
       uuid: album.uuid,
       title: album.title,
     };
 
-    // Serialize the album alone first
     let albumJsonApi = AlbumSerializer.serialize(albumRecord);
-
-    // Now add persons to the album’s relationships:
     albumJsonApi.data.relationships = albumJsonApi.data.relationships || {};
     albumJsonApi.data.relationships.persons = {
       data: persons.map((p) => ({ type: "person", id: p.id })),
     };
 
-    // Serialize persons separately
     const personJsonApi = PersonSerializer.serialize(persons);
 
-    // Merge included persons
     const merged = {
       data: albumJsonApi.data,
       included: personJsonApi.data,
@@ -136,7 +116,6 @@ export const getAlbumById = async (req, res) => {
   }
 };
 
-// Helper function to slugify person names
 function slugifyName(name) {
   return name
     .toLowerCase()
