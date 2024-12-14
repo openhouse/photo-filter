@@ -11,6 +11,14 @@ import { getNestedProperty } from "../../utils/helpers.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// We'll define two serializers: one for person and one for photo.
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: ["name"],
+  keyForAttribute: "camelCase",
+  pluralizeType: false,
+});
+
 const PhotoSerializer = new Serializer("photo", {
   id: "uuid",
   attributes: [
@@ -26,34 +34,25 @@ const PhotoSerializer = new Serializer("photo", {
     album: {
       type: "album",
     },
+    persons: {
+      type: "person",
+    },
   },
   pluralizeType: false,
+  meta: {}, // We'll add meta later
 });
 
-/**
- * Format the photo's date/time including its timezone offset to match
- * the osxphotos "{created.strftime,%Y%m%d-%H%M%S}" logic. This ensures
- * exportedFilename matches exactly what osxphotos produces.
- *
- * @param {string} dateString - The photo.date string with timezone, e.g. "2022-11-06 17:52:18.936800+01:00"
- * @returns {string} The formatted date/time string "YYYYMMDD-HHMMSS"
- */
 function formatPhotoDateWithOffset(dateString) {
-  // Example: "2022-11-06 17:52:18.936800+01:00"
   const match = dateString.match(
     /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
   );
   if (!match) {
-    // Fallback if the format doesn't match
     return fallbackFormat(new Date(dateString));
   }
 
-  const datePart = match[1]; // "YYYY-MM-DD"
-  const timePart = match[2]; // "HH:MM:SS.fff"
-  const offsetPart = match[3]; // "+01:00" or similar
+  const datePart = match[1];
+  const timePart = match[2];
 
-  // The date/time plus offset describes local photo time.
-  // Parse out year, month, day, hour, minute, second from datePart/timePart:
   const [year, month, day] = datePart.split("-").map(Number);
   const [hour, minute, secondRaw] = timePart.split(":");
   const hourNum = Number(hour);
@@ -104,13 +103,8 @@ export const getPhotosByAlbumData = async (req, res) => {
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // If photos.json doesn't exist, export metadata and images first
     if (!(await fs.pathExists(photosPath))) {
-      // Export metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-
-      // Export images using osxphotos with date/time prefix:
-      // {created.strftime,%Y%m%d-%H%M%S}-{original_name}.jpg
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
@@ -122,12 +116,13 @@ export const getPhotosByAlbumData = async (req, res) => {
     const photosData = await fs.readJson(photosPath);
 
     // Add 'originalName' and 'exportedFilename'
-    // exportedFilename = "YYYYMMDD-HHMMSS-{originalName}.jpg"
-    // Match exactly what osxphotos created.
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
       const prefix = formatPhotoDateWithOffset(photo.date);
       photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+      if (!Array.isArray(photo.persons)) {
+        photo.persons = [];
+      }
     });
 
     const scoreAttributes = Object.keys(photosData[0].score);
@@ -143,20 +138,72 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
+    // Add album relationship
     photosData.forEach((photo) => {
       photo.album = albumUUID;
     });
 
-    const jsonApiData = PhotoSerializer.serialize(photosData);
-    res.json({
-      ...jsonApiData,
+    // Handle person relationships
+    const uniquePersons = new Map();
+    function slugifyName(name) {
+      return name
+        .toLowerCase()
+        .replace(/[\s+]/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+    }
+
+    photosData.forEach((photo) => {
+      photo.personsData = [];
+      photo.persons.forEach((name) => {
+        const slug = slugifyName(name);
+        if (!uniquePersons.has(slug)) {
+          uniquePersons.set(slug, { id: slug, name });
+        }
+        photo.personsData.push({ type: "person", id: slug });
+      });
+    });
+
+    // Serialize photos
+    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
+
+    // Serialize persons
+    const personsArray = Array.from(uniquePersons.values());
+    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
+
+    // Merge included resources
+    const merged = {
+      data: jsonApiPhotoData.data,
+      included: jsonApiPersonData.data,
       meta: {
         albumUUID,
         sortAttribute,
         sortOrder,
         scoreAttributes,
       },
+    };
+
+    // Link persons to photos
+    merged.data.forEach((photo) => {
+      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
+      if (
+        originalPhoto &&
+        originalPhoto.personsData &&
+        originalPhoto.personsData.length > 0
+      ) {
+        if (!photo.relationships) {
+          photo.relationships = {};
+        }
+        photo.relationships.persons = {
+          data: originalPhoto.personsData,
+        };
+      } else {
+        if (photo.relationships && photo.relationships.persons) {
+          photo.relationships.persons = { data: [] };
+        }
+      }
     });
+
+    res.json(merged);
   } catch (error) {
     console.error("Error fetching photos for album:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });

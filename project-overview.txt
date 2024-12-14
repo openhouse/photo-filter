@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Thu Dec 12 18:02:07 EST 2024
+Generated on: Sat Dec 14 13:52:10 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -37,7 +37,11 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   │   └── photos.json
 │   │   │   ├── 6956E064-5A0E-4451-8A75-FC6724FED866
 │   │   │   │   └── photos.json
-│   │   │   └── 918451EC-C6A5-416D-B919-D23AE46FEBBF
+│   │   │   ├── 69865EDF-08F2-40B1-8E20-F802D6C4E6D3
+│   │   │   │   └── photos.json
+│   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
+│   │   │   │   └── photos.json
+│   │   │   └── D3988A5F-8B66-464B-B18C-457EC672621A
 │   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
@@ -122,6 +126,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── models
 │       │   │   ├── .gitkeep
 │       │   │   ├── album.js
+│       │   │   ├── person.js
 │       │   │   └── photo.js
 │       │   ├── router.js
 │       │   ├── routes
@@ -135,7 +140,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── services
 │       │   │   └── store.js
 │       │   ├── styles
-│       │   │   └── app.scss
+│       │   │   └── app.css
 │       │   └── templates
 │       │       ├── albums
 │       │       │   ├── album
@@ -151,8 +156,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       ├── ember-cli-build.js
 │       ├── package-lock.json
 │       ├── package.json
+│       ├── postcss.config.js
 │       ├── public
 │       │   └── robots.txt
+│       ├── tailwind.config.js
 │       ├── testem.js
 │       ├── tests
 │       │   ├── acceptance
@@ -189,7 +196,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-58 directories, 122 files
+60 directories, 127 files
 ```
 
 ---
@@ -199,6 +206,17 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ### **./DEVELOPMENT_PLAN.md**
 ```
 # Development Plan
+
+### December 14, 2024: Tailwind & DaisyUI Integration Update
+
+**Decision & Implementation:**
+
+- Removed `@import` of Tailwind CSS files in `app.scss` and replaced them with:
+  ```scss
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+  ```
 
 ## Update: Transition to Query-Param-Based Faceted Person Filtering
 
@@ -317,6 +335,28 @@ Create an intuitive, facet-based photo exploration tool integrated with macOS Ph
 # Issues and Resolutions
 
 This file logs open issues and their statuses. Update it as new issues arise and existing ones progress.
+
+---
+
+## Issue 16: PostCSS "File not found: /app/styles/app.css" Error
+
+**Opened By:** Jamie, Dec 14, 2024  
+**Status:** In Progress
+
+### Description
+
+Encountered a build error because PostCSS didn’t find `app.css` after SCSS changes.
+
+### Actions
+
+- Installed `ember-cli-sass` to compile `app.scss` into `app.css`.
+- Updated `app.scss` to use `@tailwind` directives instead of `@import`.
+- (Alternative) Renamed `app.scss` to `app.css` and removed `ember-cli-sass`.
+
+### Next Steps
+
+- Verify build succeeds (`ember serve`).
+- If successful, mark as Resolved after testing in production-like scenarios.
 
 ---
 
@@ -441,9 +481,31 @@ We initially implemented `albums/album/persons` sub-routes. We now want to remov
 
 ---
 
-# End of Issues Log
+## Issue 17: Persons Not Appearing in Album UI
 
-**Note:** No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
+**Opened By:** [Your Name], Dec 13, 2024  
+**Status:** **Open**
+
+### Description
+
+Even though the backend returns `persons` as included data when fetching an album, they do not appear in the UI. In Ember Inspector, we see that `album.persons` is present, but on the active controller, `persons` remains empty. This occurs because `album.persons` is a PromiseManyArray and must be awaited before using its data. Without awaiting, the code tries to read `persons` before they are fully loaded, resulting in an empty array being used for the UI.
+
+### Actions
+
+- In `app/routes/albums/album.js`, await the `album.persons` before mapping or filtering.
+  For example:
+  ```js
+  const loadedPersons = await album.persons;
+  const allPersons = loadedPersons.map((person) => person.name);
+  ```
+
+Next Steps
+• Make this code change and verify that persons now appear in the UI as expected.
+• Once verified and tested in reality, mark this issue as resolved.
+
+End of Issues Log
+
+Note: No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
 ```
 
 ### **./README.md**
@@ -1690,12 +1752,26 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Change 'albums' to 'album' and set pluralizeType to false
+// We'll create a Person serializer and an Album serializer.
+// Person serializer
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: ["name"],
+  keyForAttribute: "camelCase",
+  pluralizeType: false,
+});
+
+// Album serializer: now includes a relationship to persons
 const AlbumSerializer = new Serializer("album", {
   id: "uuid", // Use 'uuid' as the 'id' field
   attributes: ["title"],
   keyForAttribute: "camelCase",
-  pluralizeType: false, // Prevent automatic pluralization
+  pluralizeType: false,
+  relationships: {
+    persons: {
+      type: "person",
+    },
+  },
 });
 
 export const getAlbumsData = async (req, res) => {
@@ -1718,18 +1794,14 @@ export const getAlbumsData = async (req, res) => {
     // Check if albums.json exists
     if (!(await fs.pathExists(albumsPath))) {
       console.log("albums.json not found. Exporting albums using osxphotos...");
-
-      // Export albums using the Python script
       await runPythonScript(pythonPath, scriptPath, [], albumsPath);
     }
 
     // Read albums data
     const albumsData = await fs.readJson(albumsPath);
 
-    // Serialize data
+    // Serialize data (no persons here yet)
     const jsonApiData = AlbumSerializer.serialize(albumsData);
-
-    // Send JSON response
     res.json(jsonApiData);
   } catch (error) {
     console.error("Error fetching albums:", error);
@@ -1737,34 +1809,83 @@ export const getAlbumsData = async (req, res) => {
   }
 };
 
-// Function to get a single album by UUID
 export const getAlbumById = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
-
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumsPath = path.join(dataDir, "albums.json");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
 
-    // Read albums data
     const albumsData = await fs.readJson(albumsPath);
-
-    // Find the album with the matching UUID
     const album = albumsData.find((a) => a.uuid === albumUUID);
 
     if (!album) {
       return res.status(404).json({ errors: [{ detail: "Album not found" }] });
     }
 
-    // Serialize data
-    const jsonApiData = AlbumSerializer.serialize(album);
+    // If we have photos for this album, we can find persons
+    let persons = [];
+    if (await fs.pathExists(photosPath)) {
+      const photosData = await fs.readJson(photosPath);
 
-    // Send JSON response
-    res.json(jsonApiData);
+      // Extract persons from all photos
+      const allPersons = new Set();
+      photosData.forEach((photo) => {
+        if (Array.isArray(photo.persons)) {
+          photo.persons.forEach((name) => allPersons.add(name));
+        }
+      });
+
+      // Create person objects
+      persons = Array.from(allPersons).map((name) => {
+        return {
+          id: slugifyName(name),
+          name: name,
+        };
+      });
+    }
+
+    // Now we need to include these persons in the album JSON:API response.
+    // Add a relationships.persons to the album record:
+    const albumRecord = {
+      uuid: album.uuid,
+      title: album.title,
+    };
+
+    // Serialize the album alone first
+    let albumJsonApi = AlbumSerializer.serialize(albumRecord);
+
+    // Now add persons to the album’s relationships:
+    albumJsonApi.data.relationships = albumJsonApi.data.relationships || {};
+    albumJsonApi.data.relationships.persons = {
+      data: persons.map((p) => ({ type: "person", id: p.id })),
+    };
+
+    // Serialize persons separately
+    const personJsonApi = PersonSerializer.serialize(persons);
+
+    // Merge included persons
+    const merged = {
+      data: albumJsonApi.data,
+      included: personJsonApi.data,
+      meta: {},
+    };
+
+    res.json(merged);
   } catch (error) {
     console.error("Error fetching album:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
+
+// Helper function to slugify person names
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
 ```
 
 ### **./backend/controllers/api/index.js**
@@ -1934,6 +2055,14 @@ import { getNestedProperty } from "../../utils/helpers.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// We'll define two serializers: one for person and one for photo.
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: ["name"],
+  keyForAttribute: "camelCase",
+  pluralizeType: false,
+});
+
 const PhotoSerializer = new Serializer("photo", {
   id: "uuid",
   attributes: [
@@ -1949,34 +2078,25 @@ const PhotoSerializer = new Serializer("photo", {
     album: {
       type: "album",
     },
+    persons: {
+      type: "person",
+    },
   },
   pluralizeType: false,
+  meta: {}, // We'll add meta later
 });
 
-/**
- * Format the photo's date/time including its timezone offset to match
- * the osxphotos "{created.strftime,%Y%m%d-%H%M%S}" logic. This ensures
- * exportedFilename matches exactly what osxphotos produces.
- *
- * @param {string} dateString - The photo.date string with timezone, e.g. "2022-11-06 17:52:18.936800+01:00"
- * @returns {string} The formatted date/time string "YYYYMMDD-HHMMSS"
- */
 function formatPhotoDateWithOffset(dateString) {
-  // Example: "2022-11-06 17:52:18.936800+01:00"
   const match = dateString.match(
     /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
   );
   if (!match) {
-    // Fallback if the format doesn't match
     return fallbackFormat(new Date(dateString));
   }
 
-  const datePart = match[1]; // "YYYY-MM-DD"
-  const timePart = match[2]; // "HH:MM:SS.fff"
-  const offsetPart = match[3]; // "+01:00" or similar
+  const datePart = match[1];
+  const timePart = match[2];
 
-  // The date/time plus offset describes local photo time.
-  // Parse out year, month, day, hour, minute, second from datePart/timePart:
   const [year, month, day] = datePart.split("-").map(Number);
   const [hour, minute, secondRaw] = timePart.split(":");
   const hourNum = Number(hour);
@@ -2027,13 +2147,8 @@ export const getPhotosByAlbumData = async (req, res) => {
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // If photos.json doesn't exist, export metadata and images first
     if (!(await fs.pathExists(photosPath))) {
-      // Export metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-
-      // Export images using osxphotos with date/time prefix:
-      // {created.strftime,%Y%m%d-%H%M%S}-{original_name}.jpg
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
@@ -2045,12 +2160,13 @@ export const getPhotosByAlbumData = async (req, res) => {
     const photosData = await fs.readJson(photosPath);
 
     // Add 'originalName' and 'exportedFilename'
-    // exportedFilename = "YYYYMMDD-HHMMSS-{originalName}.jpg"
-    // Match exactly what osxphotos created.
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
       const prefix = formatPhotoDateWithOffset(photo.date);
       photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+      if (!Array.isArray(photo.persons)) {
+        photo.persons = [];
+      }
     });
 
     const scoreAttributes = Object.keys(photosData[0].score);
@@ -2066,20 +2182,72 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
+    // Add album relationship
     photosData.forEach((photo) => {
       photo.album = albumUUID;
     });
 
-    const jsonApiData = PhotoSerializer.serialize(photosData);
-    res.json({
-      ...jsonApiData,
+    // Handle person relationships
+    const uniquePersons = new Map();
+    function slugifyName(name) {
+      return name
+        .toLowerCase()
+        .replace(/[\s+]/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+    }
+
+    photosData.forEach((photo) => {
+      photo.personsData = [];
+      photo.persons.forEach((name) => {
+        const slug = slugifyName(name);
+        if (!uniquePersons.has(slug)) {
+          uniquePersons.set(slug, { id: slug, name });
+        }
+        photo.personsData.push({ type: "person", id: slug });
+      });
+    });
+
+    // Serialize photos
+    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
+
+    // Serialize persons
+    const personsArray = Array.from(uniquePersons.values());
+    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
+
+    // Merge included resources
+    const merged = {
+      data: jsonApiPhotoData.data,
+      included: jsonApiPersonData.data,
       meta: {
         albumUUID,
         sortAttribute,
         sortOrder,
         scoreAttributes,
       },
+    };
+
+    // Link persons to photos
+    merged.data.forEach((photo) => {
+      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
+      if (
+        originalPhoto &&
+        originalPhoto.personsData &&
+        originalPhoto.personsData.length > 0
+      ) {
+        if (!photo.relationships) {
+          photo.relationships = {};
+        }
+        photo.relationships.persons = {
+          data: originalPhoto.personsData,
+        };
+      } else {
+        if (photo.relationships && photo.relationships.persons) {
+          photo.relationships.persons = { data: [] };
+        }
+      }
     });
+
+    res.json(merged);
   } catch (error) {
     console.error("Error fetching photos for album:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
@@ -2324,6 +2492,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/69865EDF-08F2-40B1-8E20-F802D6C4E6D3/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2024-12-11-Last Month",
+            "Anna Pompermaier",
+            "Austria",
+            "Cenk G\u00fczelis",
+            "FujiFilm x100v: All, Full Res",
+            "Innsbruck, Austria",
+            "Recent Month",
+            "Recent Week",
+            "Studio3",
+            "Studio3 Symposium",
+            "Studio3 Symposium \u2014\u00a0IRL"
+        ],
+        "burst": false,
+        "cloud_guid": "AYxUYDskCQ/gPyKyTSQOsTKDO0qz",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-15 11:48:30.564913-05:00",
+...
+```
+
 ### **./backend/data/albums/16BC5397-4A87-49A1-8404-85D6473F3931/photos.json**
 ```json
 [
@@ -2374,17 +2567,58 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/D3988A5F-8B66-464B-B18C-457EC672621A/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2024-12-01-day",
+            "2024-12-11-Last Month",
+            "FujiFilm x100v: All, Full Res",
+            "Max & Jamie",
+            "Mir & Max",
+            "Mir Thanksgiving 2024"
+        ],
+        "burst": false,
+        "cloud_guid": "AQucx0r2Z1j5VHamAkpTY4+F+3fP",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-30 20:35:09.221502-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-30 19:07:52-05:00",
+        "description": null,
+        "exif_info": {
+...
+```
+
 ### **./backend/views/albums.hbs**
 ```
-<!-- ./views/albums.hbs -->
+<h1 class="text-3xl font-bold mb-4">Select an Album</h1>
 
-<h1>Select an Album</h1>
-<div class="album-list">
-  {{#each albums}}
-    <div class="album-item">
-      <a href="/album/{{this.uuid}}">{{this.title}}</a>
-    </div>
-  {{/each}}
+<div class="flex flex-row h-screen">
+  <!-- Sidebar -->
+  <div
+    class="w-64 bg-base-100 border-r border-base-300 h-full overflow-y-auto p-4"
+  >
+    <ul class="menu w-full">
+      {{#each this.model as |album|}}
+        <li class="mb-1">
+          <LinkTo
+            @route="albums.album"
+            @model={{album.id}}
+            class="rounded hover:bg-base-300"
+          >
+            {{album.title}}
+          </LinkTo>
+        </li>
+      {{/each}}
+    </ul>
+  </div>
+
+  <div class="flex-1 p-6">
+    {{outlet}}
+  </div>
 </div>```
 
 ### **./backend/views/index.hbs**
@@ -2630,11 +2864,15 @@ export default apiRouter;
 const EmberApp = require('ember-cli/lib/broccoli/ember-app');
 
 module.exports = function (defaults) {
-  const app = new EmberApp(defaults, {
-    // Add options here
-    proxy: 'http://localhost:3000',
-    sassOptions: {
-      extension: 'scss',
+  let app = new EmberApp(defaults, {
+    postcssOptions: {
+      compile: {
+        enabled: true,
+        plugins: [
+          require('tailwindcss')('./tailwind.config.js'),
+          require('autoprefixer'),
+        ],
+      },
     },
   });
 
@@ -2651,23 +2889,52 @@ module.exports = {
 };
 ```
 
+### **./frontend/photo-filter-frontend/tailwind.config.js**
+```
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './app/**/*.hbs',
+    './app/**/*.js',
+    './app/**/*.ts',
+    './app/**/*.gjs',
+    './app/**/*.gts',
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [require('daisyui')],
+};
+```
+
+### **./frontend/photo-filter-frontend/app/models/person.js**
+```
+// frontend/photo-filter-frontend/app/models/person.js
+import Model, { attr, hasMany } from '@ember-data/model';
+
+export default class PersonModel extends Model {
+  @attr('string') name;
+  @hasMany('photo', { async: true, inverse: 'persons' }) photos;
+}
+```
+
 ### **./frontend/photo-filter-frontend/app/models/album.js**
 ```
 // frontend/photo-filter-frontend/app/models/album.js
-
 import Model, { attr, hasMany } from '@ember-data/model';
 
 export default class AlbumModel extends Model {
   @attr('string') title;
   @attr('boolean') isSmart;
   @hasMany('photo', { async: true, inverse: 'album' }) photos;
+  @hasMany('person', { async: true, inverse: null }) persons; // persons now included, inverse set to null
 }
 ```
 
 ### **./frontend/photo-filter-frontend/app/models/photo.js**
 ```
-// app/models/photo.js
-import Model, { attr, belongsTo } from '@ember-data/model';
+// frontend/photo-filter-frontend/app/models/photo.js
+import Model, { attr, belongsTo, hasMany } from '@ember-data/model';
 
 export default class PhotoModel extends Model {
   @attr('string') originalName;
@@ -2676,7 +2943,9 @@ export default class PhotoModel extends Model {
   @attr('string') exportedFilename;
   @attr() score;
   @attr() exifInfo;
+
   @belongsTo('album', { async: true, inverse: 'photos' }) album;
+  @hasMany('person', { async: true, inverse: 'photos' }) persons;
 }
 ```
 
@@ -2715,85 +2984,37 @@ export default class PhotoAdapter extends ApplicationAdapter {
 }
 ```
 
-### **./frontend/photo-filter-frontend/app/styles/app.scss**
-```
-.albums-layout {
-  display: flex;
-  flex-direction: row;
-  min-height: 100vh;
-}
-
-.albums-sidebar {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 250px;
-  overflow-y: auto;
-  background: #f5f5f5;
-  border-right: 1px solid #ddd;
-  padding: 20px;
-}
-
-.albums-content {
-  margin-left: 270px; // slightly more than sidebar width for spacing
-  padding: 20px;
-}
-
-.albums-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.album-item {
-  margin-bottom: 10px;
-}
-
-.smart-album-label {
-  font-style: italic;
-  color: gray;
-}
-
-.photo-grid {
-  .photo-item {
-    img {
-      max-width: 100%;
-      height: auto;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-  }
-}
-```
-
 ### **./frontend/photo-filter-frontend/app/components/photo-grid.hbs**
 ```
-<div class="photo-grid">
+<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
   {{#each @photos as |photo index|}}
-    <div class="photo-item">
-      <img
-        src="{{this.apiHost}}/images/{{@albumUUID}}/{{photo.exportedFilename}}"
-        alt="{{photo.exportedFilename}}"
-        loading="lazy"
-      />
-      <p>
-        <span style="opacity: 0.38">{{index}} -</span>
-        {{photo.exportedFilename}}
-      </p>
+    <div class="card bg-base-100 shadow-lg">
+      <figure>
+        <img
+          src="{{this.apiHost}}/images/{{@albumUUID}}/{{photo.exportedFilename}}"
+          alt="{{photo.exportedFilename}}"
+          class="max-w-full h-auto"
+        />
+      </figure>
+      <div class="card-body">
+        <h2 class="card-title text-sm">
+          <span class="opacity-50">{{index}} -</span>
+          {{photo.exportedFilename}}
+        </h2>
 
-      {{#if photo.tags}}
-        <div class="tags">
-          {{#each photo.tags as |tag|}}
-            <span class="tag">{{tag}}</span>
-          {{/each}}
-        </div>
-      {{/if}}
+        {{#if photo.tags}}
+          <div class="mt-2 flex flex-wrap gap-2">
+            {{#each photo.tags as |tag|}}
+              <span class="badge badge-accent badge-outline">{{tag}}</span>
+            {{/each}}
+          </div>
+        {{/if}}
 
-      <p>
-        {{capitalize (replace @sortAttribute "score." "")}}:
-        {{get-nested-property photo @sortAttribute}}
-      </p>
+        <p class="mt-2">
+          {{capitalize (replace @sortAttribute "score." "")}}:
+          {{get-nested-property photo @sortAttribute}}
+        </p>
+      </div>
     </div>
   {{/each}}
 </div>```
@@ -2837,52 +3058,29 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<h1>Select an Album</h1>
+<h1 class="text-3xl font-bold mb-4">Select an Album</h1>
 
-<div class="albums-layout">
-  <!-- Make sidebar fixed and scrollable -->
+<div class="flex flex-row h-screen">
+  <!-- Sidebar -->
   <div
-    class="albums-sidebar"
-    style="position: fixed; top:0; bottom:0; left:0; width:250px; overflow-y:auto; background:#f5f5f5; border-right: 1px solid #ddd; padding:20px;"
+    class="w-64 bg-base-100 border-r border-base-300 h-full overflow-y-auto p-4"
   >
-    <ul class="albums-list">
+    <ul class="menu w-full">
       {{#each this.model as |album|}}
-        <li class="album-item">
+        <li class="mb-1">
           <LinkTo
             @route="albums.album"
             @model={{album.id}}
-          >{{album.title}}</LinkTo>
+            class="rounded hover:bg-base-300"
+          >
+            {{album.title}}
+          </LinkTo>
         </li>
       {{/each}}
     </ul>
-
-    {{#if this.controller.model.album}}
-      <hr />
-      <h3>{{this.controller.model.album.title}}</h3>
-      <p>Filter by People:</p>
-      <ul>
-        {{#each this.controller.model.people as |person|}}
-          <li>
-            <label>
-              <input
-                type="checkbox"
-                checked={{if
-                  (contains person this.controller.people)
-                  true
-                  false
-                }}
-                {{on "change" (fn this.controller.togglePerson person)}}
-              />
-              {{person}}
-            </label>
-          </li>
-        {{/each}}
-      </ul>
-    {{/if}}
   </div>
 
-  <!-- Add left margin to content to accommodate fixed sidebar -->
-  <div class="albums-content" style="margin-left:270px; padding:20px;">
+  <div class="flex-1 p-6">
     {{outlet}}
   </div>
 </div>```
@@ -2891,35 +3089,77 @@ Router.map(function () {
 ```
 {{page-title "PhotoFilterFrontend"}}
 
-{{outlet}}```
+<div class="min-h-screen flex flex-col bg-base-200 text-base-content">
+  <nav class="navbar bg-base-100 shadow mb-4">
+    <div class="flex-1">
+      <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+    </div>
+    <div class="flex-none">
+      <!-- Future nav items could go here -->
+    </div>
+  </nav>
+
+  <div class="container mx-auto px-4 flex-1">
+    {{outlet}}
+  </div>
+</div>```
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album.hbs**
 ```
-<h1>{{this.model.album.title}}</h1>
+<h1 class="text-2xl font-bold mb-4">{{this.model.album.title}}</h1>
 
-<form {{on "submit" this.updateSort}}>
-  <label for="sortAttribute">Sort by:</label>
-  <select id="sortAttribute" {{on "change" this.selectSortAttribute}}>
-    {{#each this.model.scoreAttributes as |attribute|}}
-      <option
-        value="score.{{attribute}}"
-        selected={{eq this.sortAttribute (concat "score." attribute)}}
-      >
-        {{capitalize attribute}}
-      </option>
+<div class="mb-4">
+  <h3 class="text-lg font-semibold">{{this.model.album.title}}</h3>
+  <p class="mb-2">Filter by Persons:</p>
+  <ul class="space-y-2">
+    {{#each this.model.persons as |person|}}
+      <li>
+        <label class="cursor-pointer flex items-center space-x-2">
+          <input
+            type="checkbox"
+            class="checkbox checkbox-primary"
+            checked={{if (contains person this.persons) true false}}
+            {{on "change" (fn this.togglePerson person)}}
+          />
+          <span>{{person}}</span>
+        </label>
+      </li>
     {{/each}}
-  </select>
+  </ul>
+</div>
 
-  <label for="sortOrder">Order:</label>
-  <select id="sortOrder" {{on "change" this.selectSortOrder}}>
-    <option
-      value="desc"
-      selected={{eq this.sortOrder "desc"}}
-    >Descending</option>
-    <option value="asc" selected={{eq this.sortOrder "asc"}}>Ascending</option>
-  </select>
+<form {{on "submit" this.updateSort}} class="mb-6 flex items-center space-x-4">
+  <div>
+    <label for="sortAttribute" class="mr-2 font-semibold">Sort by:</label>
+    <select
+      id="sortAttribute"
+      {{on "change" this.selectSortAttribute}}
+      class="select select-bordered"
+    >
+      {{#each this.model.scoreAttributes as |attribute|}}
+        <option
+          value="score.{{attribute}}"
+          selected={{eq this.sort (concat "score." attribute)}}
+        >
+          {{capitalize attribute}}
+        </option>
+      {{/each}}
+    </select>
+  </div>
 
-  <button type="submit">Sort</button>
+  <div>
+    <label for="sortOrder" class="mr-2 font-semibold">Order:</label>
+    <select
+      id="sortOrder"
+      {{on "change" this.selectSortOrder}}
+      class="select select-bordered"
+    >
+      <option value="desc" selected={{eq this.order "desc"}}>Descending</option>
+      <option value="asc" selected={{eq this.order "asc"}}>Ascending</option>
+    </select>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Sort</button>
 </form>
 
 <PhotoGrid
@@ -2931,20 +3171,20 @@ Router.map(function () {
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
 import Controller from '@ember/controller';
-import { action, set } from '@ember/object';
+import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
 
 export default class AlbumsAlbumController extends Controller {
-  queryParams = ['sort', 'order', 'people'];
-  sort = 'score.overall';
-  order = 'desc';
-  // people is an array of selected individual's names
-  @tracked people = [];
+  queryParams = ['sort', 'order', 'persons'];
+
+  @tracked sort = 'score.overall';
+  @tracked order = 'desc';
+  @tracked persons = []; // Array of currently selected persons
 
   @action
   updateSort(event) {
     event.preventDefault();
-    // Bound to query params; model will refresh automatically
+    // Since sort and order are query params, the model will refresh automatically
   }
 
   @action
@@ -2959,14 +3199,14 @@ export default class AlbumsAlbumController extends Controller {
 
   @action
   togglePerson(personName) {
-    // Toggle the presence of personName in the people array
-    let selected = this.people.slice(); // clone array
+    // Toggle selected person in the persons array
+    let selected = this.persons.slice();
     if (selected.includes(personName)) {
       selected = selected.filter((p) => p !== personName);
     } else {
       selected.push(personName);
     }
-    this.people = selected;
+    this.persons = selected;
   }
 }
 ```
@@ -3007,7 +3247,6 @@ export default class AlbumsRoute extends Route {
 
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
-import fetch from 'fetch';
 
 export default class AlbumsAlbumRoute extends Route {
   @service store;
@@ -3015,7 +3254,7 @@ export default class AlbumsAlbumRoute extends Route {
   queryParams = {
     sort: { refreshModel: true },
     order: { refreshModel: true },
-    people: { refreshModel: true },
+    persons: { refreshModel: true },
   };
 
   async model(params) {
@@ -3023,37 +3262,32 @@ export default class AlbumsAlbumRoute extends Route {
       album_id,
       sort = 'score.overall',
       order = 'desc',
-      people = [],
+      persons = [],
     } = params;
 
-    // Fetch the album
-    const album = await this.store.findRecord('album', album_id);
+    // Fetch the album record, which includes the person data
+    // We rely on the included data to load persons, so make sure the backend returns them in `included`.
+    const album = await this.store.findRecord('album', album_id, {
+      include: 'persons',
+    });
 
-    // Fetch all photos from the backend using store.query
+    // Fetch the photos for the album
     const photos = await this.store.query('photo', {
       album_id,
       sort,
       order,
     });
 
-    // Fetch the list of people from the backend
-    let peopleResponse = await fetch(
-      `${this.store.adapterFor('application').host}/api/albums/${album_id}/persons`,
-    );
-    let peopleData = await peopleResponse.json();
-    const allPeople = peopleData.data || [];
+    // Await album.persons to ensure the data is fully loaded
+    const loadedPersons = await album.persons;
+    const allPersons = loadedPersons.map((person) => person.name);
 
-    // Convert the photos RecordArray to a plain array
+    // Filter photos if persons are selected
     let filteredPhotos = photos;
-
-    // If people query param is not empty, filter photos that contain all selected people
-    if (people.length > 0) {
-      filteredPhotos = filteredPhotos.filter((photo) => {
-        // Assume photo has a persons attribute. If not, the backend must include it or
-        // we need to adjust this logic. For now, assume `photo.persons` exists.
-        const photoPeople = photo.persons || [];
-        return people.every((personName) => photoPeople.includes(personName));
-      });
+    if (persons.length > 0) {
+      filteredPhotos = filteredPhotos.filter((photo) =>
+        persons.every((personName) => photo.persons.includes(personName)),
+      );
     }
 
     return {
@@ -3063,7 +3297,7 @@ export default class AlbumsAlbumRoute extends Route {
       sortAttribute: photos.meta?.sortAttribute || sort,
       sortOrder: photos.meta?.sortOrder || order,
       scoreAttributes: photos.meta?.scoreAttributes || [],
-      people: allPeople,
+      persons: allPersons, // Now we have the fully loaded list of person names
     };
   }
 }
@@ -3531,7 +3765,9 @@ Specify what it takes to deploy your app.
     "": {
       "name": "photo-filter-frontend",
       "version": "0.0.0",
-      "license": "MIT",
+      "dependencies": {
+        "postcss": "^8.4.49"
+      },
       "devDependencies": {
         "@babel/core": "^7.25.2",
         "@babel/eslint-parser": "^7.25.1",
@@ -3540,8 +3776,6 @@ Specify what it takes to deploy your app.
         "@ember/string": "^4.0.0",
         "@ember/test-helpers": "^3.3.1",
         "@glimmer/component": "^1.1.2",
-        "@glimmer/tracking": "^1.1.2",
-        "broccoli-asset-rev": "^3.0.0",
 ...
 ```
 
@@ -3551,16 +3785,10 @@ Specify what it takes to deploy your app.
   "name": "photo-filter-frontend",
   "version": "0.0.0",
   "private": true,
-  "description": "Small description for photo-filter-frontend goes here",
-  "repository": "",
-  "license": "MIT",
-  "author": "",
-  "directories": {
-    "doc": "doc",
-    "test": "tests"
-  },
+  "description": "Photo Filter Frontend",
   "scripts": {
     "build": "ember build --environment=production",
+    "start": "ember serve",
     "lint": "concurrently \"npm:lint:*(!fix)\" --names \"lint:\"",
     "lint:css": "stylelint \"**/*.css\"",
     "lint:css:fix": "concurrently \"npm:lint:css -- --fix\"",
@@ -3569,9 +3797,11 @@ Specify what it takes to deploy your app.
     "lint:hbs:fix": "ember-template-lint . --fix",
     "lint:js": "eslint . --cache",
     "lint:js:fix": "eslint . --fix",
-    "start": "ember serve",
     "test": "concurrently \"npm:lint\" \"npm:test:*\" --names \"lint,test:\"",
     "test:ember": "ember test"
+  },
+  "dependencies": {
+    "postcss": "^8.4.49"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -3582,8 +3812,10 @@ Specify what it takes to deploy your app.
     "@ember/test-helpers": "^3.3.1",
     "@glimmer/component": "^1.1.2",
     "@glimmer/tracking": "^1.1.2",
+    "autoprefixer": "^10.4.20",
     "broccoli-asset-rev": "^3.0.0",
     "concurrently": "^8.2.2",
+    "daisyui": "^4.12.22",
     "ember-auto-import": "^2.8.1",
     "ember-cli": "~5.12.0",
     "ember-cli-app-version": "^7.0.0",
@@ -3592,7 +3824,7 @@ Specify what it takes to deploy your app.
     "ember-cli-dependency-checker": "^3.3.2",
     "ember-cli-htmlbars": "^6.3.0",
     "ember-cli-inject-live-reload": "^2.1.0",
-    "ember-cli-sass": "^11.0.1",
+    "ember-cli-postcss": "^8.2.0",
     "ember-cli-sri": "^2.1.1",
     "ember-cli-terser": "^4.0.2",
     "ember-data": "~5.3.8",
@@ -3615,10 +3847,11 @@ Specify what it takes to deploy your app.
     "prettier": "^3.3.3",
     "qunit": "^2.22.0",
     "qunit-dom": "^3.2.1",
-    "sass": "^1.80.6",
+    "sass": "^1.83.0",
     "stylelint": "^15.11.0",
     "stylelint-config-standard": "^34.0.0",
     "stylelint-prettier": "^4.1.0",
+    "tailwindcss": "^3.4.16",
     "tracked-built-ins": "^3.3.0",
     "webpack": "^5.95.0"
   },
@@ -3740,6 +3973,16 @@ module.exports = {
 
 module.exports = {
   extends: 'recommended',
+};
+```
+
+### **./frontend/photo-filter-frontend/postcss.config.js**
+```
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
 };
 ```
 

@@ -1,5 +1,16 @@
 # Development Plan
 
+### December 14, 2024: Tailwind & DaisyUI Integration Update
+
+**Decision & Implementation:**
+
+- Removed `@import` of Tailwind CSS files in `app.scss` and replaced them with:
+  ```scss
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+  ```
+
 ## Update: Transition to Query-Param-Based Faceted Person Filtering
 
 **Date:** December 12, 2024

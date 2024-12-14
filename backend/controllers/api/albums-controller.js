@@ -9,12 +9,26 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Change 'albums' to 'album' and set pluralizeType to false
+// We'll create a Person serializer and an Album serializer.
+// Person serializer
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: ["name"],
+  keyForAttribute: "camelCase",
+  pluralizeType: false,
+});
+
+// Album serializer: now includes a relationship to persons
 const AlbumSerializer = new Serializer("album", {
   id: "uuid", // Use 'uuid' as the 'id' field
   attributes: ["title"],
   keyForAttribute: "camelCase",
-  pluralizeType: false, // Prevent automatic pluralization
+  pluralizeType: false,
+  relationships: {
+    persons: {
+      type: "person",
+    },
+  },
 });
 
 export const getAlbumsData = async (req, res) => {
@@ -37,18 +51,14 @@ export const getAlbumsData = async (req, res) => {
     // Check if albums.json exists
     if (!(await fs.pathExists(albumsPath))) {
       console.log("albums.json not found. Exporting albums using osxphotos...");
-
-      // Export albums using the Python script
       await runPythonScript(pythonPath, scriptPath, [], albumsPath);
     }
 
     // Read albums data
     const albumsData = await fs.readJson(albumsPath);
 
-    // Serialize data
+    // Serialize data (no persons here yet)
     const jsonApiData = AlbumSerializer.serialize(albumsData);
-
-    // Send JSON response
     res.json(jsonApiData);
   } catch (error) {
     console.error("Error fetching albums:", error);
@@ -56,31 +66,80 @@ export const getAlbumsData = async (req, res) => {
   }
 };
 
-// Function to get a single album by UUID
 export const getAlbumById = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
-
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumsPath = path.join(dataDir, "albums.json");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
 
-    // Read albums data
     const albumsData = await fs.readJson(albumsPath);
-
-    // Find the album with the matching UUID
     const album = albumsData.find((a) => a.uuid === albumUUID);
 
     if (!album) {
       return res.status(404).json({ errors: [{ detail: "Album not found" }] });
     }
 
-    // Serialize data
-    const jsonApiData = AlbumSerializer.serialize(album);
+    // If we have photos for this album, we can find persons
+    let persons = [];
+    if (await fs.pathExists(photosPath)) {
+      const photosData = await fs.readJson(photosPath);
 
-    // Send JSON response
-    res.json(jsonApiData);
+      // Extract persons from all photos
+      const allPersons = new Set();
+      photosData.forEach((photo) => {
+        if (Array.isArray(photo.persons)) {
+          photo.persons.forEach((name) => allPersons.add(name));
+        }
+      });
+
+      // Create person objects
+      persons = Array.from(allPersons).map((name) => {
+        return {
+          id: slugifyName(name),
+          name: name,
+        };
+      });
+    }
+
+    // Now we need to include these persons in the album JSON:API response.
+    // Add a relationships.persons to the album record:
+    const albumRecord = {
+      uuid: album.uuid,
+      title: album.title,
+    };
+
+    // Serialize the album alone first
+    let albumJsonApi = AlbumSerializer.serialize(albumRecord);
+
+    // Now add persons to the album’s relationships:
+    albumJsonApi.data.relationships = albumJsonApi.data.relationships || {};
+    albumJsonApi.data.relationships.persons = {
+      data: persons.map((p) => ({ type: "person", id: p.id })),
+    };
+
+    // Serialize persons separately
+    const personJsonApi = PersonSerializer.serialize(persons);
+
+    // Merge included persons
+    const merged = {
+      data: albumJsonApi.data,
+      included: personJsonApi.data,
+      meta: {},
+    };
+
+    res.json(merged);
   } catch (error) {
     console.error("Error fetching album:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
+
+// Helper function to slugify person names
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}

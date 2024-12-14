@@ -4,6 +4,28 @@ This file logs open issues and their statuses. Update it as new issues arise and
 
 ---
 
+## Issue 16: PostCSS "File not found: /app/styles/app.css" Error
+
+**Opened By:** Jamie, Dec 14, 2024  
+**Status:** In Progress
+
+### Description
+
+Encountered a build error because PostCSS didn’t find `app.css` after SCSS changes.
+
+### Actions
+
+- Installed `ember-cli-sass` to compile `app.scss` into `app.css`.
+- Updated `app.scss` to use `@tailwind` directives instead of `@import`.
+- (Alternative) Renamed `app.scss` to `app.css` and removed `ember-cli-sass`.
+
+### Next Steps
+
+- Verify build succeeds (`ember serve`).
+- If successful, mark as Resolved after testing in production-like scenarios.
+
+---
+
 ## Issue 15: Nested Routes Not Rendering Child Templates
 
 **Opened By:** [Your Name], Nov 12, 2024  
@@ -125,6 +147,28 @@ We initially implemented `albums/album/persons` sub-routes. We now want to remov
 
 ---
 
-# End of Issues Log
+## Issue 17: Persons Not Appearing in Album UI
 
-**Note:** No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
+**Opened By:** [Your Name], Dec 13, 2024  
+**Status:** **Open**
+
+### Description
+
+Even though the backend returns `persons` as included data when fetching an album, they do not appear in the UI. In Ember Inspector, we see that `album.persons` is present, but on the active controller, `persons` remains empty. This occurs because `album.persons` is a PromiseManyArray and must be awaited before using its data. Without awaiting, the code tries to read `persons` before they are fully loaded, resulting in an empty array being used for the UI.
+
+### Actions
+
+- In `app/routes/albums/album.js`, await the `album.persons` before mapping or filtering.
+  For example:
+  ```js
+  const loadedPersons = await album.persons;
+  const allPersons = loadedPersons.map((person) => person.name);
+  ```
+
+Next Steps
+• Make this code change and verify that persons now appear in the UI as expected.
+• Once verified and tested in reality, mark this issue as resolved.
+
+End of Issues Log
+
+Note: No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
