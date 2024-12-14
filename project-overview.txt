@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec 14 15:37:59 EST 2024
+Generated on: Sat Dec 14 17:59:33 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -111,10 +111,11 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   └── photo-grid.js
 │       │   ├── controllers
 │       │   │   ├── .gitkeep
-│       │   │   └── albums
-│       │   │       ├── album
-│       │   │       │   └── persons
-│       │   │       └── album.js
+│       │   │   ├── albums
+│       │   │   │   ├── album
+│       │   │   │   │   └── persons
+│       │   │   │   └── album.js
+│       │   │   └── application.js
 │       │   ├── helpers
 │       │   │   ├── .gitkeep
 │       │   │   ├── capitalize.js
@@ -138,6 +139,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   ├── albums.js
 │       │   │   └── index.js
 │       │   ├── services
+│       │   │   ├── current-album.js
 │       │   │   └── store.js
 │       │   ├── styles
 │       │   │   └── app.css
@@ -196,7 +198,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-60 directories, 127 files
+60 directories, 129 files
 ```
 
 ---
@@ -3037,19 +3039,22 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<div class="flex h-screen">
+<!-- We are inside the main flex container defined in application.hbs -->
+<!-- Here we split the space into a left nav and a main content area side by side. -->
+<!-- Each gets overflow-auto so they scroll independently. -->
 
-  <!-- Sidebar -->
+<div class="h-full w-full flex">
+  <!-- Left nav: fixed width, scrollable -->
   <div
-    class="fixed top-0 left-0 w-64 bg-base-100 border-r border-base-300 h-screen overflow-y-auto p-4"
+    class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
   >
     <ul class="menu p-0 w-full">
       {{#each this.model as |album|}}
-        <li>
+        <li class="mb-1">
           <LinkTo
             @route="albums.album"
             @model={{album.id}}
-            class="rounded hover:bg-base-300 px-2 py-1"
+            class="rounded hover:bg-gray-200 px-2 py-1"
           >
             {{album.title}}
           </LinkTo>
@@ -3058,87 +3063,95 @@ Router.map(function () {
     </ul>
   </div>
 
-  <!-- Main content area -->
-  <div class="flex-1 ml-64 p-6">
+  <!-- Main content area: also scrollable -->
+  <div class="flex-1 overflow-auto p-4">
     {{outlet}}
   </div>
-
 </div>```
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
 ```
 {{page-title "PhotoFilterFrontend"}}
 
-<div class="min-h-screen flex flex-col bg-base-200 text-base-content">
-  <nav class="navbar bg-base-100 shadow mb-4">
-    <div class="flex-1">
-      <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
-    </div>
-    <div class="flex-none">
-      <!-- Future nav items could go here -->
-    </div>
+<div
+  class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
+>
+  <!-- Fixed top nav -->
+  <nav
+    class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
+  >
+    <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+
+    {{#if this.currentAlbum.isAlbumRoute}}
+      <div class="flex items-center space-x-4">
+        <!-- Album Title -->
+        <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
+
+        <!-- Sorting Options -->
+        <div class="flex items-center space-x-2">
+          <!-- Sort by attribute -->
+          <div class="form-control">
+            <label class="label text-sm font-semibold">Sort by</label>
+            <select
+              id="sortAttribute"
+              class="select select-xs select-bordered"
+              {{on "change" (fn this.updateSortAttribute)}}
+            >
+              {{#each this.currentAlbum.scoreAttributes as |attribute|}}
+                <option
+                  value="score.{{attribute}}"
+                  selected={{eq
+                    this.currentAlbum.sortAttribute
+                    (concat "score." attribute)
+                  }}
+                >
+                  {{capitalize attribute}}
+                </option>
+              {{/each}}
+            </select>
+          </div>
+
+          <!-- Order (asc/desc) -->
+          <div class="form-control">
+            <label class="label text-sm font-semibold">Order</label>
+            <select
+              id="sortOrder"
+              class="select select-xs select-bordered"
+              {{on "change" (fn this.updateSortOrder)}}
+            >
+              <option
+                value="desc"
+                selected={{eq this.currentAlbum.sortOrder "desc"}}
+              >Descending</option>
+              <option
+                value="asc"
+                selected={{eq this.currentAlbum.sortOrder "asc"}}
+              >Ascending</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    {{/if}}
   </nav>
 
-  <div class="container mx-auto px-4 flex-1">
+  <!-- Main container below the nav -->
+  <div class="h-full w-full pt-16 flex">
     {{outlet}}
   </div>
 </div>```
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album.hbs**
 ```
-<h1 class="text-2xl font-bold mb-4">{{this.model.album.title}}</h1>
-
-<div class="flex items-center justify-between mb-4">
-  <div class="text-lg font-semibold">{{this.model.album.title}}</div>
-  <div class="flex items-center space-x-4">
-
-    <!-- Sort by attribute -->
-    <div class="form-control">
-      <label class="label text-sm font-semibold">Sort by</label>
-      <select
-        id="sortAttribute"
-        class="select select-bordered select-sm"
-        {{on "change" this.selectSortAttribute}}
-      >
-        {{#each this.model.scoreAttributes as |attribute|}}
-          <option
-            value="score.{{attribute}}"
-            selected={{eq this.sort (concat "score." attribute)}}
-          >
-            {{capitalize attribute}}
-          </option>
-        {{/each}}
-      </select>
-    </div>
-
-    <!-- Order (asc/desc) -->
-    <div class="form-control">
-      <label class="label text-sm font-semibold">Order</label>
-      <select
-        id="sortOrder"
-        class="select select-bordered select-sm"
-        {{on "change" this.selectSortOrder}}
-      >
-        <option
-          value="desc"
-          selected={{eq this.order "desc"}}
-        >Descending</option>
-        <option value="asc" selected={{eq this.order "asc"}}>Ascending</option>
-      </select>
-    </div>
-  </div>
-</div>
-
-<!-- Person filters -->
-<div class="flex justify-center mb-6 flex-wrap gap-2">
+<!-- Person filters remain here -->
+<div class="flex justify-center mb-4 flex-wrap gap-2">
   {{#each this.model.persons as |person|}}
     <button
       type="button"
-      class="btn btn-sm rounded-full px-4 normal-case
+      class="btn btn-xs rounded-full normal-case
         {{if
           (contains person this.persons)
-          'btn-accent text-white'
-          'btn-outline'
+          'btn-primary text-white'
+          'btn-outline text-gray-600'
         }}"
       {{on "click" (fn this.togglePerson person)}}
     >
@@ -3147,11 +3160,68 @@ Router.map(function () {
   {{/each}}
 </div>
 
+<!-- Photo grid -->
 <PhotoGrid
   @photos={{this.model.photos}}
   @albumUUID={{this.model.albumUUID}}
   @sortAttribute={{this.model.sortAttribute}}
 />```
+
+### **./frontend/photo-filter-frontend/app/controllers/application.js**
+```
+import Controller from '@ember/controller';
+import { inject as service } from '@ember/service';
+import { action } from '@ember/object';
+
+export default class ApplicationController extends Controller {
+  @service router;
+  @service currentAlbum;
+
+  @action
+  updateSortAttribute(event) {
+    const newSort = event.target.value;
+    if (this.currentAlbum.isAlbumRoute) {
+      // Update query params on albums.album route
+      const routeName = 'albums.album';
+      const currentRoute = this.router.currentRouteName;
+      if (currentRoute.startsWith('albums.album')) {
+        this.router.transitionTo(
+          routeName,
+          this.router.currentRoute.params.album_id,
+          {
+            queryParams: {
+              sort: newSort,
+              order: this.currentAlbum.sortOrder,
+            },
+          },
+        );
+      }
+    }
+  }
+
+  @action
+  updateSortOrder(event) {
+    const newOrder = event.target.value;
+    if (this.currentAlbum.isAlbumRoute) {
+      // Update query params on albums.album route
+      const routeName = 'albums.album';
+      const currentRoute = this.router.currentRouteName;
+      if (currentRoute.startsWith('albums.album')) {
+        this.router.transitionTo(
+          routeName,
+          this.router.currentRoute.params.album_id,
+          {
+            queryParams: {
+              sort: this.currentAlbum.sortAttribute,
+              order: newOrder,
+            },
+          },
+        );
+      }
+    }
+  }
+}
+```
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
@@ -3222,12 +3292,12 @@ export default class AlbumsRoute extends Route {
 
 ### **./frontend/photo-filter-frontend/app/routes/albums/album.js**
 ```
-// frontend/photo-filter-frontend/app/routes/albums/album.js
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
 
 export default class AlbumsAlbumRoute extends Route {
   @service store;
+  @service currentAlbum;
 
   queryParams = {
     sort: { refreshModel: true },
@@ -3243,38 +3313,87 @@ export default class AlbumsAlbumRoute extends Route {
       persons = [],
     } = params;
 
-    // Fetch the album with included persons
+    // Ensure we have the album and persons loaded before fetching photos
     const album = await this.store.findRecord('album', album_id, {
       include: 'persons',
+      reload: true,
     });
 
-    // Fetch photos
+    // Wait for persons to fully load
+    const loadedPersons = await album.persons;
+    let allPersons = loadedPersons.map((person) => person.name);
+
+    // Fetch all photos for the album (unfiltered)
     const photos = await this.store.query('photo', {
       album_id,
       sort,
       order,
     });
 
-    const loadedPersons = await album.persons;
-    const allPersons = loadedPersons.map((person) => person.name);
+    // Count how many photos each person appears in
+    const personCountMap = {};
+    photos.forEach((photo) => {
+      photo.persons.forEach((p) => {
+        personCountMap[p.name] = (personCountMap[p.name] || 0) + 1;
+      });
+    });
 
-    // Filter photos by selected persons
+    // Sort persons:
+    // - Primary: descending photo count
+    // - Secondary: alphabetical
+    allPersons = allPersons.sort((a, b) => {
+      const countA = personCountMap[a] || 0;
+      const countB = personCountMap[b] || 0;
+      if (countB !== countA) {
+        return countB - countA;
+      }
+      return a.localeCompare(b);
+    });
+
     let filteredPhotos = photos;
     if (persons.length > 0) {
-      filteredPhotos = filteredPhotos.filter((photo) =>
-        persons.every((personName) => photo.persons.includes(personName)),
+      filteredPhotos = await Promise.all(
+        filteredPhotos.map(async (photo) => {
+          const personModels = await photo.persons;
+          const photoPersonNames = personModels.map((p) => p.name);
+          return persons.every((personName) =>
+            photoPersonNames.includes(personName),
+          )
+            ? photo
+            : null;
+        }),
       );
+      filteredPhotos = filteredPhotos.filter(Boolean);
     }
+
+    // Update currentAlbum service with album info and sorting state
+    this.currentAlbum.isAlbumRoute = true;
+    this.currentAlbum.albumTitle = album.title;
+    this.currentAlbum.scoreAttributes = photos.meta?.scoreAttributes || [];
+    this.currentAlbum.sortAttribute = photos.meta?.sortAttribute || sort;
+    this.currentAlbum.sortOrder = photos.meta?.sortOrder || order;
 
     return {
       album,
       photos: filteredPhotos,
       albumUUID: photos.meta?.albumUUID || album_id,
-      sortAttribute: photos.meta?.sortAttribute || sort,
-      sortOrder: photos.meta?.sortOrder || order,
-      scoreAttributes: photos.meta?.scoreAttributes || [],
+      sortAttribute: this.currentAlbum.sortAttribute,
+      sortOrder: this.currentAlbum.sortOrder,
+      scoreAttributes: this.currentAlbum.scoreAttributes,
       persons: allPersons,
     };
+  }
+
+  resetController(controller, isExiting) {
+    super.resetController(...arguments);
+    if (isExiting) {
+      // Reset currentAlbum when leaving the album route
+      this.currentAlbum.isAlbumRoute = false;
+      this.currentAlbum.albumTitle = null;
+      this.currentAlbum.scoreAttributes = [];
+      this.currentAlbum.sortAttribute = 'score.overall';
+      this.currentAlbum.sortOrder = 'desc';
+    }
   }
 }
 ```
@@ -3349,6 +3468,21 @@ export default class App extends Application {
 }
 
 loadInitializers(App, config.modulePrefix);
+```
+
+### **./frontend/photo-filter-frontend/app/services/current-album.js**
+```
+import Service from '@ember/service';
+import { tracked } from '@glimmer/tracking';
+
+export default class CurrentAlbumService extends Service {
+  @tracked isAlbumRoute = false;
+  @tracked albumTitle = null;
+  @tracked scoreAttributes = [];
+  @tracked sortAttribute = 'score.overall';
+  @tracked sortOrder = 'desc';
+  @tracked persons = [];
+}
 ```
 
 ### **./frontend/photo-filter-frontend/app/services/store.js**

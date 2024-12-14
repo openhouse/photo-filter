@@ -39,7 +39,7 @@ const PhotoSerializer = new Serializer("photo", {
     },
   },
   pluralizeType: false,
-  meta: {}, // We'll add meta later
+  meta: {},
 });
 
 function formatPhotoDateWithOffset(dateString) {
@@ -113,7 +113,10 @@ export const getPhotosByAlbumData = async (req, res) => {
       );
     }
 
-    const photosData = await fs.readJson(photosPath);
+    let photosData = await fs.readJson(photosPath);
+
+    // Deduplicate photos by (original_filename, date)
+    photosData = deduplicatePhotos(photosData);
 
     // Add 'originalName' and 'exportedFilename'
     photosData.forEach((photo) => {
@@ -209,3 +212,27 @@ export const getPhotosByAlbumData = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
+
+// Deduplicate photos by (original_filename, date)
+function deduplicatePhotos(photos) {
+  const map = new Map();
+  for (const photo of photos) {
+    const key = `${photo.original_filename}-${photo.date}`;
+    if (!map.has(key)) {
+      // Store the photo directly
+      map.set(key, { ...photo });
+    } else {
+      // Duplicate found
+      const existing = map.get(key);
+      // Merge persons arrays if needed
+      if (Array.isArray(photo.persons)) {
+        const existingPersons = new Set(existing.persons || []);
+        photo.persons.forEach((p) => existingPersons.add(p));
+        existing.persons = Array.from(existingPersons);
+      }
+      // Keep other data from the first occurrence
+      map.set(key, existing);
+    }
+  }
+  return Array.from(map.values());
+}
