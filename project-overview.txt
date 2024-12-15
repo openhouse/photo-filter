@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec 14 23:21:38 EST 2024
+Generated on: Sun Dec 15 12:50:51 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -2695,7 +2695,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ```
 <!-- ./views/layouts/main.hbs -->
 
-
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -3252,12 +3251,16 @@ export default class AlbumsAlbumController extends Controller {
 
   // The route provides `photos` unfiltered. We apply filtering and sorting in memory.
   get filteredAndSortedPhotos() {
-    let photos = this.model.photos.slice(); // copy array
+    let photos = this.model.photos.slice(); // copy the array
 
     // Filter by selected persons if any
     if (this.persons.length > 0) {
       photos = photos.filter((photo) => {
-        const photoPersonNames = photo.persons.map((p) => p.name);
+        // Ensure we have a fully resolved array:
+        const resolvedPersons = photo.persons.toArray
+          ? photo.persons.toArray()
+          : [];
+        const photoPersonNames = resolvedPersons.map((p) => p.name);
         return this.persons.every((personName) =>
           photoPersonNames.includes(personName),
         );
@@ -3364,6 +3367,11 @@ export default class AlbumsAlbumRoute extends Route {
     const allPhotos = await this.store.query('photo', {
       album_id,
     });
+
+    // Ensure all persons relationships are loaded for each photo
+    // This ensures that photo.persons is a fully resolved ManyArray
+    // before the controller tries to map over it.
+    await Promise.all(allPhotos.map((photo) => photo.persons));
 
     // Determine score attributes
     let scoreAttributes = [];
@@ -3608,9 +3616,7 @@ module.exports = function (environment) {
           "outputRepo": "https://github.com/ember-cli/ember-new-output",
           "codemodsSource": "ember-app-codemods-manifest@1",
           "isBaseBlueprint": true,
-          "options": [
-            "--ci-provider=github"
-          ]
+          "options": ["--ci-provider=github"]
         }
       ]
     }

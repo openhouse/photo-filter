@@ -11,12 +11,16 @@ export default class AlbumsAlbumController extends Controller {
 
   // The route provides `photos` unfiltered. We apply filtering and sorting in memory.
   get filteredAndSortedPhotos() {
-    let photos = this.model.photos.slice(); // copy array
+    let photos = this.model.photos.slice(); // copy the array
 
     // Filter by selected persons if any
     if (this.persons.length > 0) {
       photos = photos.filter((photo) => {
-        const photoPersonNames = photo.persons.map((p) => p.name);
+        // Ensure we have a fully resolved array:
+        const resolvedPersons = photo.persons.toArray
+          ? photo.persons.toArray()
+          : [];
+        const photoPersonNames = resolvedPersons.map((p) => p.name);
         return this.persons.every((personName) =>
           photoPersonNames.includes(personName),
         );

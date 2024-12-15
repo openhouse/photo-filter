@@ -33,6 +33,11 @@ export default class AlbumsAlbumRoute extends Route {
       album_id,
     });
 
+    // Ensure all persons relationships are loaded for each photo
+    // This ensures that photo.persons is a fully resolved ManyArray
+    // before the controller tries to map over it.
+    await Promise.all(allPhotos.map((photo) => photo.persons));
+
     // Determine score attributes
     let scoreAttributes = [];
     if (allPhotos.meta && allPhotos.meta.scoreAttributes) {
