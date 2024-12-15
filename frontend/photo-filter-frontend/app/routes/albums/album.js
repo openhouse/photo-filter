@@ -12,20 +12,14 @@ export default class AlbumsAlbumRoute extends Route {
     persons: {
       // Custom serialize/deserialize so persons is always an array
       serialize(value) {
-        console.log('[ROUTE] Serializing persons:', value);
         return JSON.stringify(value);
       },
       deserialize(value) {
-        console.log('[ROUTE] Deserializing persons from URL:', value);
         if (typeof value === 'string') {
           try {
             const arr = JSON.parse(value);
-            console.log('[ROUTE] Deserialized persons array:', arr);
             return arr;
           } catch (e) {
-            console.warn(
-              '[ROUTE] Failed to parse persons, returning empty array',
-            );
             return [];
           }
         }
@@ -35,18 +29,12 @@ export default class AlbumsAlbumRoute extends Route {
   };
 
   async model(params) {
-    console.log('[ROUTE] model hook params:', params);
-
     const {
       album_id,
       sort = 'score.overall',
       order = 'desc',
       persons = [],
     } = params;
-
-    console.log('[ROUTE] Using sort:', sort);
-    console.log('[ROUTE] Using order:', order);
-    console.log('[ROUTE] Using persons:', persons);
 
     // Fetch the album record and persons in one go (async: false means all included data is ready)
     const album = await this.store.findRecord('album', album_id, {
@@ -56,13 +44,11 @@ export default class AlbumsAlbumRoute extends Route {
 
     const loadedPersons = album.persons;
     const allPersons = loadedPersons.map((person) => person.name);
-    console.log('[ROUTE] All persons in album:', allPersons);
 
     // Fetch all photos once, including included persons
     const allPhotos = await this.store.query('photo', {
       album_id,
     });
-    console.log('[ROUTE] allPhotos length:', allPhotos.length);
 
     // Since async: false is set on photo.persons and album.persons, we have all data now.
     // No need to reload anything. The included payload gave us all persons upfront.
@@ -74,8 +60,6 @@ export default class AlbumsAlbumRoute extends Route {
     } else if (allPhotos.length > 0 && allPhotos.firstObject.score) {
       scoreAttributes = Object.keys(allPhotos.firstObject.score);
     }
-
-    console.log('[ROUTE] scoreAttributes:', scoreAttributes);
 
     // Sort persons by how many times they appear in the photos
     const personCountMap = {};
@@ -92,8 +76,6 @@ export default class AlbumsAlbumRoute extends Route {
       if (countB !== countA) return countB - countA;
       return a.localeCompare(b);
     });
-
-    console.log('[ROUTE] Sorted all persons by frequency:', sortedAllPersons);
 
     // Update currentAlbum service
     this.currentAlbum.isAlbumRoute = true;

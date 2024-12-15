@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sun Dec 15 16:41:53 EST 2024
+Generated on: Sun Dec 15 17:18:30 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -3048,7 +3048,7 @@ export default class PhotoAdapter extends ApplicationAdapter {
 
 ### **./frontend/photo-filter-frontend/app/components/photo-grid.hbs**
 ```
-<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+<div class="grid gap-6 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2">
   {{#each @photos as |photo index|}}
     <div class="card bg-base-100 shadow-lg">
       <figure>
@@ -3316,47 +3316,30 @@ export default class AlbumsAlbumController extends Controller {
   @tracked persons = [];
 
   get filteredAndSortedPhotos() {
-    console.log('[CONTROLLER] filteredAndSortedPhotos called');
-    console.log('[CONTROLLER] current persons array:', this.persons);
-
     // Check if data is fully loaded
     if (!this.model.isDataReady) {
-      console.log('[CONTROLLER] Data not ready yet, returning empty array');
       return [];
     }
 
     let photos = this.model.photos.slice(); // copy the array
-    console.log('[CONTROLLER] starting with photos length:', photos.length);
 
     // Filter by selected persons if any
     if (this.persons.length > 0) {
-      console.log('[CONTROLLER] filtering by persons:', this.persons);
       photos = photos.filter((photo) => {
         // Replace mapBy('name') with standard JS map:
         const photoPersonNames = photo.persons.map((p) => p.name);
-        console.log('jb photoPersonNames', photoPersonNames);
 
         const allMatch = this.persons.every((personName) => {
-          console.log('jb personName', personName);
           return photoPersonNames.includes(personName);
         });
 
-        if (!allMatch) {
-          console.log(
-            '[CONTROLLER] photo excluded, missing one or more persons:',
-            photo.exportedFilename || photo.originalName,
-          );
-        }
         return allMatch;
       });
     }
 
-    console.log('[CONTROLLER] after filtering, photos length:', photos.length);
-
     // Sort by current sort and order
     const sortAttribute = this.sort;
     const order = this.order;
-    console.log('[CONTROLLER] sorting by:', sortAttribute, order);
 
     photos.sort((a, b) => {
       const aValue = this.getNested(a, sortAttribute);
@@ -3368,7 +3351,6 @@ export default class AlbumsAlbumController extends Controller {
       return order === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
-    console.log('[CONTROLLER] final photos length:', photos.length);
     return photos;
   }
 
@@ -3378,14 +3360,11 @@ export default class AlbumsAlbumController extends Controller {
 
   @action
   togglePerson(personName) {
-    console.log('[CONTROLLER] togglePerson called with:', personName);
     let selected = [...this.persons];
     if (selected.includes(personName)) {
       selected = selected.filter((p) => p !== personName);
-      console.log('[CONTROLLER] Removed person, new selected:', selected);
     } else {
       selected.push(personName);
-      console.log('[CONTROLLER] Added person, new selected:', selected);
     }
     this.persons = selected;
 
@@ -3451,20 +3430,14 @@ export default class AlbumsAlbumRoute extends Route {
     persons: {
       // Custom serialize/deserialize so persons is always an array
       serialize(value) {
-        console.log('[ROUTE] Serializing persons:', value);
         return JSON.stringify(value);
       },
       deserialize(value) {
-        console.log('[ROUTE] Deserializing persons from URL:', value);
         if (typeof value === 'string') {
           try {
             const arr = JSON.parse(value);
-            console.log('[ROUTE] Deserialized persons array:', arr);
             return arr;
           } catch (e) {
-            console.warn(
-              '[ROUTE] Failed to parse persons, returning empty array',
-            );
             return [];
           }
         }
@@ -3474,18 +3447,12 @@ export default class AlbumsAlbumRoute extends Route {
   };
 
   async model(params) {
-    console.log('[ROUTE] model hook params:', params);
-
     const {
       album_id,
       sort = 'score.overall',
       order = 'desc',
       persons = [],
     } = params;
-
-    console.log('[ROUTE] Using sort:', sort);
-    console.log('[ROUTE] Using order:', order);
-    console.log('[ROUTE] Using persons:', persons);
 
     // Fetch the album record and persons in one go (async: false means all included data is ready)
     const album = await this.store.findRecord('album', album_id, {
@@ -3495,13 +3462,11 @@ export default class AlbumsAlbumRoute extends Route {
 
     const loadedPersons = album.persons;
     const allPersons = loadedPersons.map((person) => person.name);
-    console.log('[ROUTE] All persons in album:', allPersons);
 
     // Fetch all photos once, including included persons
     const allPhotos = await this.store.query('photo', {
       album_id,
     });
-    console.log('[ROUTE] allPhotos length:', allPhotos.length);
 
     // Since async: false is set on photo.persons and album.persons, we have all data now.
     // No need to reload anything. The included payload gave us all persons upfront.
@@ -3513,8 +3478,6 @@ export default class AlbumsAlbumRoute extends Route {
     } else if (allPhotos.length > 0 && allPhotos.firstObject.score) {
       scoreAttributes = Object.keys(allPhotos.firstObject.score);
     }
-
-    console.log('[ROUTE] scoreAttributes:', scoreAttributes);
 
     // Sort persons by how many times they appear in the photos
     const personCountMap = {};
@@ -3531,8 +3494,6 @@ export default class AlbumsAlbumRoute extends Route {
       if (countB !== countA) return countB - countA;
       return a.localeCompare(b);
     });
-
-    console.log('[ROUTE] Sorted all persons by frequency:', sortedAllPersons);
 
     // Update currentAlbum service
     this.currentAlbum.isAlbumRoute = true;
