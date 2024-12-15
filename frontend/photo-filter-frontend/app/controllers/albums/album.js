@@ -1,4 +1,3 @@
-// frontend/photo-filter-frontend/app/controllers/albums/album.js
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
@@ -7,30 +6,24 @@ import { inject as service } from '@ember/service';
 export default class AlbumsAlbumController extends Controller {
   @service router;
 
-  // No queryParams here; we rely on the route’s queryParams definition
   @tracked sort = 'score.overall';
   @tracked order = 'desc';
   @tracked persons = [];
 
   get filteredAndSortedPhotos() {
-    // Check if data is fully loaded
     if (!this.model.isDataReady) {
       return [];
     }
 
-    let photos = this.model.photos.slice(); // copy the array
+    let photos = this.model.photos.slice();
 
     // Filter by selected persons if any
     if (this.persons.length > 0) {
       photos = photos.filter((photo) => {
-        // Replace mapBy('name') with standard JS map:
         const photoPersonNames = photo.persons.map((p) => p.name);
-
-        const allMatch = this.persons.every((personName) => {
-          return photoPersonNames.includes(personName);
-        });
-
-        return allMatch;
+        return this.persons.every((personName) =>
+          photoPersonNames.includes(personName),
+        );
       });
     }
 
@@ -65,7 +58,6 @@ export default class AlbumsAlbumController extends Controller {
     }
     this.persons = selected;
 
-    // Update query param by transitioning with router service:
     this.router.transitionTo(
       'albums.album',
       this.router.currentRoute.params.album_id,

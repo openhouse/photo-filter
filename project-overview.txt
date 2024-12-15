@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sun Dec 15 17:18:30 EST 2024
+Generated on: Sun Dec 15 18:49:51 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -89,6 +89,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   └── yarn.lock
 ├── frontend
 │   └── photo-filter-frontend
+│       ├── -package-lock.json
 │       ├── .DS_Store
 │       ├── .editorconfig
 │       ├── .ember-cli
@@ -162,7 +163,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── optional-features.json
 │       │   └── targets.js
 │       ├── ember-cli-build.js
-│       ├── package-lock.json
 │       ├── package.json
 │       ├── postcss.config.js
 │       ├── public
@@ -3144,8 +3144,8 @@ Router.map(function () {
     </ul>
   </div>
 
-  <!-- Main content area: also scrollable -->
-  <div class="flex-1 overflow-auto p-4">
+  <!-- Main content area: add id here so ember-router-scroll can find it -->
+  <div id="main-content-area" class="flex-1 overflow-auto p-4">
     {{outlet}}
   </div>
 </div>```
@@ -3220,7 +3220,6 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album.hbs**
 ```
-<!-- Person filters -->
 <div class="flex justify-center mb-4 flex-wrap gap-2">
   {{#each this.model.persons as |person|}}
     <button
@@ -3238,12 +3237,14 @@ Router.map(function () {
   {{/each}}
 </div>
 
-<!-- Photo grid uses filteredAndSortedPhotos -->
-<PhotoGrid
-  @photos={{this.filteredAndSortedPhotos}}
-  @albumUUID={{this.model.albumUUID}}
-  @sortAttribute={{this.sort}}
-/>```
+<!-- Remove the did-update modifier -->
+<div>
+  <PhotoGrid
+    @photos={{this.filteredAndSortedPhotos}}
+    @albumUUID={{this.model.albumUUID}}
+    @sortAttribute={{this.sort}}
+  />
+</div>```
 
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
 ```
@@ -3301,7 +3302,6 @@ export default class ApplicationController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
-// frontend/photo-filter-frontend/app/controllers/albums/album.js
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
@@ -3310,30 +3310,24 @@ import { inject as service } from '@ember/service';
 export default class AlbumsAlbumController extends Controller {
   @service router;
 
-  // No queryParams here; we rely on the route’s queryParams definition
   @tracked sort = 'score.overall';
   @tracked order = 'desc';
   @tracked persons = [];
 
   get filteredAndSortedPhotos() {
-    // Check if data is fully loaded
     if (!this.model.isDataReady) {
       return [];
     }
 
-    let photos = this.model.photos.slice(); // copy the array
+    let photos = this.model.photos.slice();
 
     // Filter by selected persons if any
     if (this.persons.length > 0) {
       photos = photos.filter((photo) => {
-        // Replace mapBy('name') with standard JS map:
         const photoPersonNames = photo.persons.map((p) => p.name);
-
-        const allMatch = this.persons.every((personName) => {
-          return photoPersonNames.includes(personName);
-        });
-
-        return allMatch;
+        return this.persons.every((personName) =>
+          photoPersonNames.includes(personName),
+        );
       });
     }
 
@@ -3368,7 +3362,6 @@ export default class AlbumsAlbumController extends Controller {
     }
     this.persons = selected;
 
-    // Update query param by transitioning with router service:
     this.router.transitionTo(
       'albums.album',
       this.router.currentRoute.params.album_id,
@@ -3662,43 +3655,34 @@ module.exports = function (environment) {
     environment,
     rootURL: '/',
     locationType: 'history',
+    historySupportMiddleware: true, // enable for ember-router-scroll
     EmberENV: {
       EXTEND_PROTOTYPES: false,
-      FEATURES: {
-        // Here you can enable experimental features on an ember canary build
-        // e.g. EMBER_NATIVE_DECORATOR_SUPPORT: true
-      },
+      FEATURES: {},
     },
 
     APP: {
-      // Here you can pass flags/options to your application instance
-      // when it is created
-      apiHost: 'http://localhost:3000', // Add this line
+      apiHost: 'http://localhost:3000',
+    },
+
+    // Add routerScroll configuration here
+    routerScroll: {
+      targetElement: '#main-content-area',
     },
   };
 
   if (environment === 'development') {
-    // ENV.APP.LOG_RESOLVER = true;
-    // ENV.APP.LOG_ACTIVE_GENERATION = true;
-    // ENV.APP.LOG_TRANSITIONS = true;
-    // ENV.APP.LOG_TRANSITIONS_INTERNAL = true;
-    // ENV.APP.LOG_VIEW_LOOKUPS = true;
+    // ...
   }
 
   if (environment === 'test') {
-    // Testem prefers this...
     ENV.locationType = 'none';
-
-    // keep test console output quieter
-    ENV.APP.LOG_ACTIVE_GENERATION = false;
-    ENV.APP.LOG_VIEW_LOOKUPS = false;
-
     ENV.APP.rootElement = '#ember-testing';
     ENV.APP.autoboot = false;
   }
 
   if (environment === 'production') {
-    // here you can enable a production-specific feature
+    // ...
   }
 
   return ENV;
@@ -3725,6 +3709,31 @@ module.exports = function (environment) {
     }
   ]
 }
+```
+
+### **./frontend/photo-filter-frontend/-package-lock.json**
+```json
+{
+  "name": "photo-filter-frontend",
+  "version": "0.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "photo-filter-frontend",
+      "version": "0.0.0",
+      "dependencies": {
+        "postcss": "^8.4.49"
+      },
+      "devDependencies": {
+        "@babel/core": "^7.25.2",
+        "@babel/eslint-parser": "^7.25.1",
+        "@babel/plugin-proposal-decorators": "^7.24.7",
+        "@ember/optional-features": "^2.1.0",
+        "@ember/string": "^4.0.0",
+        "@ember/test-helpers": "^3.3.1",
+        "@glimmer/component": "^1.1.2",
+...
 ```
 
 ### **./frontend/photo-filter-frontend/tests/unit/models/photo-test.js**
@@ -3996,31 +4005,6 @@ Specify what it takes to deploy your app.
 /DEBUG/
 ```
 
-### **./frontend/photo-filter-frontend/package-lock.json**
-```json
-{
-  "name": "photo-filter-frontend",
-  "version": "0.0.0",
-  "lockfileVersion": 3,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "photo-filter-frontend",
-      "version": "0.0.0",
-      "dependencies": {
-        "postcss": "^8.4.49"
-      },
-      "devDependencies": {
-        "@babel/core": "^7.25.2",
-        "@babel/eslint-parser": "^7.25.1",
-        "@babel/plugin-proposal-decorators": "^7.24.7",
-        "@ember/optional-features": "^2.1.0",
-        "@ember/string": "^4.0.0",
-        "@ember/test-helpers": "^3.3.1",
-        "@glimmer/component": "^1.1.2",
-...
-```
-
 ### **./frontend/photo-filter-frontend/package.json**
 ```
 {
@@ -4050,6 +4034,7 @@ Specify what it takes to deploy your app.
     "@babel/eslint-parser": "^7.25.1",
     "@babel/plugin-proposal-decorators": "^7.24.7",
     "@ember/optional-features": "^2.1.0",
+    "@ember/render-modifiers": "^2.1.0",
     "@ember/string": "^4.0.0",
     "@ember/test-helpers": "^3.3.1",
     "@glimmer/component": "^1.1.2",
@@ -4077,6 +4062,7 @@ Specify what it takes to deploy your app.
     "ember-page-title": "^8.2.3",
     "ember-qunit": "^8.1.0",
     "ember-resolver": "^12.0.1",
+    "ember-router-scroll": "^4.1.2",
     "ember-source": "~5.12.0",
     "ember-template-lint": "^6.0.0",
     "ember-welcome-page": "^7.0.2",
