@@ -1,0 +1,65 @@
+{{page-title "PhotoFilterFrontend"}}
+
+<div
+  class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
+>
+  <!-- Fixed top nav -->
+  <nav
+    class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
+  >
+    <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+
+    {{#if this.currentAlbum.isAlbumRoute}}
+      <div class="flex items-center space-x-4">
+        <!-- Album Title -->
+        <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
+
+        <!-- Sorting Options -->
+        <div class="flex items-center space-x-2">
+          <div class="form-control">
+            <label class="label text-sm font-semibold">Sort by</label>
+            <select
+              id="sortAttribute"
+              class="select select-xs select-bordered"
+              {{on "change" (fn this.updateSortAttribute)}}
+            >
+              {{#each this.currentAlbum.scoreAttributes as |attribute|}}
+                <option
+                  value="score.{{attribute}}"
+                  selected={{eq
+                    this.currentAlbum.sortAttribute
+                    (concat "score." attribute)
+                  }}
+                >
+                  {{capitalize attribute}}
+                </option>
+              {{/each}}
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label text-sm font-semibold">Order</label>
+            <select
+              id="sortOrder"
+              class="select select-xs select-bordered"
+              {{on "change" (fn this.updateSortOrder)}}
+            >
+              <option
+                value="desc"
+                selected={{eq this.currentAlbum.sortOrder "desc"}}
+              >Descending</option>
+              <option
+                value="asc"
+                selected={{eq this.currentAlbum.sortOrder "asc"}}
+              >Ascending</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    {{/if}}
+  </nav>
+
+  <div class="h-full w-full pt-16 flex">
+    {{outlet}}
+  </div>
+</div>

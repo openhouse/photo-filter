@@ -1,0 +1,32 @@
+<div class="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+  {{#each @photos as |photo index|}}
+    <div class="card bg-base-100 shadow-lg">
+      <figure>
+        <img
+          src="{{this.apiHost}}/images/{{@albumUUID}}/{{photo.exportedFilename}}"
+          alt="{{photo.exportedFilename}}"
+          class="max-w-full h-auto"
+        />
+      </figure>
+      <div class="card-body">
+        <h2 class="card-title text-sm">
+          <span class="opacity-50">{{index}} -</span>
+          {{photo.exportedFilename}}
+        </h2>
+
+        {{#if photo.tags}}
+          <div class="mt-2 flex flex-wrap gap-2">
+            {{#each photo.tags as |tag|}}
+              <span class="badge badge-accent badge-outline">{{tag}}</span>
+            {{/each}}
+          </div>
+        {{/if}}
+
+        <p class="mt-2">
+          {{capitalize (replace @sortAttribute "score." "")}}:
+          {{get-nested-property photo @sortAttribute}}
+        </p>
+      </div>
+    </div>
+  {{/each}}
+</div>

@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec 14 17:59:33 EST 2024
+Generated on: Sat Dec 14 23:21:38 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -220,116 +220,91 @@ This project is a monorepo containing both the Ember.js frontend and the Express
   @tailwind utilities;
   ```
 
-## Update: Transition to Query-Param-Based Faceted Person Filtering
+### Update: Transition to Query-Param-Based Faceted Person Filtering
 
 **Date:** December 12, 2024
 
-### Decision
+**Decision:**
 
 - Move from nested person-specific routes toward a unified album route that uses query parameters to filter by selected individuals.
 - The UI will display a list of people in the left navigation under the currently active album. Users can toggle individuals on or off (via checkboxes or links), and the album’s displayed photos will filter to include only photos with all selected individuals.
-- Remove the separate "View People in this Album" link and the “Back to Albums” link, as album navigation and person filtering are now integrated in the left nav.
+- Remove the separate “View People in this Album” link and the “Back to Albums” link, as album navigation and person filtering are now integrated in the left nav.
 - Eventually incorporate a front-end UI framework (like Bootstrap or Material Design) for a more cohesive look and feel.
 
-### Rationale
+**Rationale:**
 
-- **Integrated Navigation**: Having all filtering (by album, by people) and sorting in one unified route simplifies the user experience.
-- **Improved UX**: No need to navigate to a separate persons sub-route. People-based filtering is just another facet of the main album view.
-- **Scalability**: Query params enable easy multi-person filtering. As the user selects multiple names, they appear in the URL’s query params, making the filtering state shareable and bookmarkable.
-- **Future-Ready**: Paves the way to easily add other facets (like tags, locations, or events) as query-parameter-based filters.
+- **Integrated Navigation:** Having all filtering (by album, by people) and sorting in one unified route simplifies the user experience.
+- **Improved UX:** No need to navigate to a separate persons sub-route. People-based filtering is just another facet of the main album view.
+- **Scalability:** Query params enable easy multi-person filtering. As the user selects multiple names, they appear in the URL’s query params, making the filtering state shareable and bookmarkable.
+- **Future-Ready:** Paves the way to easily add other facets (like tags, locations, or events) as query-parameter-based filters.
 
-### Implementation Steps
+**Implementation Steps:**
 
-1. **Remove Person Sub-Routes**:
-
+1. **Remove Person Sub-Routes:**
    - No longer need `albums/album/persons` or `albums/album/persons/person/:person_name`.
    - Instead, retrieve people from `GET /api/albums/:albumUUID/persons` and display them under the selected album in the left nav.
-
-2. **Update Album Route to Use Query Params**:
-
+2. **Update Album Route to Use Query Params:**
    - Add a `people` query param to `albums.album`.
    - When a user toggles a person in the UI, update the `people` query param to reflect the currently selected individuals.
    - Filter photos based on the intersection of all selected individuals’ sets of photos.
-
-3. **UI Updates**:
-
+3. **UI Updates:**
    - The left nav becomes scrollable and fixed in height, independent from the main content area.
-   - Display the currently selected album title, below it a list of people. Each name toggles inclusion in the `people` filter.
+   - Display the currently selected album title, below it a list of people. Each name toggles inclusion in the people filter.
    - No need for “Back to Albums” or “View People in This Album” links—navigation and filtering are seamlessly integrated.
-
-4. **Backend**:
-
+4. **Backend:**
    - The backend remains largely the same. The frontend can still fetch all people via `GET /api/albums/:albumUUID/persons`.
    - For multiple individuals, the frontend will combine their names and request photos containing all of them, or request the full set and filter on the client side if needed. (Future optimization may be added on the backend.)
-
-5. **Documentation**:
-
+5. **Documentation:**
    - Update `DEVELOPMENT_PLAN.md`, `ISSUES.md`, and `README.md` to reflect the new approach.
    - Document how query parameters represent the filtering state.
-
-6. **Testing and Validation**:
+6. **Testing and Validation:**
    - Ensure that selecting multiple individuals updates the displayed photos correctly.
    - Confirm that query params can be bookmarked and reloaded.
    - Test sorting combined with person-based filtering.
 
-### Potential Challenges
+**Potential Challenges:**
 
-- **Complex Filtering**: As multiple people are selected, performance could degrade for large albums. Consider caching or indexing if needed.
-- **UI Complexity**: Need a clear indication of which people are currently selected and how to reset filters.
-- **Backwards Compatibility**: Removing person sub-routes may require updating links or references.
+- **Complex Filtering:** As multiple people are selected, performance could degrade for large albums. Consider caching or indexing if needed.
+- **UI Complexity:** Need a clear indication of which people are currently selected and how to reset filters.
+- **Backwards Compatibility:** Removing person sub-routes may require updating links or references.
 
----
+**Previous Updates:**
 
-## Previous Updates
+- **December 7, 2024:** Initial person-level sub-routes conceived. _(Note: This approach is now evolving into a unified, query-param-based filter.)_
+- **November 12, 2024:** Introduced nested routes, left nav, and sorting.
+- **November 1, 2024:** Added cache invalidation for data freshness.
+- **October 30, 2024:** Adopted JSON:API serializer.
 
-- **December 7, 2024**: Initial person-level sub-routes conceived.  
-  _Note:_ This approach is now evolving into a unified, query-param-based filter.
-- **November 12, 2024**: Introduced nested routes, left nav, and sorting.
-- **November 1, 2024**: Added cache invalidation for data freshness.
-- **October 30, 2024**: Adopted JSON:API serializer.
-
----
-
-## Project Goal
-
+**Project Goal:**
 Create an intuitive, facet-based photo exploration tool integrated with macOS Photos data, enabling advanced sorting, selection, exporting, and multi-person filtering.
 
-## Current State
+**Current State:**
 
-- **Frontend**: Ember.js with album-level sorting, person-based filters pending refinement.
-- **Backend**: Express.js, JSON:API, data from `osxphotos`.
-- **Data Handling**: `osxphotos` extracts metadata.
-- **Selection & Export**: In progress.
-- **Documentation & Styling**: Ongoing enhancements.
+- **Frontend:** Ember.js with album-level sorting and filtering now done fully on the frontend for improved performance.
+- **Backend:** Express.js, JSON:API, data from `osxphotos`.
+- **Data Handling:** `osxphotos` extracts metadata.
+- **Selection & Export:** In progress.
+- **Documentation & Styling:** Ongoing enhancements.
 
-## Next Steps
+**Next Steps:**
 
-1. **Implement Multi-Person Filtering with Query Params**:
-
-   - Refactor UI to remove separate person routes.
-   - Add toggles in the left nav.
-   - Update the album route’s model hook to factor in `people` query param.
-
-2. **Improve Export Feature**:
-
+1. **Implement Multi-Person Filtering with Query Params:**
+   - Refactor UI to remove separate person routes (already done).
+   - Add toggles in the left nav (done).
+   - Update the album route’s model hook to factor in `people` query param (done).
+2. **Improve Export Feature:**
    - Integrate actual export logic on the backend.
    - Show feedback to the user during export operations.
-
-3. **UX and Performance**:
-
-   - Consider a UI framework for styling.
-   - Explore caching large album queries.
-
-4. **Testing & Quality Assurance**:
-
+3. **UX and Performance:**
+   - **Immediate Measure:** We have now implemented frontend-only sorting and filtering to avoid expensive re-fetches of large albums.
+   - **Long-Term Vision:** Consider setting up an indexed database on the backend to handle large datasets more efficiently. Also develop a cache invalidation mechanism for Apple Photos library changes, so we know when our snapshot is stale and re-fetch only when necessary.
+4. **Testing & Quality Assurance:**
    - Test multi-person filtering thoroughly.
-   - Validate sorting and selection persistence.
-
-5. **Documentation & Cleanup**:
+   - Validate sorting and selection persistence with front-end-only filtering.
+   - Confirm that no new network requests are made unnecessarily.
+5. **Documentation & Cleanup:**
    - Keep all documentation updated.
    - Refactor code for maintainability.
-
----
 ```
 
 ### **./ISSUES.md**
@@ -505,7 +480,24 @@ Next Steps
 • Make this code change and verify that persons now appear in the UI as expected.
 • Once verified and tested in reality, mark this issue as resolved.
 
-End of Issues Log
+New Issue: Performance Impact from Re-Fetching Large Albums on Sort/Filter Changes
+
+Opened By: [Your Name], Dec 15, 2024
+Status: Open
+
+Description
+
+When changing sorting attributes or toggling person filters, the app previously made new API requests to the backend for all ~25k photos in the album. This caused a significant performance delay (around 30 seconds). We decided to implement front-end-only sorting and filtering to avoid unnecessary re-fetches, improving responsiveness.
+
+Actions
+• Shifted sorting and filtering logic entirely to the frontend.
+• Now the dataset is loaded once, and all sorting/filtering occurs in memory.
+• This approach drastically reduces delays after the initial load.
+
+Next Steps
+• Consider adding a backend index database to handle larger datasets more efficiently in the long term.
+• Implement a backend apple-photos-library cache invalidation logic so we know when our cached data is stale and needs re-fetching from Apple Photos.
+• Improve monitoring and consider pagination or lazy loading if dataset grows even larger.
 
 Note: No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
 ```
@@ -2064,7 +2056,7 @@ const PhotoSerializer = new Serializer("photo", {
     },
   },
   pluralizeType: false,
-  meta: {}, // We'll add meta later
+  meta: {},
 });
 
 function formatPhotoDateWithOffset(dateString) {
@@ -2138,7 +2130,10 @@ export const getPhotosByAlbumData = async (req, res) => {
       );
     }
 
-    const photosData = await fs.readJson(photosPath);
+    let photosData = await fs.readJson(photosPath);
+
+    // Deduplicate photos by (original_filename, date)
+    photosData = deduplicatePhotos(photosData);
 
     // Add 'originalName' and 'exportedFilename'
     photosData.forEach((photo) => {
@@ -2234,6 +2229,30 @@ export const getPhotosByAlbumData = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
+
+// Deduplicate photos by (original_filename, date)
+function deduplicatePhotos(photos) {
+  const map = new Map();
+  for (const photo of photos) {
+    const key = `${photo.original_filename}-${photo.date}`;
+    if (!map.has(key)) {
+      // Store the photo directly
+      map.set(key, { ...photo });
+    } else {
+      // Duplicate found
+      const existing = map.get(key);
+      // Merge persons arrays if needed
+      if (Array.isArray(photo.persons)) {
+        const existingPersons = new Set(existing.persons || []);
+        photo.persons.forEach((p) => existingPersons.add(p));
+        existing.persons = Array.from(existingPersons);
+      }
+      // Keep other data from the first occurrence
+      map.set(key, existing);
+    }
+  }
+  return Array.from(map.values());
+}
 ```
 
 ### **./backend/controllers/get-photos-by-album.js**
@@ -3089,7 +3108,6 @@ Router.map(function () {
 
         <!-- Sorting Options -->
         <div class="flex items-center space-x-2">
-          <!-- Sort by attribute -->
           <div class="form-control">
             <label class="label text-sm font-semibold">Sort by</label>
             <select
@@ -3111,7 +3129,6 @@ Router.map(function () {
             </select>
           </div>
 
-          <!-- Order (asc/desc) -->
           <div class="form-control">
             <label class="label text-sm font-semibold">Order</label>
             <select
@@ -3134,7 +3151,6 @@ Router.map(function () {
     {{/if}}
   </nav>
 
-  <!-- Main container below the nav -->
   <div class="h-full w-full pt-16 flex">
     {{outlet}}
   </div>
@@ -3142,7 +3158,7 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums/album.hbs**
 ```
-<!-- Person filters remain here -->
+<!-- Person filters -->
 <div class="flex justify-center mb-4 flex-wrap gap-2">
   {{#each this.model.persons as |person|}}
     <button
@@ -3160,11 +3176,11 @@ Router.map(function () {
   {{/each}}
 </div>
 
-<!-- Photo grid -->
+<!-- Photo grid uses filteredAndSortedPhotos -->
 <PhotoGrid
-  @photos={{this.model.photos}}
+  @photos={{this.filteredAndSortedPhotos}}
   @albumUUID={{this.model.albumUUID}}
-  @sortAttribute={{this.model.sortAttribute}}
+  @sortAttribute={{this.sort}}
 />```
 
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
@@ -3181,7 +3197,6 @@ export default class ApplicationController extends Controller {
   updateSortAttribute(event) {
     const newSort = event.target.value;
     if (this.currentAlbum.isAlbumRoute) {
-      // Update query params on albums.album route
       const routeName = 'albums.album';
       const currentRoute = this.router.currentRouteName;
       if (currentRoute.startsWith('albums.album')) {
@@ -3203,7 +3218,6 @@ export default class ApplicationController extends Controller {
   updateSortOrder(event) {
     const newOrder = event.target.value;
     if (this.currentAlbum.isAlbumRoute) {
-      // Update query params on albums.album route
       const routeName = 'albums.album';
       const currentRoute = this.router.currentRouteName;
       if (currentRoute.startsWith('albums.album')) {
@@ -3225,7 +3239,6 @@ export default class ApplicationController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
-// frontend/photo-filter-frontend/app/controllers/albums/album.js
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
@@ -3237,14 +3250,39 @@ export default class AlbumsAlbumController extends Controller {
   @tracked order = 'desc';
   @tracked persons = [];
 
-  @action
-  selectSortAttribute(event) {
-    this.sort = event.target.value;
+  // The route provides `photos` unfiltered. We apply filtering and sorting in memory.
+  get filteredAndSortedPhotos() {
+    let photos = this.model.photos.slice(); // copy array
+
+    // Filter by selected persons if any
+    if (this.persons.length > 0) {
+      photos = photos.filter((photo) => {
+        const photoPersonNames = photo.persons.map((p) => p.name);
+        return this.persons.every((personName) =>
+          photoPersonNames.includes(personName),
+        );
+      });
+    }
+
+    // Sort by current sort and order
+    const sortAttribute = this.sort;
+    const order = this.order;
+
+    photos.sort((a, b) => {
+      const aValue = this.getNested(a, sortAttribute);
+      const bValue = this.getNested(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      return order === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+
+    return photos;
   }
 
-  @action
-  selectSortOrder(event) {
-    this.order = event.target.value;
+  getNested(obj, path) {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
   }
 
   @action
@@ -3300,9 +3338,9 @@ export default class AlbumsAlbumRoute extends Route {
   @service currentAlbum;
 
   queryParams = {
-    sort: { refreshModel: true },
-    order: { refreshModel: true },
-    persons: { refreshModel: true },
+    sort: {},
+    order: {},
+    persons: {},
   };
 
   async model(params) {
@@ -3313,81 +3351,66 @@ export default class AlbumsAlbumRoute extends Route {
       persons = [],
     } = params;
 
-    // Ensure we have the album and persons loaded before fetching photos
+    // Fetch the album record and await persons
     const album = await this.store.findRecord('album', album_id, {
       include: 'persons',
       reload: true,
     });
 
-    // Wait for persons to fully load
     const loadedPersons = await album.persons;
     let allPersons = loadedPersons.map((person) => person.name);
 
-    // Fetch all photos for the album (unfiltered)
-    const photos = await this.store.query('photo', {
+    // Fetch all photos once without sorting/filtering from the backend
+    const allPhotos = await this.store.query('photo', {
       album_id,
-      sort,
-      order,
     });
 
-    // Count how many photos each person appears in
+    // Determine score attributes
+    let scoreAttributes = [];
+    if (allPhotos.meta && allPhotos.meta.scoreAttributes) {
+      scoreAttributes = allPhotos.meta.scoreAttributes;
+    } else if (allPhotos.length > 0 && allPhotos.firstObject.score) {
+      scoreAttributes = Object.keys(allPhotos.firstObject.score);
+    }
+
+    // Sort persons by how many times they appear
     const personCountMap = {};
-    photos.forEach((photo) => {
+    allPhotos.forEach((photo) => {
       photo.persons.forEach((p) => {
         personCountMap[p.name] = (personCountMap[p.name] || 0) + 1;
       });
     });
 
-    // Sort persons:
-    // - Primary: descending photo count
-    // - Secondary: alphabetical
     allPersons = allPersons.sort((a, b) => {
       const countA = personCountMap[a] || 0;
       const countB = personCountMap[b] || 0;
-      if (countB !== countA) {
-        return countB - countA;
-      }
+      if (countB !== countA) return countB - countA;
       return a.localeCompare(b);
     });
 
-    let filteredPhotos = photos;
-    if (persons.length > 0) {
-      filteredPhotos = await Promise.all(
-        filteredPhotos.map(async (photo) => {
-          const personModels = await photo.persons;
-          const photoPersonNames = personModels.map((p) => p.name);
-          return persons.every((personName) =>
-            photoPersonNames.includes(personName),
-          )
-            ? photo
-            : null;
-        }),
-      );
-      filteredPhotos = filteredPhotos.filter(Boolean);
-    }
-
-    // Update currentAlbum service with album info and sorting state
+    // Update currentAlbum service
     this.currentAlbum.isAlbumRoute = true;
     this.currentAlbum.albumTitle = album.title;
-    this.currentAlbum.scoreAttributes = photos.meta?.scoreAttributes || [];
-    this.currentAlbum.sortAttribute = photos.meta?.sortAttribute || sort;
-    this.currentAlbum.sortOrder = photos.meta?.sortOrder || order;
+    this.currentAlbum.scoreAttributes = scoreAttributes;
+    this.currentAlbum.sortAttribute = sort;
+    this.currentAlbum.sortOrder = order;
 
     return {
       album,
-      photos: filteredPhotos,
-      albumUUID: photos.meta?.albumUUID || album_id,
-      sortAttribute: this.currentAlbum.sortAttribute,
-      sortOrder: this.currentAlbum.sortOrder,
-      scoreAttributes: this.currentAlbum.scoreAttributes,
+      photos: allPhotos,
+      albumUUID: allPhotos.meta?.albumUUID || album_id,
+      sortAttribute: sort,
+      sortOrder: order,
+      scoreAttributes,
       persons: allPersons,
+      selectedPersons: persons,
     };
   }
 
   resetController(controller, isExiting) {
     super.resetController(...arguments);
     if (isExiting) {
-      // Reset currentAlbum when leaving the album route
+      // Reset currentAlbum service when leaving the album route
       this.currentAlbum.isAlbumRoute = false;
       this.currentAlbum.albumTitle = null;
       this.currentAlbum.scoreAttributes = [];
@@ -3922,6 +3945,7 @@ Specify what it takes to deploy your app.
     "@ember/test-helpers": "^3.3.1",
     "@glimmer/component": "^1.1.2",
     "@glimmer/tracking": "^1.1.2",
+    "@html-next/vertical-collection": "^4.0.2",
     "autoprefixer": "^10.4.20",
     "broccoli-asset-rev": "^3.0.0",
     "concurrently": "^8.2.2",

@@ -169,6 +169,23 @@ Next Steps
 • Make this code change and verify that persons now appear in the UI as expected.
 • Once verified and tested in reality, mark this issue as resolved.
 
-End of Issues Log
+New Issue: Performance Impact from Re-Fetching Large Albums on Sort/Filter Changes
+
+Opened By: [Your Name], Dec 15, 2024
+Status: Open
+
+Description
+
+When changing sorting attributes or toggling person filters, the app previously made new API requests to the backend for all ~25k photos in the album. This caused a significant performance delay (around 30 seconds). We decided to implement front-end-only sorting and filtering to avoid unnecessary re-fetches, improving responsiveness.
+
+Actions
+• Shifted sorting and filtering logic entirely to the frontend.
+• Now the dataset is loaded once, and all sorting/filtering occurs in memory.
+• This approach drastically reduces delays after the initial load.
+
+Next Steps
+• Consider adding a backend index database to handle larger datasets more efficiently in the long term.
+• Implement a backend apple-photos-library cache invalidation logic so we know when our cached data is stale and needs re-fetching from Apple Photos.
+• Improve monitoring and consider pagination or lazy loading if dataset grows even larger.
 
 Note: No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
