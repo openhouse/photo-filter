@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sun Dec 15 12:50:51 EST 2024
+Generated on: Sun Dec 15 16:41:53 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -35,11 +35,15 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   ├── .DS_Store
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
 │   │   │   │   └── photos.json
+│   │   │   ├── 561CCDD4-26A7-4898-8514-ECE1AABF1409
+│   │   │   │   └── photos.json
 │   │   │   ├── 6956E064-5A0E-4451-8A75-FC6724FED866
 │   │   │   │   └── photos.json
 │   │   │   ├── 69865EDF-08F2-40B1-8E20-F802D6C4E6D3
 │   │   │   │   └── photos.json
 │   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
+│   │   │   │   └── photos.json
+│   │   │   ├── C5170173-2B78-498D-AB6E-E29188933158
 │   │   │   │   └── photos.json
 │   │   │   └── D3988A5F-8B66-464B-B18C-457EC672621A
 │   │   │       └── photos.json
@@ -85,6 +89,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   └── yarn.lock
 ├── frontend
 │   └── photo-filter-frontend
+│       ├── .DS_Store
 │       ├── .editorconfig
 │       ├── .ember-cli
 │       ├── .eslintignore
@@ -138,6 +143,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
 │       │   │   └── index.js
+│       │   ├── serializers
 │       │   ├── services
 │       │   │   ├── current-album.js
 │       │   │   └── store.js
@@ -198,7 +204,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-60 directories, 129 files
+63 directories, 132 files
 ```
 
 ---
@@ -465,41 +471,60 @@ We initially implemented `albums/album/persons` sub-routes. We now want to remov
 
 ### Description
 
-Even though the backend returns `persons` as included data when fetching an album, they do not appear in the UI. In Ember Inspector, we see that `album.persons` is present, but on the active controller, `persons` remains empty. This occurs because `album.persons` is a PromiseManyArray and must be awaited before using its data. Without awaiting, the code tries to read `persons` before they are fully loaded, resulting in an empty array being used for the UI.
+Even though the backend returns `persons` as included data when fetching an album, they do not appear in the UI. In Ember Inspector, we see `album.persons` is present, but on the active controller, `persons` remains empty because the PromiseManyArray was not awaited before use.
 
 ### Actions
 
-- In `app/routes/albums/album.js`, await the `album.persons` before mapping or filtering.
-  For example:
-  ```js
-  const loadedPersons = await album.persons;
-  const allPersons = loadedPersons.map((person) => person.name);
-  ```
+- In `app/routes/albums/album.js`, awaited `album.persons` before mapping/filtering.
+- Once verified and tested, we can mark this issue resolved.
 
-Next Steps
-• Make this code change and verify that persons now appear in the UI as expected.
-• Once verified and tested in reality, mark this issue as resolved.
+### Next Steps
 
-New Issue: Performance Impact from Re-Fetching Large Albums on Sort/Filter Changes
+- Verify persons now appear as expected.
 
-Opened By: [Your Name], Dec 15, 2024
-Status: Open
+---
 
-Description
+## New Issue: `photoPersonNames` Always Empty in Controller
 
-When changing sorting attributes or toggling person filters, the app previously made new API requests to the backend for all ~25k photos in the album. This caused a significant performance delay (around 30 seconds). We decided to implement front-end-only sorting and filtering to avoid unnecessary re-fetches, improving responsiveness.
+**Opened By:** [Your Name], Dec 15, 2024  
+**Status:** **Open**
 
-Actions
-• Shifted sorting and filtering logic entirely to the frontend.
-• Now the dataset is loaded once, and all sorting/filtering occurs in memory.
-• This approach drastically reduces delays after the initial load.
+### Description
 
-Next Steps
-• Consider adding a backend index database to handle larger datasets more efficiently in the long term.
-• Implement a backend apple-photos-library cache invalidation logic so we know when our cached data is stale and needs re-fetching from Apple Photos.
-• Improve monitoring and consider pagination or lazy loading if dataset grows even larger.
+We’re trying to filter photos by selected persons. However, `photoPersonNames` in `albums/album.js` controller logging always returns an empty array. The reason seems to be that `photo.persons` is not properly populated with Person model instances. Even though we have `@hasMany('person')` defined, the `persons` data might be coming in as raw strings rather than proper JSON:API relationships.
 
-Note: No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
+### Proposed Frontend-Only Fix
+
+We can create a custom serializer for `photo` on the frontend that transforms the raw `persons` attribute into proper JSON:API relationships. This ensures Ember Data recognizes the `persons` as PersonModel instances.
+
+### Next Steps
+
+- Implement a `photo.js` serializer in `app/serializers/photo.js` that modifies the `normalize` response, converting `persons` strings into relationship objects and (optionally) included person records.
+- Test if `photo.persons` now returns actual Person models.
+- Confirm that `photoPersonNames` is no longer empty.
+
+---
+
+## Performance Impact from Re-Fetching Large Albums on Sort/Filter Changes
+
+**Opened By:** [Your Name], Dec 15, 2024  
+**Status:** Open
+
+### Description
+
+Changing sorting/filtering previously caused large album re-fetches, causing delays. We implemented front-end-only sorting and filtering to avoid unnecessary re-fetches.
+
+### Actions
+
+- Moved sorting and filtering logic to the frontend.
+- Initial load might be slower, but subsequent operations are fast.
+
+### Next Steps
+
+- Consider indexed DB, cache invalidation strategies, pagination, or lazy loading for scalability.
+- Monitor performance and refine as needed.
+
+---
 ```
 
 ### **./README.md**
@@ -2016,19 +2041,18 @@ export const getPhotosByPerson = async (req, res) => {
 ### **./backend/controllers/api/photos-controller.js**
 ```
 // backend/controllers/api/photos-controller.js
-
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
-import { Serializer } from "jsonapi-serializer";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import { getNestedProperty } from "../../utils/helpers.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// We'll define two serializers: one for person and one for photo.
 const PersonSerializer = new Serializer("person", {
   id: "id",
   attributes: ["name"],
@@ -2048,12 +2072,8 @@ const PhotoSerializer = new Serializer("photo", {
   ],
   keyForAttribute: "camelCase",
   relationships: {
-    album: {
-      type: "album",
-    },
-    persons: {
-      type: "person",
-    },
+    album: { type: "album" },
+    persons: { type: "person" },
   },
   pluralizeType: false,
   meta: {},
@@ -2132,17 +2152,32 @@ export const getPhotosByAlbumData = async (req, res) => {
 
     let photosData = await fs.readJson(photosPath);
 
-    // Deduplicate photos by (original_filename, date)
+    // Deduplicate photos by (original_filename, date) if needed
     photosData = deduplicatePhotos(photosData);
 
-    // Add 'originalName' and 'exportedFilename'
+    // Prepare each photo
+    const uniquePersons = new Map();
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
       const prefix = formatPhotoDateWithOffset(photo.date);
       photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+
+      // Ensure persons is an array; if empty or undefined, make it empty array
       if (!Array.isArray(photo.persons)) {
         photo.persons = [];
       }
+
+      // Collect person slugs
+      photo.personsData = photo.persons.map((name) => {
+        const slug = slugifyName(name);
+        if (!uniquePersons.has(slug)) {
+          uniquePersons.set(slug, { id: slug, name });
+        }
+        return { type: "person", id: slug };
+      });
+
+      // Set the album relationship
+      photo.album = albumUUID;
     });
 
     const scoreAttributes = Object.keys(photosData[0].score);
@@ -2156,31 +2191,6 @@ export const getPhotosByAlbumData = async (req, res) => {
       if (bValue === undefined || bValue === null) return -1;
 
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    });
-
-    // Add album relationship
-    photosData.forEach((photo) => {
-      photo.album = albumUUID;
-    });
-
-    // Handle person relationships
-    const uniquePersons = new Map();
-    function slugifyName(name) {
-      return name
-        .toLowerCase()
-        .replace(/[\s+]/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
-    }
-
-    photosData.forEach((photo) => {
-      photo.personsData = [];
-      photo.persons.forEach((name) => {
-        const slug = slugifyName(name);
-        if (!uniquePersons.has(slug)) {
-          uniquePersons.set(slug, { id: slug, name });
-        }
-        photo.personsData.push({ type: "person", id: slug });
-      });
     });
 
     // Serialize photos
@@ -2202,7 +2212,8 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     };
 
-    // Link persons to photos
+    // Assign relationships.persons to each photo in `merged.data`
+    // This ensures each photo has a proper JSON:API relationship
     merged.data.forEach((photo) => {
       const originalPhoto = photosData.find((p) => p.uuid === photo.id);
       if (
@@ -2210,16 +2221,13 @@ export const getPhotosByAlbumData = async (req, res) => {
         originalPhoto.personsData &&
         originalPhoto.personsData.length > 0
       ) {
-        if (!photo.relationships) {
-          photo.relationships = {};
-        }
+        photo.relationships = photo.relationships || {};
         photo.relationships.persons = {
           data: originalPhoto.personsData,
         };
       } else {
-        if (photo.relationships && photo.relationships.persons) {
-          photo.relationships.persons = { data: [] };
-        }
+        photo.relationships = photo.relationships || {};
+        photo.relationships.persons = { data: [] };
       }
     });
 
@@ -2230,28 +2238,31 @@ export const getPhotosByAlbumData = async (req, res) => {
   }
 };
 
-// Deduplicate photos by (original_filename, date)
 function deduplicatePhotos(photos) {
   const map = new Map();
   for (const photo of photos) {
     const key = `${photo.original_filename}-${photo.date}`;
     if (!map.has(key)) {
-      // Store the photo directly
       map.set(key, { ...photo });
     } else {
-      // Duplicate found
+      // Merge persons if there's a duplicate
       const existing = map.get(key);
-      // Merge persons arrays if needed
       if (Array.isArray(photo.persons)) {
         const existingPersons = new Set(existing.persons || []);
         photo.persons.forEach((p) => existingPersons.add(p));
         existing.persons = Array.from(existingPersons);
       }
-      // Keep other data from the first occurrence
       map.set(key, existing);
     }
   }
   return Array.from(map.values());
+}
+
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
 }
 ```
 
@@ -2542,6 +2553,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/561CCDD4-26A7-4898-8514-ECE1AABF1409/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2024-12-01-day",
+            "2024-12-11-Last Month",
+            "FujiFilm x100v: All, Full Res",
+            "Max & Jamie",
+            "Mir & Max",
+            "Mir Thanksgiving 2024"
+        ],
+        "burst": false,
+        "cloud_guid": "AcSEPiuXBZgwpoiypBMP7q0DWUTt",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-11-30 20:35:09.211243-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-30 19:07:52-05:00",
+        "description": null,
+        "exif_info": {
+...
+```
+
 ### **./backend/data/albums/6956E064-5A0E-4451-8A75-FC6724FED866/photos.json**
 ```json
 [
@@ -2589,6 +2625,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
         "date": "2024-11-30 19:07:52-05:00",
         "description": null,
         "exif_info": {
+...
+```
+
+### **./backend/data/albums/C5170173-2B78-498D-AB6E-E29188933158/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Emily Sphere"
+        ],
+        "burst": false,
+        "cloud_guid": "AZriFwpx5Ic8GtYQ/tSX84mN620u",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2023-09-30 17:32:49.434345-04:00",
+        "date_modified": "2024-06-13 16:54:23.792595-04:00",
+        "date_trashed": null,
+        "date": "2023-09-30 17:32:49.300000-04:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 640,
+            "metering_mode": 5,
+            "sample_rate": null,
+            "track_format": null,
 ...
 ```
 
@@ -2925,8 +2986,9 @@ import Model, { attr, hasMany } from '@ember-data/model';
 export default class AlbumModel extends Model {
   @attr('string') title;
   @attr('boolean') isSmart;
-  @hasMany('photo', { async: true, inverse: 'album' }) photos;
-  @hasMany('person', { async: true, inverse: null }) persons; // persons now included, inverse set to null
+  @hasMany('photo', { async: false, inverse: 'album' }) photos;
+  // Change persons to async: false since we include all data and don't want extra requests
+  @hasMany('person', { async: false, inverse: null }) persons;
 }
 ```
 
@@ -2943,8 +3005,9 @@ export default class PhotoModel extends Model {
   @attr() score;
   @attr() exifInfo;
 
-  @belongsTo('album', { async: true, inverse: 'photos' }) album;
-  @hasMany('person', { async: true, inverse: 'photos' }) persons;
+  @belongsTo('album', { async: false, inverse: 'photos' }) album;
+  // Set async: false since we include all persons in the payload
+  @hasMany('person', { async: false, inverse: 'photos' }) persons;
 }
 ```
 
@@ -3238,38 +3301,62 @@ export default class ApplicationController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
+// frontend/photo-filter-frontend/app/controllers/albums/album.js
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
+import { inject as service } from '@ember/service';
 
 export default class AlbumsAlbumController extends Controller {
-  queryParams = ['sort', 'order', 'persons'];
+  @service router;
 
+  // No queryParams here; we rely on the route’s queryParams definition
   @tracked sort = 'score.overall';
   @tracked order = 'desc';
   @tracked persons = [];
 
-  // The route provides `photos` unfiltered. We apply filtering and sorting in memory.
   get filteredAndSortedPhotos() {
+    console.log('[CONTROLLER] filteredAndSortedPhotos called');
+    console.log('[CONTROLLER] current persons array:', this.persons);
+
+    // Check if data is fully loaded
+    if (!this.model.isDataReady) {
+      console.log('[CONTROLLER] Data not ready yet, returning empty array');
+      return [];
+    }
+
     let photos = this.model.photos.slice(); // copy the array
+    console.log('[CONTROLLER] starting with photos length:', photos.length);
 
     // Filter by selected persons if any
     if (this.persons.length > 0) {
+      console.log('[CONTROLLER] filtering by persons:', this.persons);
       photos = photos.filter((photo) => {
-        // Ensure we have a fully resolved array:
-        const resolvedPersons = photo.persons.toArray
-          ? photo.persons.toArray()
-          : [];
-        const photoPersonNames = resolvedPersons.map((p) => p.name);
-        return this.persons.every((personName) =>
-          photoPersonNames.includes(personName),
-        );
+        // Replace mapBy('name') with standard JS map:
+        const photoPersonNames = photo.persons.map((p) => p.name);
+        console.log('jb photoPersonNames', photoPersonNames);
+
+        const allMatch = this.persons.every((personName) => {
+          console.log('jb personName', personName);
+          return photoPersonNames.includes(personName);
+        });
+
+        if (!allMatch) {
+          console.log(
+            '[CONTROLLER] photo excluded, missing one or more persons:',
+            photo.exportedFilename || photo.originalName,
+          );
+        }
+        return allMatch;
       });
     }
+
+    console.log('[CONTROLLER] after filtering, photos length:', photos.length);
 
     // Sort by current sort and order
     const sortAttribute = this.sort;
     const order = this.order;
+    console.log('[CONTROLLER] sorting by:', sortAttribute, order);
 
     photos.sort((a, b) => {
       const aValue = this.getNested(a, sortAttribute);
@@ -3281,6 +3368,7 @@ export default class AlbumsAlbumController extends Controller {
       return order === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
+    console.log('[CONTROLLER] final photos length:', photos.length);
     return photos;
   }
 
@@ -3290,13 +3378,29 @@ export default class AlbumsAlbumController extends Controller {
 
   @action
   togglePerson(personName) {
+    console.log('[CONTROLLER] togglePerson called with:', personName);
     let selected = [...this.persons];
     if (selected.includes(personName)) {
       selected = selected.filter((p) => p !== personName);
+      console.log('[CONTROLLER] Removed person, new selected:', selected);
     } else {
       selected.push(personName);
+      console.log('[CONTROLLER] Added person, new selected:', selected);
     }
     this.persons = selected;
+
+    // Update query param by transitioning with router service:
+    this.router.transitionTo(
+      'albums.album',
+      this.router.currentRoute.params.album_id,
+      {
+        queryParams: {
+          sort: this.sort,
+          order: this.order,
+          persons: this.persons,
+        },
+      },
+    );
   }
 }
 ```
@@ -3333,6 +3437,7 @@ export default class AlbumsRoute extends Route {
 
 ### **./frontend/photo-filter-frontend/app/routes/albums/album.js**
 ```
+// frontend/photo-filter-frontend/app/routes/albums/album.js
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
 
@@ -3343,10 +3448,34 @@ export default class AlbumsAlbumRoute extends Route {
   queryParams = {
     sort: {},
     order: {},
-    persons: {},
+    persons: {
+      // Custom serialize/deserialize so persons is always an array
+      serialize(value) {
+        console.log('[ROUTE] Serializing persons:', value);
+        return JSON.stringify(value);
+      },
+      deserialize(value) {
+        console.log('[ROUTE] Deserializing persons from URL:', value);
+        if (typeof value === 'string') {
+          try {
+            const arr = JSON.parse(value);
+            console.log('[ROUTE] Deserialized persons array:', arr);
+            return arr;
+          } catch (e) {
+            console.warn(
+              '[ROUTE] Failed to parse persons, returning empty array',
+            );
+            return [];
+          }
+        }
+        return value || [];
+      },
+    },
   };
 
   async model(params) {
+    console.log('[ROUTE] model hook params:', params);
+
     const {
       album_id,
       sort = 'score.overall',
@@ -3354,24 +3483,28 @@ export default class AlbumsAlbumRoute extends Route {
       persons = [],
     } = params;
 
-    // Fetch the album record and await persons
+    console.log('[ROUTE] Using sort:', sort);
+    console.log('[ROUTE] Using order:', order);
+    console.log('[ROUTE] Using persons:', persons);
+
+    // Fetch the album record and persons in one go (async: false means all included data is ready)
     const album = await this.store.findRecord('album', album_id, {
-      include: 'persons',
+      include: 'persons', // This ensures persons are included in the album payload
       reload: true,
     });
 
-    const loadedPersons = await album.persons;
-    let allPersons = loadedPersons.map((person) => person.name);
+    const loadedPersons = album.persons;
+    const allPersons = loadedPersons.map((person) => person.name);
+    console.log('[ROUTE] All persons in album:', allPersons);
 
-    // Fetch all photos once without sorting/filtering from the backend
+    // Fetch all photos once, including included persons
     const allPhotos = await this.store.query('photo', {
       album_id,
     });
+    console.log('[ROUTE] allPhotos length:', allPhotos.length);
 
-    // Ensure all persons relationships are loaded for each photo
-    // This ensures that photo.persons is a fully resolved ManyArray
-    // before the controller tries to map over it.
-    await Promise.all(allPhotos.map((photo) => photo.persons));
+    // Since async: false is set on photo.persons and album.persons, we have all data now.
+    // No need to reload anything. The included payload gave us all persons upfront.
 
     // Determine score attributes
     let scoreAttributes = [];
@@ -3381,20 +3514,25 @@ export default class AlbumsAlbumRoute extends Route {
       scoreAttributes = Object.keys(allPhotos.firstObject.score);
     }
 
-    // Sort persons by how many times they appear
+    console.log('[ROUTE] scoreAttributes:', scoreAttributes);
+
+    // Sort persons by how many times they appear in the photos
     const personCountMap = {};
     allPhotos.forEach((photo) => {
+      // photo.persons is already resolved since async: false
       photo.persons.forEach((p) => {
         personCountMap[p.name] = (personCountMap[p.name] || 0) + 1;
       });
     });
 
-    allPersons = allPersons.sort((a, b) => {
+    const sortedAllPersons = allPersons.sort((a, b) => {
       const countA = personCountMap[a] || 0;
       const countB = personCountMap[b] || 0;
       if (countB !== countA) return countB - countA;
       return a.localeCompare(b);
     });
+
+    console.log('[ROUTE] Sorted all persons by frequency:', sortedAllPersons);
 
     // Update currentAlbum service
     this.currentAlbum.isAlbumRoute = true;
@@ -3403,6 +3541,9 @@ export default class AlbumsAlbumRoute extends Route {
     this.currentAlbum.sortAttribute = sort;
     this.currentAlbum.sortOrder = order;
 
+    // Data is fully ready, no reload needed
+    const isDataReady = true;
+
     return {
       album,
       photos: allPhotos,
@@ -3410,8 +3551,9 @@ export default class AlbumsAlbumRoute extends Route {
       sortAttribute: sort,
       sortOrder: order,
       scoreAttributes,
-      persons: allPersons,
+      persons: sortedAllPersons,
       selectedPersons: persons,
+      isDataReady,
     };
   }
 

@@ -9,6 +9,7 @@ export default class PhotoModel extends Model {
   @attr() score;
   @attr() exifInfo;
 
-  @belongsTo('album', { async: true, inverse: 'photos' }) album;
-  @hasMany('person', { async: true, inverse: 'photos' }) persons;
+  @belongsTo('album', { async: false, inverse: 'photos' }) album;
+  // Set async: false since we include all persons in the payload
+  @hasMany('person', { async: false, inverse: 'photos' }) persons;
 }

@@ -1,17 +1,16 @@
 // backend/controllers/api/photos-controller.js
-
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
-import { Serializer } from "jsonapi-serializer";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import { getNestedProperty } from "../../utils/helpers.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// We'll define two serializers: one for person and one for photo.
 const PersonSerializer = new Serializer("person", {
   id: "id",
   attributes: ["name"],
@@ -31,12 +30,8 @@ const PhotoSerializer = new Serializer("photo", {
   ],
   keyForAttribute: "camelCase",
   relationships: {
-    album: {
-      type: "album",
-    },
-    persons: {
-      type: "person",
-    },
+    album: { type: "album" },
+    persons: { type: "person" },
   },
   pluralizeType: false,
   meta: {},
@@ -115,17 +110,32 @@ export const getPhotosByAlbumData = async (req, res) => {
 
     let photosData = await fs.readJson(photosPath);
 
-    // Deduplicate photos by (original_filename, date)
+    // Deduplicate photos by (original_filename, date) if needed
     photosData = deduplicatePhotos(photosData);
 
-    // Add 'originalName' and 'exportedFilename'
+    // Prepare each photo
+    const uniquePersons = new Map();
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
       const prefix = formatPhotoDateWithOffset(photo.date);
       photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+
+      // Ensure persons is an array; if empty or undefined, make it empty array
       if (!Array.isArray(photo.persons)) {
         photo.persons = [];
       }
+
+      // Collect person slugs
+      photo.personsData = photo.persons.map((name) => {
+        const slug = slugifyName(name);
+        if (!uniquePersons.has(slug)) {
+          uniquePersons.set(slug, { id: slug, name });
+        }
+        return { type: "person", id: slug };
+      });
+
+      // Set the album relationship
+      photo.album = albumUUID;
     });
 
     const scoreAttributes = Object.keys(photosData[0].score);
@@ -139,31 +149,6 @@ export const getPhotosByAlbumData = async (req, res) => {
       if (bValue === undefined || bValue === null) return -1;
 
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    });
-
-    // Add album relationship
-    photosData.forEach((photo) => {
-      photo.album = albumUUID;
-    });
-
-    // Handle person relationships
-    const uniquePersons = new Map();
-    function slugifyName(name) {
-      return name
-        .toLowerCase()
-        .replace(/[\s+]/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
-    }
-
-    photosData.forEach((photo) => {
-      photo.personsData = [];
-      photo.persons.forEach((name) => {
-        const slug = slugifyName(name);
-        if (!uniquePersons.has(slug)) {
-          uniquePersons.set(slug, { id: slug, name });
-        }
-        photo.personsData.push({ type: "person", id: slug });
-      });
     });
 
     // Serialize photos
@@ -185,7 +170,8 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     };
 
-    // Link persons to photos
+    // Assign relationships.persons to each photo in `merged.data`
+    // This ensures each photo has a proper JSON:API relationship
     merged.data.forEach((photo) => {
       const originalPhoto = photosData.find((p) => p.uuid === photo.id);
       if (
@@ -193,16 +179,13 @@ export const getPhotosByAlbumData = async (req, res) => {
         originalPhoto.personsData &&
         originalPhoto.personsData.length > 0
       ) {
-        if (!photo.relationships) {
-          photo.relationships = {};
-        }
+        photo.relationships = photo.relationships || {};
         photo.relationships.persons = {
           data: originalPhoto.personsData,
         };
       } else {
-        if (photo.relationships && photo.relationships.persons) {
-          photo.relationships.persons = { data: [] };
-        }
+        photo.relationships = photo.relationships || {};
+        photo.relationships.persons = { data: [] };
       }
     });
 
@@ -213,26 +196,29 @@ export const getPhotosByAlbumData = async (req, res) => {
   }
 };
 
-// Deduplicate photos by (original_filename, date)
 function deduplicatePhotos(photos) {
   const map = new Map();
   for (const photo of photos) {
     const key = `${photo.original_filename}-${photo.date}`;
     if (!map.has(key)) {
-      // Store the photo directly
       map.set(key, { ...photo });
     } else {
-      // Duplicate found
+      // Merge persons if there's a duplicate
       const existing = map.get(key);
-      // Merge persons arrays if needed
       if (Array.isArray(photo.persons)) {
         const existingPersons = new Set(existing.persons || []);
         photo.persons.forEach((p) => existingPersons.add(p));
         existing.persons = Array.from(existingPersons);
       }
-      // Keep other data from the first occurrence
       map.set(key, existing);
     }
   }
   return Array.from(map.values());
+}
+
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
 }

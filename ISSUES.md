@@ -154,38 +154,57 @@ We initially implemented `albums/album/persons` sub-routes. We now want to remov
 
 ### Description
 
-Even though the backend returns `persons` as included data when fetching an album, they do not appear in the UI. In Ember Inspector, we see that `album.persons` is present, but on the active controller, `persons` remains empty. This occurs because `album.persons` is a PromiseManyArray and must be awaited before using its data. Without awaiting, the code tries to read `persons` before they are fully loaded, resulting in an empty array being used for the UI.
+Even though the backend returns `persons` as included data when fetching an album, they do not appear in the UI. In Ember Inspector, we see `album.persons` is present, but on the active controller, `persons` remains empty because the PromiseManyArray was not awaited before use.
 
 ### Actions
 
-- In `app/routes/albums/album.js`, await the `album.persons` before mapping or filtering.
-  For example:
-  ```js
-  const loadedPersons = await album.persons;
-  const allPersons = loadedPersons.map((person) => person.name);
-  ```
+- In `app/routes/albums/album.js`, awaited `album.persons` before mapping/filtering.
+- Once verified and tested, we can mark this issue resolved.
 
-Next Steps
-• Make this code change and verify that persons now appear in the UI as expected.
-• Once verified and tested in reality, mark this issue as resolved.
+### Next Steps
 
-New Issue: Performance Impact from Re-Fetching Large Albums on Sort/Filter Changes
+- Verify persons now appear as expected.
 
-Opened By: [Your Name], Dec 15, 2024
-Status: Open
+---
 
-Description
+## New Issue: `photoPersonNames` Always Empty in Controller
 
-When changing sorting attributes or toggling person filters, the app previously made new API requests to the backend for all ~25k photos in the album. This caused a significant performance delay (around 30 seconds). We decided to implement front-end-only sorting and filtering to avoid unnecessary re-fetches, improving responsiveness.
+**Opened By:** [Your Name], Dec 15, 2024  
+**Status:** **Open**
 
-Actions
-• Shifted sorting and filtering logic entirely to the frontend.
-• Now the dataset is loaded once, and all sorting/filtering occurs in memory.
-• This approach drastically reduces delays after the initial load.
+### Description
 
-Next Steps
-• Consider adding a backend index database to handle larger datasets more efficiently in the long term.
-• Implement a backend apple-photos-library cache invalidation logic so we know when our cached data is stale and needs re-fetching from Apple Photos.
-• Improve monitoring and consider pagination or lazy loading if dataset grows even larger.
+We’re trying to filter photos by selected persons. However, `photoPersonNames` in `albums/album.js` controller logging always returns an empty array. The reason seems to be that `photo.persons` is not properly populated with Person model instances. Even though we have `@hasMany('person')` defined, the `persons` data might be coming in as raw strings rather than proper JSON:API relationships.
 
-Note: No issue should be marked resolved until verified in reality. Keep documenting any uncertainties or performance concerns.
+### Proposed Frontend-Only Fix
+
+We can create a custom serializer for `photo` on the frontend that transforms the raw `persons` attribute into proper JSON:API relationships. This ensures Ember Data recognizes the `persons` as PersonModel instances.
+
+### Next Steps
+
+- Implement a `photo.js` serializer in `app/serializers/photo.js` that modifies the `normalize` response, converting `persons` strings into relationship objects and (optionally) included person records.
+- Test if `photo.persons` now returns actual Person models.
+- Confirm that `photoPersonNames` is no longer empty.
+
+---
+
+## Performance Impact from Re-Fetching Large Albums on Sort/Filter Changes
+
+**Opened By:** [Your Name], Dec 15, 2024  
+**Status:** Open
+
+### Description
+
+Changing sorting/filtering previously caused large album re-fetches, causing delays. We implemented front-end-only sorting and filtering to avoid unnecessary re-fetches.
+
+### Actions
+
+- Moved sorting and filtering logic to the frontend.
+- Initial load might be slower, but subsequent operations are fast.
+
+### Next Steps
+
+- Consider indexed DB, cache invalidation strategies, pagination, or lazy loading for scalability.
+- Monitor performance and refine as needed.
+
+---
