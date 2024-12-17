@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sun Dec 15 18:49:51 EST 2024
+Generated on: Mon Dec 16 20:38:03 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -32,6 +32,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   └── photo-controller.js
 │   ├── data
 │   │   ├── albums
+│   │   │   ├── -16BC5397-4A87-49A1-8404-85D6473F3931
+│   │   │   │   └── photos.json
 │   │   │   ├── .DS_Store
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
 │   │   │   │   └── photos.json
@@ -87,6 +89,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── person.hbs
 │   │   └── persons.hbs
 │   └── yarn.lock
+├── cleanup-duplicates.sh
 ├── frontend
 │   └── photo-filter-frontend
 │       ├── -package-lock.json
@@ -204,7 +207,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-63 directories, 132 files
+64 directories, 134 files
 ```
 
 ---
@@ -2525,6 +2528,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
         "cloud_owner_hashed_id": null,
         "comments": [],
         "date_added": "2024-11-15 11:48:30.564913-05:00",
+...
+```
+
+### **./backend/data/albums/-16BC5397-4A87-49A1-8404-85D6473F3931/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2024-12-11-Last Month"
+        ],
+        "burst": false,
+        "cloud_guid": "AUe3MMiGEMSXiJQFq+RdRUZ6gohE",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-09 21:54:44.122153-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-09 21:54:43.398000-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 2000,
+            "metering_mode": 5,
+            "sample_rate": null,
+            "track_format": null,
 ...
 ```
 
