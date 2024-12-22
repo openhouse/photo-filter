@@ -195,7 +195,7 @@ We can create a custom serializer for `photo` on the frontend that transforms th
 
 ### Description
 
-Changing sorting/filtering previously caused large album re-fetches, causing delays. We implemented front-end-only sorting and filtering to avoid unnecessary re-fetches.
+Changing sorting/filtering previously caused large album re-fetches, leading to delays. We implemented front-end-only sorting/filtering to avoid unnecessary re-fetches.
 
 ### Actions
 
@@ -208,3 +208,22 @@ Changing sorting/filtering previously caused large album re-fetches, causing del
 - Monitor performance and refine as needed.
 
 ---
+
+## Issue 19: Chrome "Aw, Snap!" Crash on Large Albums
+
+**Opened By:** [Your Name], Dec 21, 2024  
+**Status:** **Resolved**
+
+### Description
+
+When an album contains a very large number of photos (hundreds or thousands), Chrome sometimes crashes with an “Aw, Snap!” error code 5. This typically indicates the browser is running out of memory or hitting some resource limit.
+
+### Resolution
+
+- **Implemented a default limit (e.g., 200 photos) when requesting an album** to prevent the UI from trying to render or sort thousands of photos at once.
+- Added a `limit` query param so advanced users can pull more photos if needed (with caution).
+
+### Next Steps
+
+- For truly large datasets, implement full pagination instead of a single “limit” slice.
+- Monitor memory usage when increasing `limit`.

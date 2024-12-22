@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Mon Dec 16 20:38:03 EST 2024
+Generated on: Sat Dec 21 21:07:37 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -31,10 +31,23 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── ---albums.json
+│   │   ├── --albums.json
+│   │   ├── -albums.json
 │   │   ├── albums
+│   │   │   ├── ------A9641171-0398-46FC-B1EF-03B66D73BF32
+│   │   │   │   └── photos.json
+│   │   │   ├── ----A9641171-0398-46FC-B1EF-03B66D73BF32
+│   │   │   │   └── photos.json
+│   │   │   ├── --A9641171-0398-46FC-B1EF-03B66D73BF32
+│   │   │   │   └── photos.json
 │   │   │   ├── -16BC5397-4A87-49A1-8404-85D6473F3931
 │   │   │   │   └── photos.json
+│   │   │   ├── -A9641171-0398-46FC-B1EF-03B66D73BF32
+│   │   │   │   └── photos.json
 │   │   │   ├── .DS_Store
+│   │   │   ├── 07B45549-D8E7-40E1-BBC2-AA6A8383054B
+│   │   │   │   └── photos.json
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
 │   │   │   │   └── photos.json
 │   │   │   ├── 561CCDD4-26A7-4898-8514-ECE1AABF1409
@@ -45,9 +58,13 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   │   └── photos.json
 │   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
 │   │   │   │   └── photos.json
+│   │   │   ├── A9641171-0398-46FC-B1EF-03B66D73BF32
+│   │   │   │   └── photos.json
 │   │   │   ├── C5170173-2B78-498D-AB6E-E29188933158
 │   │   │   │   └── photos.json
-│   │   │   └── D3988A5F-8B66-464B-B18C-457EC672621A
+│   │   │   ├── D3988A5F-8B66-464B-B18C-457EC672621A
+│   │   │   │   └── photos.json
+│   │   │   └── F3E7E679-D0C3-4442-9984-BA2C2B9DEA4C
 │   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
@@ -207,7 +224,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-64 directories, 134 files
+71 directories, 144 files
 ```
 
 ---
@@ -515,7 +532,7 @@ We can create a custom serializer for `photo` on the frontend that transforms th
 
 ### Description
 
-Changing sorting/filtering previously caused large album re-fetches, causing delays. We implemented front-end-only sorting and filtering to avoid unnecessary re-fetches.
+Changing sorting/filtering previously caused large album re-fetches, leading to delays. We implemented front-end-only sorting/filtering to avoid unnecessary re-fetches.
 
 ### Actions
 
@@ -528,6 +545,25 @@ Changing sorting/filtering previously caused large album re-fetches, causing del
 - Monitor performance and refine as needed.
 
 ---
+
+## Issue 19: Chrome "Aw, Snap!" Crash on Large Albums
+
+**Opened By:** [Your Name], Dec 21, 2024  
+**Status:** **Resolved**
+
+### Description
+
+When an album contains a very large number of photos (hundreds or thousands), Chrome sometimes crashes with an “Aw, Snap!” error code 5. This typically indicates the browser is running out of memory or hitting some resource limit.
+
+### Resolution
+
+- **Implemented a default limit (e.g., 200 photos) when requesting an album** to prevent the UI from trying to render or sort thousands of photos at once.
+- Added a `limit` query param so advanced users can pull more photos if needed (with caution).
+
+### Next Steps
+
+- For truly large datasets, implement full pagination instead of a single “limit” slice.
+- Monitor memory usage when increasing `limit`.
 ```
 
 ### **./README.md**
@@ -572,6 +608,77 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 
 - Nested routes (`{{outlet}}`) for clarity.
 - Future enhancements include more intuitive multi-person selection interfaces and better export feedback.
+
+## Post-Photo-Filter Export Workflow: Preparing Photos for Video Editing
+
+Once you have exported a directory of photos from the Photo Filter application, you may want to prepare them for video editing in Final Cut Pro X (FCPX) or another professional non-linear editor. The following steps outline how to normalize image orientation, generate a consistent file list, determine dimensions, and create a ProRes video file that preserves aspect ratios for all images.
+
+**Prerequisites:**
+
+- [ImageMagick](https://imagemagick.org/index.php)
+- [FFmpeg](https://ffmpeg.org/) and its associated tools (e.g., \`ffprobe\`)
+- A directory of \`.jpg\` images exported from the Photo Filter app
+
+### 1. Ensure All Images Have the Correct Orientation
+
+Use ImageMagick to apply rotation metadata directly to the pixel data. This ensures that downstream tools see the images correctly oriented:
+
+\`\`\`bash
+brew install imagemagick
+mogrify -auto-orient \*.jpg
+\`\`\`
+
+### 2. Generate a File List for ffmpeg
+
+First, list all \`.jpg\` images in the current directory:
+
+\`\`\`bash
+ls -1 \*.jpg > file_list.txt
+\`\`\`
+
+Then convert that listing into a format ffmpeg can parse:
+
+\`\`\`bash
+awk '{print "file \x27" $0 "\x27"}' file_list.txt > formatted_list.txt
+\`\`\`
+
+### 3. Determine the Dimensions of the First Image
+
+Check the width and height of one of your images using ffprobe. Replace \`DSCF8482.jpg\` with an actual image filename from your directory:
+
+\`\`\`bash
+ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 DSCF8482.jpg
+\`\`\`
+
+Suppose this returns \`6240,4160\`. These will be your reference dimensions.
+
+### 4. Convert Images to a Video with Preserved Aspect Ratios
+
+Use ffmpeg to generate a ProRes \`.mov\` file. Scale and pad each image to fit the chosen dimensions (e.g., \`6240x4160\`) without distortion. Replace \`6240\` and \`4160\` with the values obtained above:
+
+\`\`\`bash
+ffmpeg -f concat -safe 0 -i formatted_list.txt \
+-vf "scale='min(iw\*4160/ih,6240)':4160,setsar=1,pad=6240:4160:(6240-iw)/2:(4160-ih)/2" \
+-framerate 16 -c:v prores -pix_fmt yuv422p output_preserved_aspect.mov
+\`\`\`
+
+**What This Does:**
+
+- **Scale:** Adjusts each image so that it fits within the 6240x4160 frame, preserving its aspect ratio.
+- **Pad:** Centers the scaled image by adding black bars if needed.
+- **ProRes Encoding:** Outputs a high-quality \`.mov\` file suitable for editing in Final Cut Pro or other professional NLEs.
+- **Framerate:** Sets the video to 16 frames per second, which you can adjust as desired.
+
+### Additional Tips
+
+- **Adjust the Frame Rate:**  
+  Change \`-framerate 16\` to your desired frame rate (e.g., \`-framerate 24\`).
+
+- **Change the Output Codec:**  
+  Prefer a different codec (e.g., H.264 for smaller file sizes)? Replace \`-c:v prores -pix_fmt yuv422p\` with \`-c:v libx264 -crf 18\`.
+
+- **Further Refinements:**  
+  If you have specific creative requirements (e.g., adding transitions, stabilizing footage, or applying filters), you can incorporate those steps into your ffmpeg pipeline or perform them later in your video editing software.
 
 ## Installation and Setup
 
@@ -2456,6 +2563,56 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 }
 ```
 
+### **./backend/data/--albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/---albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
 ### **./backend/data/albums.json**
 ```json
 [
@@ -2478,6 +2635,81 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     {
         "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
         "title": "Lera Show"
+...
+```
+
+### **./backend/data/-albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/----A9641171-0398-46FC-B1EF-03B66D73BF32/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Grace Beana Burkart"
+        ],
+        "burst": false,
+        "cloud_guid": "AR32fGDeh6iwMqLM9P5veibjAKgk",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-20 21:18:23.937434-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-20 17:42:02-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/A9641171-0398-46FC-B1EF-03B66D73BF32/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Grace Beana Burkart"
+        ],
+        "burst": false,
+        "cloud_guid": "AR32fGDeh6iwMqLM9P5veibjAKgk",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-20 21:18:23.937434-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-20 17:42:02-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
 ...
 ```
 
@@ -2531,6 +2763,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/------A9641171-0398-46FC-B1EF-03B66D73BF32/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Grace Beana Burkart"
+        ],
+        "burst": false,
+        "cloud_guid": "AR32fGDeh6iwMqLM9P5veibjAKgk",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-20 21:18:23.937434-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-20 17:42:02-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
 ### **./backend/data/albums/-16BC5397-4A87-49A1-8404-85D6473F3931/photos.json**
 ```json
 [
@@ -2578,6 +2835,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
             "metering_mode": 5,
             "sample_rate": null,
             "track_format": null,
+...
+```
+
+### **./backend/data/albums/F3E7E679-D0C3-4442-9984-BA2C2B9DEA4C/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Dominic Antoine Family Visit",
+            "FujiFilm x100v: All, Full Res"
+        ],
+        "burst": false,
+        "cloud_guid": "ASVx5Ac1sLyomOfpmIfrjujWXi0n",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-18 03:53:17.829920-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-17 17:53:36-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
 ...
 ```
 
@@ -2678,6 +2960,81 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
             "metering_mode": 5,
             "sample_rate": null,
             "track_format": null,
+...
+```
+
+### **./backend/data/albums/--A9641171-0398-46FC-B1EF-03B66D73BF32/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Grace Beana Burkart"
+        ],
+        "burst": false,
+        "cloud_guid": "AR32fGDeh6iwMqLM9P5veibjAKgk",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-20 21:18:23.937434-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-20 17:42:02-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/-A9641171-0398-46FC-B1EF-03B66D73BF32/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Grace Beana Burkart"
+        ],
+        "burst": false,
+        "cloud_guid": "AR32fGDeh6iwMqLM9P5veibjAKgk",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-20 21:18:23.937434-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-20 17:42:02-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/07B45549-D8E7-40E1-BBC2-AA6A8383054B/photos.json**
+```json
+[
+    {
+        "albums": [
+            "196 Bulbs \ud83d\udca1 2024",
+            "2024-12-11-Last Month",
+            "A Great Day",
+            "Mir Thanksgiving 2024"
+        ],
+        "burst": false,
+        "cloud_guid": "AYb8yeUxUYOD4yxwAvDh0b3UBV7l",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-01 10:30:41.023814-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-11-30 21:52:27-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 2500,
 ...
 ```
 
@@ -3265,14 +3622,27 @@ Router.map(function () {
   {{/each}}
 </div>
 
-<!-- Remove the did-update modifier -->
+<!-- We'll continue to show only a chunk (visiblePhotos) -->
 <div>
   <PhotoGrid
-    @photos={{this.filteredAndSortedPhotos}}
+    @photos={{this.visiblePhotos}}
     @albumUUID={{this.model.albumUUID}}
     @sortAttribute={{this.sort}}
   />
-</div>```
+</div>
+
+<!-- “Load More” button to increment the page -->
+{{#if (gt (this.filteredSortedPhotos.length) (this.pageSize * this.page))}}
+  <div class="flex justify-center mt-4">
+    <button
+      class="btn btn-secondary"
+      type="button"
+      {{on "click" this.loadMore}}
+    >
+      Load More
+    </button>
+  </div>
+{{/if}}```
 
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
 ```
@@ -3330,6 +3700,8 @@ export default class ApplicationController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
+// app/controllers/albums/album.js
+
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
@@ -3338,48 +3710,80 @@ import { inject as service } from '@ember/service';
 export default class AlbumsAlbumController extends Controller {
   @service router;
 
+  // Sorting & Filtering
   @tracked sort = 'score.overall';
   @tracked order = 'desc';
   @tracked persons = [];
 
-  get filteredAndSortedPhotos() {
-    if (!this.model.isDataReady) {
+  // Pagination
+  @tracked page = 1;
+  pageSize = 50; // number of photos to show per page
+
+  // The route model returns: { album, photos, ... }
+  get allPhotos() {
+    // If the model hasn’t fully loaded, return an empty array
+    if (!this.model.isDataReady || !Array.isArray(this.model.photos)) {
       return [];
     }
+    return this.model.photos;
+  }
 
-    let photos = this.model.photos.slice();
+  /**
+   * Return *all* photos after applying filtering and sorting,
+   * but before pagination.
+   */
+  get filteredSortedPhotos() {
+    let photos = this.allPhotos.slice();
 
-    // Filter by selected persons if any
+    // 1. Filter by selected persons (if any)
     if (this.persons.length > 0) {
       photos = photos.filter((photo) => {
+        // Each photo has an array of person model instances
+        // with a `name` attribute
         const photoPersonNames = photo.persons.map((p) => p.name);
+        // We want the photo to have *all* selected persons
         return this.persons.every((personName) =>
           photoPersonNames.includes(personName),
         );
       });
     }
 
-    // Sort by current sort and order
-    const sortAttribute = this.sort;
-    const order = this.order;
-
+    // 2. Sort by the current attribute and order
     photos.sort((a, b) => {
-      const aValue = this.getNested(a, sortAttribute);
-      const bValue = this.getNested(b, sortAttribute);
+      const aValue = this.getNested(a, this.sort);
+      const bValue = this.getNested(b, this.sort);
 
       if (aValue === undefined || aValue === null) return 1;
       if (bValue === undefined || bValue === null) return -1;
 
-      return order === 'asc' ? aValue - bValue : bValue - aValue;
+      return this.order === 'asc' ? aValue - bValue : bValue - aValue;
     });
 
     return photos;
   }
 
+  /**
+   * Return only the photos that should appear
+   * in the DOM on the current page.
+   */
+  get visiblePhotos() {
+    // slice out the portion for current page
+    const startIndex = (this.page - 1) * this.pageSize;
+    const endIndex = this.page * this.pageSize;
+    return this.filteredSortedPhotos.slice(startIndex, endIndex);
+  }
+
+  /**
+   * Utility to handle nested paths like "score.overall".
+   */
   getNested(obj, path) {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
   }
 
+  /**
+   * Called when the user toggles a person’s name in the UI,
+   * to either add or remove that person from the filter.
+   */
   @action
   togglePerson(personName) {
     let selected = [...this.persons];
@@ -3390,6 +3794,10 @@ export default class AlbumsAlbumController extends Controller {
     }
     this.persons = selected;
 
+    // Also reset pagination to page 1 whenever we change filters
+    this.page = 1;
+
+    // Update query params in the URL
     this.router.transitionTo(
       'albums.album',
       this.router.currentRoute.params.album_id,
@@ -3397,6 +3805,68 @@ export default class AlbumsAlbumController extends Controller {
         queryParams: {
           sort: this.sort,
           order: this.order,
+          persons: this.persons,
+        },
+      },
+    );
+  }
+
+  /**
+   * Load the next page (increment `page`).
+   * If we’re at the last page, this does nothing.
+   */
+  @action
+  loadMore() {
+    // The total number of filtered photos (before pagination)
+    const total = this.filteredSortedPhotos.length;
+
+    // The index of the last item currently shown
+    const lastShown = this.page * this.pageSize;
+
+    if (lastShown < total) {
+      // Another page still exists
+      this.page++;
+    }
+  }
+
+  /**
+   * If the user changes the sort attribute in the UI,
+   * reset page to 1 and update query params.
+   */
+  @action
+  updateSortAttribute(event) {
+    const newSort = event.target.value;
+    this.sort = newSort;
+    this.page = 1; // reset to first page
+    this.router.transitionTo(
+      'albums.album',
+      this.router.currentRoute.params.album_id,
+      {
+        queryParams: {
+          sort: newSort,
+          order: this.order,
+          persons: this.persons,
+        },
+      },
+    );
+  }
+
+  /**
+   * If the user changes the sort order in the UI,
+   * reset page to 1 and update query params.
+   */
+  @action
+  updateSortOrder(event) {
+    const newOrder = event.target.value;
+    this.order = newOrder;
+    this.page = 1; // reset to first page
+    this.router.transitionTo(
+      'albums.album',
+      this.router.currentRoute.params.album_id,
+      {
+        queryParams: {
+          sort: this.sort,
+          order: newOrder,
           persons: this.persons,
         },
       },
