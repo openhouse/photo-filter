@@ -39,6 +39,77 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 - Nested routes (`{{outlet}}`) for clarity.
 - Future enhancements include more intuitive multi-person selection interfaces and better export feedback.
 
+## Post-Photo-Filter Export Workflow: Preparing Photos for Video Editing
+
+Once you have exported a directory of photos from the Photo Filter application, you may want to prepare them for video editing in Final Cut Pro X (FCPX) or another professional non-linear editor. The following steps outline how to normalize image orientation, generate a consistent file list, determine dimensions, and create a ProRes video file that preserves aspect ratios for all images.
+
+**Prerequisites:**
+
+- [ImageMagick](https://imagemagick.org/index.php)
+- [FFmpeg](https://ffmpeg.org/) and its associated tools (e.g., \`ffprobe\`)
+- A directory of \`.jpg\` images exported from the Photo Filter app
+
+### 1. Ensure All Images Have the Correct Orientation
+
+Use ImageMagick to apply rotation metadata directly to the pixel data. This ensures that downstream tools see the images correctly oriented:
+
+\`\`\`bash
+brew install imagemagick
+mogrify -auto-orient \*.jpg
+\`\`\`
+
+### 2. Generate a File List for ffmpeg
+
+First, list all \`.jpg\` images in the current directory:
+
+\`\`\`bash
+ls -1 \*.jpg > file_list.txt
+\`\`\`
+
+Then convert that listing into a format ffmpeg can parse:
+
+\`\`\`bash
+awk '{print "file \x27" $0 "\x27"}' file_list.txt > formatted_list.txt
+\`\`\`
+
+### 3. Determine the Dimensions of the First Image
+
+Check the width and height of one of your images using ffprobe. Replace \`DSCF8482.jpg\` with an actual image filename from your directory:
+
+\`\`\`bash
+ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 DSCF8482.jpg
+\`\`\`
+
+Suppose this returns \`6240,4160\`. These will be your reference dimensions.
+
+### 4. Convert Images to a Video with Preserved Aspect Ratios
+
+Use ffmpeg to generate a ProRes \`.mov\` file. Scale and pad each image to fit the chosen dimensions (e.g., \`6240x4160\`) without distortion. Replace \`6240\` and \`4160\` with the values obtained above:
+
+\`\`\`bash
+ffmpeg -f concat -safe 0 -i formatted_list.txt \
+-vf "scale='min(iw\*4160/ih,6240)':4160,setsar=1,pad=6240:4160:(6240-iw)/2:(4160-ih)/2" \
+-framerate 16 -c:v prores -pix_fmt yuv422p output_preserved_aspect.mov
+\`\`\`
+
+**What This Does:**
+
+- **Scale:** Adjusts each image so that it fits within the 6240x4160 frame, preserving its aspect ratio.
+- **Pad:** Centers the scaled image by adding black bars if needed.
+- **ProRes Encoding:** Outputs a high-quality \`.mov\` file suitable for editing in Final Cut Pro or other professional NLEs.
+- **Framerate:** Sets the video to 16 frames per second, which you can adjust as desired.
+
+### Additional Tips
+
+- **Adjust the Frame Rate:**  
+  Change \`-framerate 16\` to your desired frame rate (e.g., \`-framerate 24\`).
+
+- **Change the Output Codec:**  
+  Prefer a different codec (e.g., H.264 for smaller file sizes)? Replace \`-c:v prores -pix_fmt yuv422p\` with \`-c:v libx264 -crf 18\`.
+
+- **Further Refinements:**  
+  If you have specific creative requirements (e.g., adding transitions, stabilizing footage, or applying filters), you can incorporate those steps into your ffmpeg pipeline or perform them later in your video editing software.
+
 ## Installation and Setup
 
 1. **Clone the Repository**:
