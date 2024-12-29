@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sat Dec 21 21:07:37 EST 2024
+Generated on: Tue Dec 24 00:27:18 EST 2024
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -12,6 +12,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── .DS_Store
 ├── .gitignore
 ├── .nvmrc
+├── COMPASSION.md
 ├── DEVELOPMENT_PLAN.md
 ├── ISSUES.md
 ├── README.md
@@ -31,6 +32,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── ----albums.json
 │   │   ├── ---albums.json
 │   │   ├── --albums.json
 │   │   ├── -albums.json
@@ -49,6 +51,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   ├── 07B45549-D8E7-40E1-BBC2-AA6A8383054B
 │   │   │   │   └── photos.json
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
+│   │   │   │   └── photos.json
+│   │   │   ├── 4CA23588-B72F-4807-8015-7ED9CABE44CB
 │   │   │   │   └── photos.json
 │   │   │   ├── 561CCDD4-26A7-4898-8514-ECE1AABF1409
 │   │   │   │   └── photos.json
@@ -224,12 +228,146 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-71 directories, 144 files
+72 directories, 147 files
 ```
 
 ---
 
 ## Root-Level Files
+
+### **./COMPASSION.md**
+```
+# COMPASSION.md
+
+## **Compassion Software Principles**
+
+This document outlines the foundational principles and guidelines for embedding compassion into the design, development, and lifecycle of software systems. Compassion Software is a framework for creating technology that prioritizes emotional intelligence, relational care, and ethical responsibility at every stage.
+
+---
+
+## **Core Principles**
+
+1. **Self-Compassion**
+
+   - Treat the development process, team members, and users with kindness.
+   - Normalize imperfection and embrace failure as an opportunity for growth.
+   - Embed affirmations and reminders throughout the documentation and system interface to encourage self-kindness for both users and developers.
+
+2. **Radical Acceptance**
+
+   - Recognize and work with reality as it is, without judgment or resistance.
+   - Foster resilience by creating systems that adapt to complexity and uncertainty.
+
+3. **Relational Intelligence**
+
+   - Build tools that reflect and support healthy relational dynamics.
+   - Use features like emotional mapping and communication templates to promote connection and understanding.
+   - Ensure features evolve based on user stories and emotional data, creating a system that grows alongside its users.
+
+4. **Trauma-Informed Design**
+
+   - Prioritize safety and healing for users by avoiding re-traumatization.
+   - Incorporate privacy, transparency, and options for user agency.
+
+5. **Mindful Technology**
+
+   - Encourage presence and intentional use of technology.
+   - Avoid designs that exploit user attention or promote compulsive behaviors.
+   - Include reflective prompts for developers to pause and approach their work with mindfulness.
+
+6. **Collaborative Systems**
+   - Treat every phase of development as an opportunity for deliberation and feedback.
+   - Include diverse voices to ensure inclusivity and equity in design.
+   - Institutionalize collaborative feedback mechanisms, such as structured discussions and user committees, to maintain a dynamic deliberative corpus.
+
+---
+
+## **Stations of the Software Apparatus**
+
+Compassion Software recognizes specific stages in the software lifecycle as opportunities to embody compassion:
+
+### **1. Design**
+
+- Approach design with humility, curiosity, and an open mind.
+- Use co-creation methods to include user perspectives early in the process.
+- Reflect on ethical and relational implications of design choices.
+
+### **2. Implementation**
+
+- Write code that reflects transparency, modularity, and adaptability.
+- Ensure the system can evolve alongside user needs and societal shifts.
+- Encourage developers to engage in mindful coding practices, reflecting on the relational impact of their decisions.
+
+### **3. Interaction**
+
+- Craft user experiences that feel relational and empathetic.
+- Include prompts for reflection and tools for emotional regulation.
+- Use nonviolent communication templates that adapt dynamically to user needs, offering guidance while educating users about relational skills.
+
+### **4. Iteration**
+
+- Treat iteration as a space for learning and renewal.
+- Integrate feedback loops to continuously improve functionality and relational impact.
+- Develop metrics to measure how well the system fosters care, connection, and relational awareness.
+
+---
+
+## **Features to Prioritize**
+
+- **Emotional Mapping**: Visualize user relationships and emotional dynamics, evolving over time based on user input and experiences.
+- **Self-Compassion Toolkit**: Provide mindfulness prompts, stress cycle completion exercises, affirmations, and guidance for self-kindness.
+- **Nonviolent Communication Templates**: Equip users to navigate conflict with empathy and understanding, adapting dynamically to user tone and context.
+- **Safe Spaces**: Ensure privacy and user agency in all reflective or emotional features.
+- **Gamified Acts of Kindness**: Encourage users to practice compassion in small, intentional ways.
+- **Narrative Storytelling Features**: Allow users to co-create evolving emotional and relational stories with the system.
+
+---
+
+## **Ethical Commitments**
+
+- **Privacy First**: Users retain ownership and control over their data.
+- **Bias Awareness**: Actively identify and mitigate biases in design and algorithms.
+- **Cultural Sensitivity**: Create inclusive systems that reflect diverse perspectives and needs.
+- **Sustainability**: Prioritize resource-efficient technologies to minimize environmental impact.
+- **Developer Accountability**: Establish processes to ensure developers adhere to ethical guidelines and relational goals.
+
+---
+
+## **Developer Guidelines**
+
+1. **Collaborate with Empathy**
+
+   - Approach teamwork with patience and understanding.
+   - Foster psychological safety within the development environment.
+
+2. **Document Decisions Thoughtfully**
+
+   - Explain not just technical choices, but also ethical and relational considerations.
+   - Use this document as a reference when evaluating the compassion impact of a feature.
+
+3. **Test for Relational Impact**
+
+   - Go beyond functionality to assess how features affect users emotionally and relationally.
+   - Regularly gather user feedback to refine experiences.
+
+4. **Iterate with Care**
+   - Treat each iteration as an opportunity for growth, both for the system and the team.
+   - Reflect on lessons learned and incorporate them into the next cycle.
+
+---
+
+## **Future Directions**
+
+- Integrate AI tools to enhance relational insights while maintaining ethical standards.
+- Partner with educators, therapists, and community leaders to expand use cases.
+- Evolve the framework based on feedback from diverse user populations.
+
+---
+
+## **Closing Statement**
+
+Compassion Software redefines how technology can serve humanity by embedding care, connection, and resilience at every stage. By following the principles outlined in this document, we aim to create systems that not only solve problems but also nurture the emotional and relational well-being of all who interact with them.
+```
 
 ### **./DEVELOPMENT_PLAN.md**
 ```
@@ -633,8 +771,7 @@ mogrify -auto-orient \*.jpg
 First, list all \`.jpg\` images in the current directory:
 
 \`\`\`bash
-ls -1 \*.jpg > file_list.txt
-\`\`\`
+ls -1 \*.jpg > file_list.txt\`\`\`
 
 Then convert that listing into a format ffmpeg can parse:
 
@@ -2663,6 +2800,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/----albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
 ### **./backend/data/albums/----A9641171-0398-46FC-B1EF-03B66D73BF32/photos.json**
 ```json
 [
@@ -2810,6 +2972,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
             "metering_mode": 5,
             "sample_rate": null,
             "track_format": null,
+...
+```
+
+### **./backend/data/albums/4CA23588-B72F-4807-8015-7ED9CABE44CB/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Dominic Antoine 2024",
+            "FUJIFILM X100V-02"
+        ],
+        "burst": false,
+        "cloud_guid": "Aep68bd5MWDZRzijvX3EiaHDQ5zX",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-12-23 17:38:23.356118-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-12-23 14:32:41-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 250,
+            "metering_mode": 5,
+            "sample_rate": null,
 ...
 ```
 
@@ -3622,27 +3809,14 @@ Router.map(function () {
   {{/each}}
 </div>
 
-<!-- We'll continue to show only a chunk (visiblePhotos) -->
+<!-- Remove the did-update modifier -->
 <div>
   <PhotoGrid
     @photos={{this.visiblePhotos}}
     @albumUUID={{this.model.albumUUID}}
     @sortAttribute={{this.sort}}
   />
-</div>
-
-<!-- “Load More” button to increment the page -->
-{{#if (gt (this.filteredSortedPhotos.length) (this.pageSize * this.page))}}
-  <div class="flex justify-center mt-4">
-    <button
-      class="btn btn-secondary"
-      type="button"
-      {{on "click" this.loadMore}}
-    >
-      Load More
-    </button>
-  </div>
-{{/if}}```
+</div>```
 
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
 ```
@@ -3700,8 +3874,7 @@ export default class ApplicationController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
-// app/controllers/albums/album.js
-
+// frontend/photo-filter-frontend/app/controllers/albums/album.js
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
