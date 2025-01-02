@@ -195,7 +195,7 @@ We can create a custom serializer for `photo` on the frontend that transforms th
 
 ### Description
 
-Changing sorting/filtering previously caused large album re-fetches, leading to delays. We implemented front-end-only sorting/filtering to avoid unnecessary re-fetches.
+Changing sorting/filtering previously caused large album re-fetches, leading to delays. We implemented front-end-only sorting and filtering to avoid unnecessary re-fetches.
 
 ### Actions
 
@@ -227,3 +227,46 @@ When an album contains a very large number of photos (hundreds or thousands), Ch
 
 - For truly large datasets, implement full pagination instead of a single “limit” slice.
 - Monitor memory usage when increasing `limit`.
+
+---
+
+## Issue 20: Persistent "Cannot read properties of undefined (reading 'bind')" Error
+
+**Opened By:** [Your Name], Jan 1, 2025  
+**Status:** **Open**
+
+### Description
+
+We continue to see this console error in Chrome:
+
+Uncaught (in promise) TypeError: Cannot read properties of undefined (reading ‘bind’)
+at OnModifierState.updateListener (ember.js:6590:1)
+…
+
+Even after replacing `(on "click" ...)` with classic `{{action}}` in certain templates and removing potential `(fn)` usage, the error persists. Our attempts have included:
+
+1. Converting to older style event handlers (i.e., `{{action "someMethod"}}`).
+2. Removing or replacing `(on "eventName" this.someMethod)` wherever found.
+3. Making sure all referenced actions are actually defined.
+
+Yet the runtime error about `.bind` remains in the stack trace, pointing to `OnModifierState.updateListener` inside Ember’s internals.
+
+### Steps We’ve Taken
+
+- Searched for any leftover `(on ...)` usage in templates or angle-bracket components.
+- Checked for `onsubmit`, `onclick`, or other direct event bindings that might be undefined.
+- Ensured that each action or handler is defined (no `undefined` methods).
+- Cleaned caches, restarted the Ember server, and done a hard browser reload.
+
+### Next Steps / Open Questions
+
+- **Is there a hidden or implicit usage of `{{on}}` in a third-party library or an addon** that is out of date?
+- **Could a mismatch of Ember versions be causing `{{on}}` to fail** unexpectedly? We may need to confirm our app’s Ember version compatibility with the `on` or `fn` helpers.
+- Investigate the Ember Inspector’s “Components” or “Routes” tabs to see if any components are auto-generated that might rely on `(on)`.
+- If needed, log an Ember issue or check official Ember Slack for reports of `on` usage throwing `.bind` errors in certain versions.
+
+### Action Items
+
+1. **Search** the entire codebase for all `(on "` references (including `node_modules` if necessary).
+2. **Verify** installed Ember version in `package.json` and ensure we don’t have conflicting addon versions that might break the built-in `on` modifier.
+3. **Try** using a minimal reproduction app (create a fresh Ember project, replicate our steps) to see if the error occurs with our code or if the problem is project-specific.

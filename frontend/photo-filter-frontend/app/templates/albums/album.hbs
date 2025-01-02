@@ -1,25 +1,59 @@
+{{! BEGIN: app/templates/albums/album.hbs }}
+
+<h2 class="text-xl font-bold mb-2">Photos in {{this.model.album.title}}</h2>
+
+{{! Person toggles }}
 <div class="flex justify-center mb-4 flex-wrap gap-2">
   {{#each this.model.persons as |person|}}
     <button
       type="button"
-      class="btn btn-xs rounded-full normal-case
-        {{if
-          (contains person this.persons)
-          'btn-primary text-white'
-          'btn-outline text-gray-600'
-        }}"
-      {{on "click" (fn this.togglePerson person)}}
+      class="btn btn-xs
+        {{if (contains person this.persons) 'btn-primary' 'btn-outline'}}"
+      {{action "togglePerson" person}}
     >
       {{person}}
     </button>
   {{/each}}
 </div>
 
-<!-- Remove the did-update modifier -->
-<div>
-  <PhotoGrid
-    @photos={{this.visiblePhotos}}
-    @albumUUID={{this.model.albumUUID}}
-    @sortAttribute={{this.sort}}
-  />
+{{! Sorting UI }}
+<div class="flex items-center gap-4 mb-4">
+  <div>
+    <label for="sortSelect">Sort by:</label>
+    <select
+      id="sortSelect"
+      onchange={{action "updateSortAttribute"}}
+      value={{this.sort}}
+    >
+      {{#each this.model.scoreAttributes as |attr|}}
+        <option
+          value={{concat "score." attr}}
+          selected={{eq (concat "score." attr) this.sort}}
+        >
+          {{attr}}
+        </option>
+      {{/each}}
+    </select>
+  </div>
+
+  <div>
+    <label for="orderSelect">Order:</label>
+    <select
+      id="orderSelect"
+      onchange={{action "updateSortOrder"}}
+      value={{this.order}}
+    >
+      <option value="desc" selected={{eq this.order "desc"}}>Desc</option>
+      <option value="asc" selected={{eq this.order "asc"}}>Asc</option>
+    </select>
+  </div>
 </div>
+
+{{! Photo grid component }}
+<PhotoGrid
+  @photos={{this.visiblePhotos}}
+  @albumUUID={{this.model.albumUUID}}
+  @sortAttribute={{this.sort}}
+/>
+
+{{! END: app/templates/albums/album.hbs }}

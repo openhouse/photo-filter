@@ -1,3 +1,55 @@
-{{! app/templates/albums.hbs }}
-<h2 class="text-2xl font-bold mb-4">Albums</h2>
-{{outlet}}
+{{! app/templates/albums/album.hbs }}
+<h2 class="text-xl font-bold mb-2">Photos in {{this.model.album.title}}</h2>
+
+{{! Person toggles (already in your code) }}
+<div class="flex justify-center mb-4 flex-wrap gap-2">
+  {{#each this.model.persons as |person|}}
+    <button
+      type="button"
+      class="btn btn-xs
+        {{if (contains person this.persons) 'btn-primary' 'btn-outline'}}"
+      {{on "click" (fn this.togglePerson person)}}
+    >
+      {{person}}
+    </button>
+  {{/each}}
+</div>
+
+{{! Add a section for Sorting }}
+<div class="flex items-center gap-4 mb-4">
+  <div>
+    <label for="sortSelect">Sort by:</label>
+    <select
+      id="sortSelect"
+      {{on "change" this.updateSortAttribute}}
+      value={{this.sort}}
+    >
+      {{#each this.model.scoreAttributes as |attr|}}
+        <option
+          value={{concat "score." attr}}
+          selected={{eq (concat "score." attr) this.sort}}
+        >
+          {{attr}}
+        </option>
+      {{/each}}
+    </select>
+  </div>
+
+  <div>
+    <label for="orderSelect">Order:</label>
+    <select
+      id="orderSelect"
+      {{on "change" this.updateSortOrder}}
+      value={{this.order}}
+    >
+      <option value="desc" selected={{eq this.order "desc"}}>Desc</option>
+      <option value="asc" selected={{eq this.order "asc"}}>Asc</option>
+    </select>
+  </div>
+</div>
+
+<PhotoGrid
+  @photos={{this.visiblePhotos}}
+  @albumUUID={{this.model.albumUUID}}
+  @sortAttribute={{this.sort}}
+/>
