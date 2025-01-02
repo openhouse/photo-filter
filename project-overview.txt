@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Wed Jan  1 13:07:40 EST 2025
+Generated on: Wed Jan  1 21:32:26 EST 2025
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -23,6 +23,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── controllers
 │   │   ├── api
 │   │   │   ├── albums-controller.js
+│   │   │   ├── dates-controller.js
 │   │   │   ├── index.js
 │   │   │   ├── people-controller.js
 │   │   │   └── photos-controller.js
@@ -32,6 +33,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── -------albums.json
+│   │   ├── ------albums.json
 │   │   ├── -----albums.json
 │   │   ├── ----albums.json
 │   │   ├── ---albums.json
@@ -52,6 +55,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   ├── 07B45549-D8E7-40E1-BBC2-AA6A8383054B
 │   │   │   │   └── photos.json
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
+│   │   │   │   └── photos.json
+│   │   │   ├── 1AF4375A-A948-45C7-B4B9-C9C2D4CB5DC5
 │   │   │   │   └── photos.json
 │   │   │   ├── 4CA23588-B72F-4807-8015-7ED9CABE44CB
 │   │   │   │   └── photos.json
@@ -85,6 +90,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │       └── scss
 │   │           └── style.scss
 │   ├── routes
+│   │   ├── api
+│   │   │   └── dates.js
 │   │   ├── api.js
 │   │   └── index.js
 │   ├── scripts
@@ -141,6 +148,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── app.js
 │       │   ├── components
 │       │   │   ├── .gitkeep
+│       │   │   ├── date-nav.hbs
+│       │   │   ├── date-nav.js
 │       │   │   ├── photo-grid.hbs
 │       │   │   └── photo-grid.js
 │       │   ├── controllers
@@ -149,7 +158,14 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   │   ├── album
 │       │   │   │   │   └── persons
 │       │   │   │   └── album.js
-│       │   │   └── application.js
+│       │   │   ├── application.js
+│       │   │   ├── dates
+│       │   │   │   ├── year
+│       │   │   │   │   ├── month
+│       │   │   │   │   │   └── day.js
+│       │   │   │   │   └── month.js
+│       │   │   │   └── year.js
+│       │   │   └── photo-collection.js
 │       │   ├── helpers
 │       │   │   ├── .gitkeep
 │       │   │   ├── capitalize.js
@@ -171,6 +187,15 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   │   │   └── persons
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
+│       │   │   ├── application.js
+│       │   │   ├── dates
+│       │   │   │   ├── index.js
+│       │   │   │   ├── year
+│       │   │   │   │   ├── month
+│       │   │   │   │   │   └── day.js
+│       │   │   │   │   └── month.js
+│       │   │   │   └── year.js
+│       │   │   ├── dates.js
 │       │   │   └── index.js
 │       │   ├── serializers
 │       │   ├── services
@@ -184,13 +209,20 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │       │   │   └── persons
 │       │       │   └── album.hbs
 │       │       ├── albums.hbs
-│       │       └── application.hbs
+│       │       ├── application.hbs
+│       │       └── dates
+│       │           ├── year
+│       │           │   ├── month
+│       │           │   │   └── day.hbs
+│       │           │   └── month.hbs
+│       │           └── year.hbs
 │       ├── config
 │       │   ├── ember-cli-update.json
 │       │   ├── environment.js
 │       │   ├── optional-features.json
 │       │   └── targets.js
 │       ├── ember-cli-build.js
+│       ├── package-lock.json
 │       ├── package.json
 │       ├── postcss.config.js
 │       ├── public
@@ -232,7 +264,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-73 directories, 150 files
+84 directories, 171 files
 ```
 
 ---
@@ -2138,6 +2170,184 @@ function slugifyName(name) {
 }
 ```
 
+### **./backend/controllers/api/dates-controller.js**
+```
+// backend/controllers/api/dates-controller.js
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+import { getNestedProperty } from "../../utils/helpers.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Retrieve a hierarchical object of all photos grouped by [year][month][day].
+ *
+ * Example output shape:
+ * {
+ *   "2022": {
+ *     "11": {
+ *       "30": [ { photoObject }, { photoObject }, ... ],
+ *       "31": [ ... ]
+ *     },
+ *     "12": { ... }
+ *   },
+ *   "2023": { ... },
+ *   ...
+ * }
+ */
+export async function getAllPhotosGroupedByDate() {
+  const dataDir = path.join(__dirname, "..", "..", "data", "albums");
+  if (!(await fs.pathExists(dataDir))) {
+    // If there's no data at all, return empty
+    return {};
+  }
+
+  const albumFolders = await fs.readdir(dataDir);
+  const grouped = {};
+
+  // Traverse each album folder to find `photos.json`. Merge all photos into one big set.
+  for (const albumFolder of albumFolders) {
+    const photosJsonPath = path.join(dataDir, albumFolder, "photos.json");
+    const stat = await fs.stat(path.join(dataDir, albumFolder));
+    if (stat.isDirectory() && (await fs.pathExists(photosJsonPath))) {
+      const photosData = await fs.readJson(photosJsonPath);
+      for (const photo of photosData) {
+        // Parse the date field: e.g. "2024-12-09 21:54:43-05:00"
+        let dateObj;
+        try {
+          dateObj = new Date(photo.date);
+        } catch {
+          continue; // skip if date is invalid
+        }
+
+        const year = String(dateObj.getFullYear());
+        // getMonth() is 0-based, so add 1
+        const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+        const day = String(dateObj.getDate()).padStart(2, "0");
+
+        if (!grouped[year]) {
+          grouped[year] = {};
+        }
+        if (!grouped[year][month]) {
+          grouped[year][month] = {};
+        }
+        if (!grouped[year][month][day]) {
+          grouped[year][month][day] = [];
+        }
+        grouped[year][month][day].push(photo);
+      }
+    }
+  }
+
+  return grouped;
+}
+
+/** GET /api/dates
+ * Returns the entire year-month-day nested structure (without the actual photos array for every day).
+ * Instead we return only counts at each node, so the frontend can build a collapsible tree
+ * without fetching every single photo upfront.
+ */
+export async function listAllDates(req, res) {
+  try {
+    const grouped = await getAllPhotosGroupedByDate();
+    // Build a minimal structure containing only {count: n, children} to keep the payload small
+    const summary = {};
+
+    for (const year of Object.keys(grouped)) {
+      summary[year] = {
+        count: 0,
+        months: {},
+      };
+      for (const month of Object.keys(grouped[year])) {
+        summary[year].months[month] = {
+          count: 0,
+          days: {},
+        };
+        for (const day of Object.keys(grouped[year][month])) {
+          const dayPhotos = grouped[year][month][day];
+          summary[year].months[month].days[day] = {
+            count: dayPhotos.length,
+          };
+          // add to the parent's total
+          summary[year].months[month].count += dayPhotos.length;
+          summary[year].count += dayPhotos.length;
+        }
+      }
+    }
+
+    res.json({ data: summary });
+  } catch (error) {
+    console.error("Error listing all dates:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+}
+
+/** GET /api/dates/:year
+ * Return all photos for that entire year.
+ */
+export async function getPhotosByYear(req, res) {
+  try {
+    const year = req.params.year;
+    const grouped = await getAllPhotosGroupedByDate();
+    if (!grouped[year]) {
+      return res.json({ data: [] });
+    }
+    // Flatten all months/days for that year
+    let photos = [];
+    for (const month of Object.keys(grouped[year])) {
+      for (const day of Object.keys(grouped[year][month])) {
+        photos = photos.concat(grouped[year][month][day]);
+      }
+    }
+    res.json({ data: photos });
+  } catch (error) {
+    console.error("Error getting photos by year:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+}
+
+/** GET /api/dates/:year/:month
+ * Return all photos for that year+month.
+ */
+export async function getPhotosByYearMonth(req, res) {
+  try {
+    const { year, month } = req.params;
+    const grouped = await getAllPhotosGroupedByDate();
+    if (!grouped[year] || !grouped[year][month]) {
+      return res.json({ data: [] });
+    }
+    let photos = [];
+    for (const day of Object.keys(grouped[year][month])) {
+      photos = photos.concat(grouped[year][month][day]);
+    }
+    res.json({ data: photos });
+  } catch (error) {
+    console.error("Error getting photos by year+month:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+}
+
+/** GET /api/dates/:year/:month/:day
+ * Return all photos for that specific day.
+ */
+export async function getPhotosByYearMonthDay(req, res) {
+  try {
+    const { year, month, day } = req.params;
+    const grouped = await getAllPhotosGroupedByDate();
+    if (!grouped[year] || !grouped[year][month] || !grouped[year][month][day]) {
+      return res.json({ data: [] });
+    }
+    const photos = grouped[year][month][day];
+    res.json({ data: photos });
+  } catch (error) {
+    console.error("Error getting photos by day:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+}
+```
+
 ### **./backend/controllers/api/index.js**
 ```
 // ./controllers/api/index.js
@@ -2780,7 +2990,57 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/------albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
 ### **./backend/data/-albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/-------albums.json**
 ```json
 [
     {
@@ -2950,6 +3210,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
         "exif_info": {
             "flash_fired": false,
             "iso": 3200,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/1AF4375A-A948-45C7-B4B9-C9C2D4CB5DC5/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Stefania"
+        ],
+        "burst": false,
+        "cloud_guid": "AUf+djE+jaJNIaz2xEN31IC7yKg+",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-01-01 20:27:27.985500-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-01-01 19:29:14-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 1250,
             "metering_mode": 5,
             "sample_rate": null,
 ...
@@ -3507,6 +3792,31 @@ router.use("/api", apiRouter);
 export default router;
 ```
 
+### **./backend/routes/api/dates.js**
+```
+// backend/routes/api/dates.js
+import express from "express";
+import {
+  listAllDates,
+  getPhotosByYear,
+  getPhotosByYearMonth,
+  getPhotosByYearMonthDay,
+} from "../../controllers/api/dates-controller.js";
+
+const datesRouter = express.Router();
+
+// GET /api/dates
+datesRouter.get("/", listAllDates);
+// GET /api/dates/:year
+datesRouter.get("/:year", getPhotosByYear);
+// GET /api/dates/:year/:month
+datesRouter.get("/:year/:month", getPhotosByYearMonth);
+// GET /api/dates/:year/:month/:day
+datesRouter.get("/:year/:month/:day", getPhotosByYearMonthDay);
+
+export default datesRouter;
+```
+
 ### **./backend/routes/api.js**
 ```
 // backend/routes/api.js
@@ -3517,12 +3827,13 @@ import {
   getAlbumById,
   getPhotosByAlbumData,
 } from "../controllers/api/index.js";
-
-// Import the new people controllers
 import {
   getPeopleInAlbum,
   getPhotosByPerson,
 } from "../controllers/api/people-controller.js";
+
+// IMPORTANT: Fixed import path to include the "api/" subfolder
+import datesRouter from "./api/dates.js";
 
 const apiRouter = express.Router();
 
@@ -3538,6 +3849,9 @@ apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 // API routes for people in an album
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
+
+// ====== NEW: MOUNT /api/dates ======
+apiRouter.use("/dates", datesRouter);
 
 export default apiRouter;
 ```
@@ -3708,6 +4022,253 @@ export default class PhotoAdapter extends ApplicationAdapter {
   {{/each}}
 </div>```
 
+### **./frontend/photo-filter-frontend/app/components/date-nav.hbs**
+```
+{{! app/components/date-nav.hbs }}
+
+<ul class="menu p-0 w-full">
+  {{! Top-level: list each year }}
+  {{#each @datesDataSorted as |yearObj|}}
+    <li>
+      <div class="flex flex-row items-center justify-between">
+        <button
+          class="rounded px-2 py-1 w-full text-left"
+          {{on "click" (fn this.toggleYear yearObj.year)}}
+        >
+          {{yearObj.year}}
+          ({{yearObj.count}}
+          photos)
+        </button>
+        {{! Just a small indicator to show expanded/collapsed }}
+        <span>
+          {{if (contains yearObj.year this.expandedYears) "➖" "➕"}}
+        </span>
+      </div>
+
+      {{#if (contains yearObj.year this.expandedYears)}}
+        {{! Show months }}
+        <ul class="ml-4 mt-1">
+          {{#each yearObj.monthsSorted as |monthObj|}}
+            <li>
+              <div class="flex flex-row items-center justify-between">
+                <button
+                  class="rounded px-2 py-1 w-full text-left"
+                  {{on
+                    "click"
+                    (fn this.toggleMonth yearObj.year monthObj.month)
+                  }}
+                >
+                  {{monthObj.monthName}}
+                  ({{monthObj.count}})
+                </button>
+                <span>
+                  {{if
+                    (contains
+                      (concat yearObj.year "-" monthObj.month)
+                      this.expandedMonths
+                    )
+                    "➖"
+                    "➕"
+                  }}
+                </span>
+                {{! If clicked, jump directly to the route for all photos in this month }}
+                <a
+                  class="text-blue-700 underline ml-2"
+                  {{on
+                    "click"
+                    (fn this.goToYearMonth yearObj.year monthObj.month)
+                  }}
+                  title="View entire month"
+                >
+                  View
+                </a>
+              </div>
+              {{#if
+                (contains
+                  (concat yearObj.year "-" monthObj.month) this.expandedMonths
+                )
+              }}
+                {{! Show days }}
+                <ul class="ml-4 mt-1">
+                  {{#each monthObj.daysSorted as |dayObj|}}
+                    <li class="flex flex-row items-center justify-between">
+                      <button
+                        class="rounded px-2 py-1 w-full text-left"
+                        {{on
+                          "click"
+                          (fn
+                            this.goToYearMonthDay
+                            yearObj.year
+                            monthObj.month
+                            dayObj.day
+                          )
+                        }}
+                      >
+                        {{dayObj.day}}
+                        ({{dayObj.count}})
+                      </button>
+                    </li>
+                  {{/each}}
+                </ul>
+              {{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      {{/if}}
+    </li>
+  {{/each}}
+</ul>```
+
+### **./frontend/photo-filter-frontend/app/components/date-nav.js**
+```
+// app/components/date-nav.js
+import Component from '@glimmer/component';
+import { tracked } from '@glimmer/tracking';
+import { action } from '@ember/object';
+import { inject as service } from '@ember/service';
+import dayjs from 'dayjs'; // (Optional) If you want fancy month names
+
+/**
+ * date-nav
+ *
+ * Takes @datesData (the summary from /api/dates) and displays
+ * a nested tree of years → months → days. Allows toggling each node.
+ */
+export default class DateNavComponent extends Component {
+  @service router;
+
+  // Arrays of expanded IDs
+  @tracked expandedYears = [];
+  @tracked expandedMonths = [];
+
+  // By default, expand the current day (today)
+  constructor() {
+    super(...arguments);
+
+    // If you want to auto-expand "today" in the tree:
+    const now = new Date();
+    const thisYear = String(now.getFullYear());
+    const thisMonth = String(now.getMonth() + 1).padStart(2, '0');
+    this.expandedYears = [thisYear];
+    this.expandedMonths = [`${thisYear}-${thisMonth}`];
+  }
+
+  /**
+   * Convert the @datesData object into an array of objects for easier iteration/sorting.
+   * The shape from the server is { "2024": { count, months: { "12": {...} } }, ... }
+   */
+  get datesDataSorted() {
+    if (!this.args.datesData) return [];
+
+    // We transform:
+    // {
+    //   "2024": { count: 123, months: { "01": { count: 40, days: {"01": {count: 5}, ...} } }, ... }
+    //   "2023": ...
+    // }
+    // into an array of { year, count, months: [...] } sorted descending by year
+    const result = Object.keys(this.args.datesData)
+      .map((yearStr) => {
+        const yearBlock = this.args.datesData[yearStr];
+        return {
+          year: yearStr,
+          count: yearBlock.count,
+          months: yearBlock.months,
+        };
+      })
+      .sort((a, b) => Number(b.year) - Number(a.year)); // newest year first
+
+    return result.map((yearObj) => {
+      const monthsSorted = Object.keys(yearObj.months)
+        .map((m) => {
+          const monthData = yearObj.months[m];
+          return {
+            month: m,
+            monthName: this.monthName(m), // optional human-friendly name
+            count: monthData.count,
+            days: monthData.days,
+          };
+        })
+        // sort numeric descending or ascending
+        .sort((a, b) => Number(a.month) - Number(b.month));
+
+      const monthsWithDays = monthsSorted.map((m) => {
+        const daysSorted = Object.keys(m.days)
+          .map((d) => {
+            return { day: d, count: m.days[d].count };
+          })
+          .sort((a, b) => Number(a.day) - Number(b.day));
+        return { ...m, daysSorted };
+      });
+
+      return {
+        ...yearObj,
+        monthsSorted: monthsWithDays,
+      };
+    });
+  }
+
+  monthName(monthStr) {
+    // monthStr is "01", "02", ...
+    // If you want a short label, or dayjs, or a custom table:
+    const m = Number(monthStr);
+    // Here we just do a simple table:
+    const names = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return names[m - 1] || monthStr;
+  }
+
+  // Expand/collapse years
+  @action
+  toggleYear(year) {
+    if (this.expandedYears.includes(year)) {
+      this.expandedYears = this.expandedYears.filter((y) => y !== year);
+    } else {
+      this.expandedYears = [...this.expandedYears, year];
+    }
+  }
+
+  // Expand/collapse a specific month
+  @action
+  toggleMonth(year, month) {
+    const id = `${year}-${month}`;
+    if (this.expandedMonths.includes(id)) {
+      this.expandedMonths = this.expandedMonths.filter((x) => x !== id);
+    } else {
+      this.expandedMonths = [...this.expandedMonths, id];
+    }
+  }
+
+  // When user clicks “View entire month”
+  @action
+  goToYearMonth(year, month) {
+    this.router.transitionTo('dates.year.month', year, month);
+  }
+
+  // When user clicks on a day
+  @action
+  goToYearMonthDay(year, month, day) {
+    this.router.transitionTo('dates.year.month.day', year, month, day);
+  }
+
+  // Utility used in the template to see if an array includes a value
+  contains(val, arr) {
+    return arr.includes(val);
+  }
+}
+```
+
 ### **./frontend/photo-filter-frontend/app/components/photo-grid.js**
 ```
 import Component from '@glimmer/component';
@@ -3730,8 +4291,9 @@ export default class PhotoGridComponent extends Component {
 
 ### **./frontend/photo-filter-frontend/app/router.js**
 ```
+// app/router.js
 import EmberRouter from '@ember/routing/router';
-import config from 'photo-filter-frontend/config/environment';
+import config from './config/environment';
 
 export default class Router extends EmberRouter {
   location = config.locationType;
@@ -3739,109 +4301,216 @@ export default class Router extends EmberRouter {
 }
 
 Router.map(function () {
+  // Existing route for albums
   this.route('albums', function () {
     this.route('album', { path: '/:album_id' });
+  });
+
+  // NEW date-based routes
+  this.route('dates', function () {
+    this.route('year', { path: '/:year' }, function () {
+      this.route('month', { path: '/:month' }, function () {
+        this.route('day', { path: '/:day' });
+      });
+    });
   });
 });
 ```
 
+### **./frontend/photo-filter-frontend/app/templates/dates/year/month/day.hbs**
+```
+<!-- app/templates/dates/year/month/day.hbs -->
+<h2 class="text-xl font-bold mb-2">
+  Photos from
+  {{@model.year}}-{{this.padMonth @model.month}}-{{@model.day}}
+</h2>
+
+<!-- People Filter UI -->
+<div class="mb-4 space-x-2">
+  {{#each this.model.persons as |personName|}}
+    <button
+      type="button"
+      class="btn btn-xs
+        {{if (contains personName this.persons) 'btn-primary' 'btn-outline'}}"
+      {{on "click" (fn this.togglePerson personName)}}
+    >
+      {{personName}}
+    </button>
+  {{/each}}
+</div>
+
+<!-- Sorting UI -->
+<div class="flex items-center space-x-4 mb-4">
+  <div>
+    <label>Sort by:</label>
+    <select {{on "change" this.updateSortAttribute}} value={{this.sort}}>
+      {{#each this.model.scoreAttributes as |attr|}}
+        <option
+          value={{concat "score." attr}}
+          selected={{eq (concat "score." attr) this.sort}}
+        >
+          {{attr}}
+        </option>
+      {{/each}}
+    </select>
+  </div>
+
+  <div>
+    <label>Order:</label>
+    <select {{on "change" this.updateSortOrder}} value={{this.order}}>
+      <option value="desc" selected={{eq this.order "desc"}}>Desc</option>
+      <option value="asc" selected={{eq this.order "asc"}}>Asc</option>
+    </select>
+  </div>
+</div>
+
+<!-- Photo Grid -->
+<PhotoGrid
+  @photos={{this.visiblePhotos}}
+  @albumUUID={{null}}
+  @sortAttribute={{this.sort}}
+/>
+
+{{#if (gt (this.filteredSortedPhotos.length) (this.visiblePhotos.length))}}
+  <button class="btn btn-secondary mt-4" {{on "click" this.loadMore}}>
+    Load More
+  </button>
+{{/if}}```
+
+### **./frontend/photo-filter-frontend/app/templates/dates/year/month.hbs**
+```
+<h2 class="text-xl font-bold mb-2">
+  Photos from
+  {{@model.year}}-{{this.padMonth @model.month}}
+</h2>
+<PhotoGrid
+  @photos={{@model.photos}}
+  @albumUUID={{null}}
+  @sortAttribute="score.overall"
+/>```
+
+### **./frontend/photo-filter-frontend/app/templates/dates/year.hbs**
+```
+<!-- app/templates/dates/year.hbs -->
+<h2 class="text-xl font-bold mb-2">Photos from {{@model.year}}</h2>
+
+<!-- People Filter UI (optional) -->
+<div class="mb-4 space-x-2">
+  {{#each this.model.persons as |personName|}}
+    <button
+      type="button"
+      class="btn btn-xs
+        {{if (contains personName this.persons) 'btn-primary' 'btn-outline'}}"
+      {{on "click" (fn this.togglePerson personName)}}
+    >
+      {{personName}}
+    </button>
+  {{/each}}
+</div>
+
+<!-- Sorting UI -->
+<div class="flex items-center space-x-4 mb-4">
+  <div>
+    <label>Sort by:</label>
+    <select {{on "change" this.updateSortAttribute}} value={{this.sort}}>
+      {{#each this.model.scoreAttributes as |attr|}}
+        <option
+          value={{concat "score." attr}}
+          selected={{eq (concat "score." attr) this.sort}}
+        >
+          {{attr}}
+        </option>
+      {{/each}}
+    </select>
+  </div>
+
+  <div>
+    <label>Order:</label>
+    <select {{on "change" this.updateSortOrder}} value={{this.order}}>
+      <option value="desc" selected={{eq this.order "desc"}}>Desc</option>
+      <option value="asc" selected={{eq this.order "asc"}}>Asc</option>
+    </select>
+  </div>
+</div>
+
+<!-- Photo Grid -->
+<PhotoGrid
+  @photos={{this.visiblePhotos}}
+  @albumUUID={{null}}
+  @sortAttribute={{this.sort}}
+/>
+
+<!-- "Load More" if you want pagination -->
+{{#if (gt (this.filteredSortedPhotos.length) (this.visiblePhotos.length))}}
+  <button class="btn btn-secondary mt-4" {{on "click" this.loadMore}}>
+    Load More
+  </button>
+{{/if}}```
+
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<!-- We are inside the main flex container defined in application.hbs -->
-<!-- Here we split the space into a left nav and a main content area side by side. -->
-<!-- Each gets overflow-auto so they scroll independently. -->
-
-<div class="h-full w-full flex">
-  <!-- Left nav: fixed width, scrollable -->
-  <div
-    class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
-  >
-    <ul class="menu p-0 w-full">
-      {{#each this.model as |album|}}
-        <li class="mb-1">
-          <LinkTo
-            @route="albums.album"
-            @model={{album.id}}
-            class="rounded hover:bg-gray-200 px-2 py-1"
-          >
-            {{album.title}}
-          </LinkTo>
-        </li>
-      {{/each}}
-    </ul>
-  </div>
-
-  <!-- Main content area: add id here so ember-router-scroll can find it -->
-  <div id="main-content-area" class="flex-1 overflow-auto p-4">
-    {{outlet}}
-  </div>
-</div>```
+{{! app/templates/albums.hbs }}
+<h2 class="text-2xl font-bold mb-4">Albums</h2>
+{{outlet}}```
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
 ```
+{{! app/templates/application.hbs }}
 {{page-title "PhotoFilterFrontend"}}
 
 <div
   class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
 >
-  <!-- Fixed top nav -->
-  <nav
-    class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
-  >
-    <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+  <!-- In a production app, you might place a top nav here or hide it -->
 
-    {{#if this.currentAlbum.isAlbumRoute}}
-      <div class="flex items-center space-x-4">
-        <!-- Album Title -->
-        <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
+  <div class="flex h-full pt-16">
+    {{! Single left sidebar, Apple Photos–style }}
+    <aside
+      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-y-auto p-4"
+    >
+      <h2 class="text-lg font-bold mb-4">Photo Filter</h2>
 
-        <!-- Sorting Options -->
-        <div class="flex items-center space-x-2">
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Sort by</label>
-            <select
-              id="sortAttribute"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortAttribute)}}
+      {{! Albums Section }}
+      <h3
+        class="menu-title text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2"
+      >
+        Albums
+      </h3>
+      <ul class="menu p-0 w-full mb-6">
+        {{#each this.albums as |album|}}
+          <li>
+            <LinkTo
+              @route="albums.album"
+              @model={{album.id}}
+              class="hover:bg-gray-200 px-2 py-1 rounded"
             >
-              {{#each this.currentAlbum.scoreAttributes as |attribute|}}
-                <option
-                  value="score.{{attribute}}"
-                  selected={{eq
-                    this.currentAlbum.sortAttribute
-                    (concat "score." attribute)
-                  }}
-                >
-                  {{capitalize attribute}}
-                </option>
-              {{/each}}
-            </select>
-          </div>
+              {{album.title}}
+            </LinkTo>
+          </li>
+        {{/each}}
+      </ul>
 
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Order</label>
-            <select
-              id="sortOrder"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortOrder)}}
-            >
-              <option
-                value="desc"
-                selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
-              <option
-                value="asc"
-                selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    {{/if}}
-  </nav>
+      {{! Dates Section }}
+      <h3
+        class="menu-title text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2"
+      >
+        Dates
+      </h3>
+      <DateNav @datesData={{this.dateTree}} />
 
-  <div class="h-full w-full pt-16 flex">
-    {{outlet}}
+      {{! Future expansions: People, Places, Shared Albums, etc. }}
+      {{!
+      <h3 class="menu-title">People</h3>
+      <ul> ... </ul>
+      <h3 class="menu-title">Places</h3>
+      <ul> ... </ul>
+      }}
+    </aside>
+
+    {{! Main content area }}
+    <main id="main-content-area" class="flex-1 overflow-auto p-4">
+      {{outlet}}
+    </main>
   </div>
 </div>```
 
@@ -3873,16 +4542,291 @@ Router.map(function () {
   />
 </div>```
 
+### **./frontend/photo-filter-frontend/app/controllers/dates/year.js**
+```
+// app/controllers/dates/year.js
+import { inject as service } from '@ember/service';
+import PhotoCollectionController from 'photo-filter-frontend/controllers/photo-collection';
+
+export default class DatesYearController extends PhotoCollectionController {
+  @service router;
+
+  queryParams = [
+    'sort',
+    'order',
+    {
+      persons: {
+        serialize(value) {
+          return JSON.stringify(value);
+        },
+        deserialize(value) {
+          if (typeof value === 'string') {
+            try {
+              return JSON.parse(value);
+            } catch {
+              return [];
+            }
+          }
+          return value || [];
+        },
+      },
+    },
+  ];
+
+  /**
+   * Called whenever we change sorting or person filters. We then re-transition
+   * to the same route, with updated query params in the URL.
+   */
+  _updateRouteQueryParams(params) {
+    const { year } = this.router.currentRoute.params;
+    this.router.transitionTo('dates.year', year, {
+      queryParams: params,
+    });
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/controllers/dates/year/month/day.js**
+```
+// app/controllers/dates/year/month/day.js
+import { inject as service } from '@ember/service';
+import PhotoCollectionController from 'photo-filter-frontend/controllers/photo-collection';
+
+export default class DatesYearMonthDayController extends PhotoCollectionController {
+  @service router;
+
+  queryParams = [
+    'sort',
+    'order',
+    {
+      persons: {
+        serialize(value) {
+          return JSON.stringify(value);
+        },
+        deserialize(value) {
+          if (typeof value === 'string') {
+            try {
+              return JSON.parse(value);
+            } catch {
+              return [];
+            }
+          }
+          return value || [];
+        },
+      },
+    },
+  ];
+
+  /**
+   * Called whenever we change sorting or person filters. We then re-transition
+   * to the same route, with updated query params in the URL.
+   */
+  _updateRouteQueryParams(params) {
+    const { year, month, day } = this.router.currentRoute.params;
+    this.router.transitionTo('dates.year.month.day', year, month, day, {
+      queryParams: params,
+    });
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/controllers/dates/year/month.js**
+```
+// app/controllers/dates/year/month.js
+import { inject as service } from '@ember/service';
+import PhotoCollectionController from 'photo-filter-frontend/controllers/photo-collection';
+
+export default class DatesYearMonthController extends PhotoCollectionController {
+  @service router;
+
+  queryParams = [
+    'sort',
+    'order',
+    {
+      persons: {
+        serialize(value) {
+          return JSON.stringify(value);
+        },
+        deserialize(value) {
+          if (typeof value === 'string') {
+            try {
+              return JSON.parse(value);
+            } catch {
+              return [];
+            }
+          }
+          return value || [];
+        },
+      },
+    },
+  ];
+
+  /**
+   * Called whenever we change sorting or person filters. We then re-transition
+   * to the same route, with updated query params in the URL.
+   */
+  _updateRouteQueryParams(params) {
+    const { year, month } = this.router.currentRoute.params;
+    this.router.transitionTo('dates.year.month', year, month, {
+      queryParams: params,
+    });
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/controllers/photo-collection.js**
+```
+// app/controllers/photo-collection.js
+import Controller from '@ember/controller';
+import { tracked } from '@glimmer/tracking';
+import { action } from '@ember/object';
+
+/**
+ * A reusable base controller for any "collection of photos" route.
+ * It handles:
+ *  - sorting (sort=score.overall or whatever)
+ *  - ordering (asc/desc)
+ *  - person filtering
+ *  - pagination
+ *
+ * Subclasses must:
+ *  1) Provide a `this.model.photos` array in route model
+ *  2) Provide `this.model.persons` (if you want person toggles)
+ *  3) Implement `_updateRouteQueryParams(params)` to call router.transitionTo
+ */
+export default class PhotoCollectionController extends Controller {
+  // QueryParam-like states:
+  @tracked sort = 'score.overall';
+  @tracked order = 'desc';
+  @tracked persons = [];
+
+  @tracked page = 1;
+  pageSize = 50;
+
+  get allPhotos() {
+    // model should have: { photos, isDataReady, persons, scoreAttributes }
+    if (!this.model?.isDataReady || !Array.isArray(this.model.photos)) {
+      return [];
+    }
+    return this.model.photos;
+  }
+
+  get filteredSortedPhotos() {
+    let photos = this.allPhotos.slice();
+
+    // Person filtering
+    if (this.persons.length > 0) {
+      photos = photos.filter((photo) => {
+        // photo.persons is an array of either strings or {name: string}
+        const names = photo.persons.map((p) => p.name ?? p);
+        return this.persons.every((selectedName) =>
+          names.includes(selectedName),
+        );
+      });
+    }
+
+    // Sorting
+    photos.sort((a, b) => {
+      const aVal = this.getNested(a, this.sort);
+      const bVal = this.getNested(b, this.sort);
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      return this.order === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+
+    return photos;
+  }
+
+  get visiblePhotos() {
+    const start = (this.page - 1) * this.pageSize;
+    const end = this.page * this.pageSize;
+    return this.filteredSortedPhotos.slice(start, end);
+  }
+
+  getNested(obj, path) {
+    if (!obj || !path) return null;
+    return path.split('.').reduce((acc, key) => acc?.[key], obj);
+  }
+
+  @action
+  togglePerson(personName) {
+    let selected = [...this.persons];
+    if (selected.includes(personName)) {
+      selected = selected.filter((p) => p !== personName);
+    } else {
+      selected.push(personName);
+    }
+    this.persons = selected;
+    this.page = 1;
+
+    this._updateRouteQueryParams({
+      sort: this.sort,
+      order: this.order,
+      persons: this.persons,
+    });
+  }
+
+  @action
+  updateSortAttribute(event) {
+    this.sort = event.target.value;
+    this.page = 1;
+
+    this._updateRouteQueryParams({
+      sort: this.sort,
+      order: this.order,
+      persons: this.persons,
+    });
+  }
+
+  @action
+  updateSortOrder(event) {
+    this.order = event.target.value;
+    this.page = 1;
+
+    this._updateRouteQueryParams({
+      sort: this.sort,
+      order: this.order,
+      persons: this.persons,
+    });
+  }
+
+  @action
+  loadMore() {
+    if (this.visiblePhotos.length < this.filteredSortedPhotos.length) {
+      this.page++;
+    }
+  }
+
+  /**
+   * Subclasses implement how to do the route transition.
+   * E.g. in albums, we do:
+   *   this.router.transitionTo('albums.album', albumId, { queryParams: {...} });
+   * In dates, we do:
+   *   this.router.transitionTo('dates.year', year, { queryParams: {...} });
+   */
+  _updateRouteQueryParams(_params) {
+    // no-op by default
+  }
+}
+```
+
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
 ```
+// app/controllers/application.js
 import Controller from '@ember/controller';
 import { inject as service } from '@ember/service';
 import { action } from '@ember/object';
+import { tracked } from '@glimmer/tracking';
 
 export default class ApplicationController extends Controller {
   @service router;
   @service currentAlbum;
 
+  // New tracked properties to store fetched data
+  @tracked albums = [];
+  @tracked dateTree = {};
+
+  // Keep your existing code
   @action
   updateSortAttribute(event) {
     const newSort = event.target.value;
@@ -3929,176 +4873,188 @@ export default class ApplicationController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
-// frontend/photo-filter-frontend/app/controllers/albums/album.js
-import Controller from '@ember/controller';
-import { action } from '@ember/object';
-import { tracked } from '@glimmer/tracking';
+// app/controllers/albums/album.js
 import { inject as service } from '@ember/service';
+import PhotoCollectionController from 'photo-filter-frontend/controllers/photo-collection';
 
-export default class AlbumsAlbumController extends Controller {
+export default class AlbumsAlbumController extends PhotoCollectionController {
   @service router;
 
-  // Sorting & Filtering
-  @tracked sort = 'score.overall';
-  @tracked order = 'desc';
-  @tracked persons = [];
+  queryParams = [
+    'sort',
+    'order',
+    {
+      persons: {
+        // We want persons to be array-based
+        serialize(value) {
+          return JSON.stringify(value);
+        },
+        deserialize(value) {
+          if (typeof value === 'string') {
+            try {
+              return JSON.parse(value);
+            } catch {
+              return [];
+            }
+          }
+          return value || [];
+        },
+      },
+    },
+  ];
 
-  // Pagination
-  @tracked page = 1;
-  pageSize = 50; // number of photos to show per page
+  // Because we’re extending PhotoCollectionController,
+  // we already have @tracked sort, order, persons, etc.
 
-  // The route model returns: { album, photos, ... }
-  get allPhotos() {
-    // If the model hasn’t fully loaded, return an empty array
-    if (!this.model.isDataReady || !Array.isArray(this.model.photos)) {
-      return [];
-    }
-    return this.model.photos;
-  }
-
-  /**
-   * Return *all* photos after applying filtering and sorting,
-   * but before pagination.
-   */
-  get filteredSortedPhotos() {
-    let photos = this.allPhotos.slice();
-
-    // 1. Filter by selected persons (if any)
-    if (this.persons.length > 0) {
-      photos = photos.filter((photo) => {
-        // Each photo has an array of person model instances
-        // with a `name` attribute
-        const photoPersonNames = photo.persons.map((p) => p.name);
-        // We want the photo to have *all* selected persons
-        return this.persons.every((personName) =>
-          photoPersonNames.includes(personName),
-        );
-      });
-    }
-
-    // 2. Sort by the current attribute and order
-    photos.sort((a, b) => {
-      const aValue = this.getNested(a, this.sort);
-      const bValue = this.getNested(b, this.sort);
-
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      return this.order === 'asc' ? aValue - bValue : bValue - aValue;
-    });
-
-    return photos;
-  }
+  // Our route model() sets `this.model.photos`.
+  // It also sets `this.model.isDataReady`.
 
   /**
-   * Return only the photos that should appear
-   * in the DOM on the current page.
+   * Each time we update sort/order/persons, we want to re-trigger
+   * a route transition to set the query params in the URL.
    */
-  get visiblePhotos() {
-    // slice out the portion for current page
-    const startIndex = (this.page - 1) * this.pageSize;
-    const endIndex = this.page * this.pageSize;
-    return this.filteredSortedPhotos.slice(startIndex, endIndex);
-  }
-
-  /**
-   * Utility to handle nested paths like "score.overall".
-   */
-  getNested(obj, path) {
-    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
-  }
-
-  /**
-   * Called when the user toggles a person’s name in the UI,
-   * to either add or remove that person from the filter.
-   */
-  @action
-  togglePerson(personName) {
-    let selected = [...this.persons];
-    if (selected.includes(personName)) {
-      selected = selected.filter((p) => p !== personName);
-    } else {
-      selected.push(personName);
-    }
-    this.persons = selected;
-
-    // Also reset pagination to page 1 whenever we change filters
-    this.page = 1;
-
-    // Update query params in the URL
+  _updateRouteQueryParams(params) {
     this.router.transitionTo(
       'albums.album',
       this.router.currentRoute.params.album_id,
       {
-        queryParams: {
-          sort: this.sort,
-          order: this.order,
-          persons: this.persons,
-        },
+        queryParams: params,
       },
     );
   }
+}
+```
 
-  /**
-   * Load the next page (increment `page`).
-   * If we’re at the last page, this does nothing.
-   */
-  @action
-  loadMore() {
-    // The total number of filtered photos (before pagination)
-    const total = this.filteredSortedPhotos.length;
+### **./frontend/photo-filter-frontend/app/routes/dates/index.js**
+```
+// app/routes/dates/index.js
+import Route from '@ember/routing/route';
 
-    // The index of the last item currently shown
-    const lastShown = this.page * this.pageSize;
+/**
+ * If user goes to /dates with no further segments,
+ * we could redirect them somewhere (e.g., the current year),
+ * or just show an empty “Choose a year” message.
+ */
+export default class DatesIndexRoute extends Route {}
+```
 
-    if (lastShown < total) {
-      // Another page still exists
-      this.page++;
+### **./frontend/photo-filter-frontend/app/routes/dates/year.js**
+```
+// app/routes/dates/year.js
+import Route from '@ember/routing/route';
+import fetch from 'fetch';
+
+export default class DatesYearRoute extends Route {
+  async model(params) {
+    const {
+      year,
+      sort = 'score.overall',
+      order = 'desc',
+      persons = [],
+    } = params;
+
+    const response = await fetch(`http://localhost:3000/api/dates/${year}`);
+    const json = await response.json();
+    const photos = json.data || [];
+
+    // Figure out scoreAttributes by checking the first photo
+    let scoreAttributes = [];
+    if (photos.length > 0 && photos[0].score) {
+      scoreAttributes = Object.keys(photos[0].score);
     }
+
+    // Figure out all distinct person names
+    const allPersons = new Set();
+    for (let photo of photos) {
+      if (Array.isArray(photo.persons)) {
+        photo.persons.forEach((p) => allPersons.add(p.name ?? p));
+      }
+    }
+    // Sort them if you like
+    const sortedAllPersons = Array.from(allPersons).sort();
+
+    return {
+      year,
+      photos,
+      scoreAttributes,
+      persons: sortedAllPersons,
+      isDataReady: true,
+    };
   }
 
-  /**
-   * If the user changes the sort attribute in the UI,
-   * reset page to 1 and update query params.
-   */
-  @action
-  updateSortAttribute(event) {
-    const newSort = event.target.value;
-    this.sort = newSort;
-    this.page = 1; // reset to first page
-    this.router.transitionTo(
-      'albums.album',
-      this.router.currentRoute.params.album_id,
-      {
-        queryParams: {
-          sort: newSort,
-          order: this.order,
-          persons: this.persons,
-        },
-      },
-    );
-  }
+  // Then define queryParams in a dedicated controller/dates/year.js as shown above
+}
+```
 
-  /**
-   * If the user changes the sort order in the UI,
-   * reset page to 1 and update query params.
-   */
-  @action
-  updateSortOrder(event) {
-    const newOrder = event.target.value;
-    this.order = newOrder;
-    this.page = 1; // reset to first page
-    this.router.transitionTo(
-      'albums.album',
-      this.router.currentRoute.params.album_id,
-      {
-        queryParams: {
-          sort: this.sort,
-          order: newOrder,
-          persons: this.persons,
-        },
-      },
+### **./frontend/photo-filter-frontend/app/routes/dates/year/month/day.js**
+```
+// app/routes/dates/year/month/day.js
+import Route from '@ember/routing/route';
+import fetch from 'fetch';
+
+/**
+ * /dates/:year/:month/:day => show all photos for that exact day
+ */
+export default class DatesYearMonthDayRoute extends Route {
+  async model(params) {
+    const { year, month, day } = params;
+    const response = await fetch(
+      `http://localhost:3000/api/dates/${year}/${month}/${day}`,
     );
+    const json = await response.json();
+    return {
+      year,
+      month,
+      day,
+      photos: json.data || [],
+    };
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/routes/dates/year/month.js**
+```
+// app/routes/dates/year/month.js
+import Route from '@ember/routing/route';
+import fetch from 'fetch';
+
+export default class DatesYearMonthRoute extends Route {
+  queryParams = {
+    sort: { refreshModel: true },
+    order: { refreshModel: true },
+    persons: { refreshModel: true },
+  };
+
+  async model(params) {
+    const { year, month } = params;
+
+    const response = await fetch(
+      `http://localhost:3000/api/dates/${year}/${month}`,
+    );
+    const json = await response.json();
+    const photos = json.data || [];
+
+    let scoreAttributes = [];
+    if (photos.length > 0 && photos[0].score) {
+      scoreAttributes = Object.keys(photos[0].score);
+    }
+
+    const allPersons = new Set();
+    for (let photo of photos) {
+      if (Array.isArray(photo.persons)) {
+        photo.persons.forEach((p) => allPersons.add(p.name ?? p));
+      }
+    }
+    const sortedAllPersons = Array.from(allPersons).sort();
+
+    return {
+      year,
+      month,
+      photos,
+      scoreAttributes,
+      persons: sortedAllPersons,
+      isDataReady: true,
+    };
   }
 }
 ```
@@ -4119,6 +5075,29 @@ export default class IndexRoute extends Route {
 }
 ```
 
+### **./frontend/photo-filter-frontend/app/routes/dates.js**
+```
+// app/routes/dates.js
+import Route from '@ember/routing/route';
+import { inject as service } from '@ember/service';
+import fetch from 'fetch';
+
+/**
+ * The top-level /dates route fetches the summary from /api/dates,
+ * so we can build the collapsible nav. This route *does not* fetch actual photos.
+ */
+export default class DatesRoute extends Route {
+  @service store;
+
+  async model() {
+    // fetch the year→month→day summary from the backend
+    const response = await fetch('http://localhost:3000/api/dates');
+    const json = await response.json();
+    return json.data; // e.g. { "2024": {count:..., months:{...}}, ... }
+  }
+}
+```
+
 ### **./frontend/photo-filter-frontend/app/routes/albums.js**
 ```
 import Route from '@ember/routing/route';
@@ -4129,6 +5108,39 @@ export default class AlbumsRoute extends Route {
 
   async model() {
     return this.store.findAll('album');
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/routes/application.js**
+```
+// app/routes/application.js
+import Route from '@ember/routing/route';
+import fetch from 'fetch';
+
+export default class ApplicationRoute extends Route {
+  async model() {
+    // 1. Fetch Albums from our backend
+    let albumsResponse = await fetch('http://localhost:3000/api/albums');
+    let albumsJson = await albumsResponse.json();
+
+    // 2. Fetch Date Tree (year→month→day summary)
+    let datesResponse = await fetch('http://localhost:3000/api/dates');
+    let datesJson = await datesResponse.json();
+
+    return {
+      // JSON:API usually has an array in albumsJson.data
+      albums: albumsJson.data || [],
+      // The date summary is in datesJson.data
+      dateTree: datesJson.data || {},
+    };
+  }
+
+  setupController(controller, model) {
+    super.setupController(controller, model);
+    // Push these arrays/objects onto the application controller’s tracked properties
+    controller.albums = model.albums; // => this.albums in template
+    controller.dateTree = model.dateTree; // => this.dateTree in template
   }
 }
 ```
@@ -4731,6 +5743,31 @@ Specify what it takes to deploy your app.
 /DEBUG/
 ```
 
+### **./frontend/photo-filter-frontend/package-lock.json**
+```json
+{
+  "name": "photo-filter-frontend",
+  "version": "0.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "photo-filter-frontend",
+      "version": "0.0.0",
+      "dependencies": {
+        "dayjs": "^1.11.13",
+        "postcss": "^8.4.49"
+      },
+      "devDependencies": {
+        "@babel/core": "^7.25.2",
+        "@babel/eslint-parser": "^7.25.1",
+        "@babel/plugin-proposal-decorators": "^7.24.7",
+        "@ember/optional-features": "^2.1.0",
+        "@ember/render-modifiers": "^2.1.0",
+        "@ember/string": "^4.0.0",
+...
+```
+
 ### **./frontend/photo-filter-frontend/package.json**
 ```
 {
@@ -4753,6 +5790,7 @@ Specify what it takes to deploy your app.
     "test:ember": "ember test"
   },
   "dependencies": {
+    "dayjs": "^1.11.13",
     "postcss": "^8.4.49"
   },
   "devDependencies": {

@@ -1,0 +1,57 @@
+<!-- app/templates/dates/year/month/day.hbs -->
+<h2 class="text-xl font-bold mb-2">
+  Photos from
+  {{@model.year}}-{{this.padMonth @model.month}}-{{@model.day}}
+</h2>
+
+<!-- People Filter UI -->
+<div class="mb-4 space-x-2">
+  {{#each this.model.persons as |personName|}}
+    <button
+      type="button"
+      class="btn btn-xs
+        {{if (contains personName this.persons) 'btn-primary' 'btn-outline'}}"
+      {{on "click" (fn this.togglePerson personName)}}
+    >
+      {{personName}}
+    </button>
+  {{/each}}
+</div>
+
+<!-- Sorting UI -->
+<div class="flex items-center space-x-4 mb-4">
+  <div>
+    <label>Sort by:</label>
+    <select {{on "change" this.updateSortAttribute}} value={{this.sort}}>
+      {{#each this.model.scoreAttributes as |attr|}}
+        <option
+          value={{concat "score." attr}}
+          selected={{eq (concat "score." attr) this.sort}}
+        >
+          {{attr}}
+        </option>
+      {{/each}}
+    </select>
+  </div>
+
+  <div>
+    <label>Order:</label>
+    <select {{on "change" this.updateSortOrder}} value={{this.order}}>
+      <option value="desc" selected={{eq this.order "desc"}}>Desc</option>
+      <option value="asc" selected={{eq this.order "asc"}}>Asc</option>
+    </select>
+  </div>
+</div>
+
+<!-- Photo Grid -->
+<PhotoGrid
+  @photos={{this.visiblePhotos}}
+  @albumUUID={{null}}
+  @sortAttribute={{this.sort}}
+/>
+
+{{#if (gt (this.filteredSortedPhotos.length) (this.visiblePhotos.length))}}
+  <button class="btn btn-secondary mt-4" {{on "click" this.loadMore}}>
+    Load More
+  </button>
+{{/if}}

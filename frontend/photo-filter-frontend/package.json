@@ -18,6 +18,7 @@
     "test:ember": "ember test"
   },
   "dependencies": {
+    "dayjs": "^1.11.13",
     "postcss": "^8.4.49"
   },
   "devDependencies": {

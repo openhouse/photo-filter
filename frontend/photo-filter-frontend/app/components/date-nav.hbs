@@ -1,0 +1,94 @@
+{{! app/components/date-nav.hbs }}
+
+<ul class="menu p-0 w-full">
+  {{! Top-level: list each year }}
+  {{#each @datesDataSorted as |yearObj|}}
+    <li>
+      <div class="flex flex-row items-center justify-between">
+        <button
+          class="rounded px-2 py-1 w-full text-left"
+          {{on "click" (fn this.toggleYear yearObj.year)}}
+        >
+          {{yearObj.year}}
+          ({{yearObj.count}}
+          photos)
+        </button>
+        {{! Just a small indicator to show expanded/collapsed }}
+        <span>
+          {{if (contains yearObj.year this.expandedYears) "➖" "➕"}}
+        </span>
+      </div>
+
+      {{#if (contains yearObj.year this.expandedYears)}}
+        {{! Show months }}
+        <ul class="ml-4 mt-1">
+          {{#each yearObj.monthsSorted as |monthObj|}}
+            <li>
+              <div class="flex flex-row items-center justify-between">
+                <button
+                  class="rounded px-2 py-1 w-full text-left"
+                  {{on
+                    "click"
+                    (fn this.toggleMonth yearObj.year monthObj.month)
+                  }}
+                >
+                  {{monthObj.monthName}}
+                  ({{monthObj.count}})
+                </button>
+                <span>
+                  {{if
+                    (contains
+                      (concat yearObj.year "-" monthObj.month)
+                      this.expandedMonths
+                    )
+                    "➖"
+                    "➕"
+                  }}
+                </span>
+                {{! If clicked, jump directly to the route for all photos in this month }}
+                <a
+                  class="text-blue-700 underline ml-2"
+                  {{on
+                    "click"
+                    (fn this.goToYearMonth yearObj.year monthObj.month)
+                  }}
+                  title="View entire month"
+                >
+                  View
+                </a>
+              </div>
+              {{#if
+                (contains
+                  (concat yearObj.year "-" monthObj.month) this.expandedMonths
+                )
+              }}
+                {{! Show days }}
+                <ul class="ml-4 mt-1">
+                  {{#each monthObj.daysSorted as |dayObj|}}
+                    <li class="flex flex-row items-center justify-between">
+                      <button
+                        class="rounded px-2 py-1 w-full text-left"
+                        {{on
+                          "click"
+                          (fn
+                            this.goToYearMonthDay
+                            yearObj.year
+                            monthObj.month
+                            dayObj.day
+                          )
+                        }}
+                      >
+                        {{dayObj.day}}
+                        ({{dayObj.count}})
+                      </button>
+                    </li>
+                  {{/each}}
+                </ul>
+              {{/if}}
+            </li>
+          {{/each}}
+        </ul>
+      {{/if}}
+    </li>
+  {{/each}}
+</ul>

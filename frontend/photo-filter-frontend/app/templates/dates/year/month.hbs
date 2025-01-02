@@ -1,0 +1,9 @@
+<h2 class="text-xl font-bold mb-2">
+  Photos from
+  {{@model.year}}-{{this.padMonth @model.month}}
+</h2>
+<PhotoGrid
+  @photos={{@model.photos}}
+  @albumUUID={{null}}
+  @sortAttribute="score.overall"
+/>

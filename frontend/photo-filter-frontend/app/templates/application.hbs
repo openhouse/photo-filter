@@ -1,65 +1,58 @@
+{{! app/templates/application.hbs }}
 {{page-title "PhotoFilterFrontend"}}
 
 <div
   class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
 >
-  <!-- Fixed top nav -->
-  <nav
-    class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
-  >
-    <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+  <!-- In a production app, you might place a top nav here or hide it -->
 
-    {{#if this.currentAlbum.isAlbumRoute}}
-      <div class="flex items-center space-x-4">
-        <!-- Album Title -->
-        <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
+  <div class="flex h-full pt-16">
+    {{! Single left sidebar, Apple Photos–style }}
+    <aside
+      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-y-auto p-4"
+    >
+      <h2 class="text-lg font-bold mb-4">Photo Filter</h2>
 
-        <!-- Sorting Options -->
-        <div class="flex items-center space-x-2">
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Sort by</label>
-            <select
-              id="sortAttribute"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortAttribute)}}
+      {{! Albums Section }}
+      <h3
+        class="menu-title text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2"
+      >
+        Albums
+      </h3>
+      <ul class="menu p-0 w-full mb-6">
+        {{#each this.albums as |album|}}
+          <li>
+            <LinkTo
+              @route="albums.album"
+              @model={{album.id}}
+              class="hover:bg-gray-200 px-2 py-1 rounded"
             >
-              {{#each this.currentAlbum.scoreAttributes as |attribute|}}
-                <option
-                  value="score.{{attribute}}"
-                  selected={{eq
-                    this.currentAlbum.sortAttribute
-                    (concat "score." attribute)
-                  }}
-                >
-                  {{capitalize attribute}}
-                </option>
-              {{/each}}
-            </select>
-          </div>
+              {{album.title}}
+            </LinkTo>
+          </li>
+        {{/each}}
+      </ul>
 
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Order</label>
-            <select
-              id="sortOrder"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortOrder)}}
-            >
-              <option
-                value="desc"
-                selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
-              <option
-                value="asc"
-                selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    {{/if}}
-  </nav>
+      {{! Dates Section }}
+      <h3
+        class="menu-title text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2"
+      >
+        Dates
+      </h3>
+      <DateNav @datesData={{this.dateTree}} />
 
-  <div class="h-full w-full pt-16 flex">
-    {{outlet}}
+      {{! Future expansions: People, Places, Shared Albums, etc. }}
+      {{!
+      <h3 class="menu-title">People</h3>
+      <ul> ... </ul>
+      <h3 class="menu-title">Places</h3>
+      <ul> ... </ul>
+      }}
+    </aside>
+
+    {{! Main content area }}
+    <main id="main-content-area" class="flex-1 overflow-auto p-4">
+      {{outlet}}
+    </main>
   </div>
 </div>
