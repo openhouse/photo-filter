@@ -31,68 +31,83 @@
 
 **Implementation Steps:**
 
-1. **Remove Person Sub-Routes:**
-   - No longer need `albums/album/persons` or `albums/album/persons/person/:person_name`.
-   - Instead, retrieve people from `GET /api/albums/:albumUUID/persons` and display them under the selected album in the left nav.
-2. **Update Album Route to Use Query Params:**
-   - Add a `people` query param to `albums.album`.
-   - When a user toggles a person in the UI, update the `people` query param to reflect the currently selected individuals.
-   - Filter photos based on the intersection of all selected individuals’ sets of photos.
-3. **UI Updates:**
-   - The left nav becomes scrollable and fixed in height, independent from the main content area.
-   - Display the currently selected album title, below it a list of people. Each name toggles inclusion in the people filter.
-   - No need for “Back to Albums” or “View People in This Album” links—navigation and filtering are seamlessly integrated.
-4. **Backend:**
-   - The backend remains largely the same. The frontend can still fetch all people via `GET /api/albums/:albumUUID/persons`.
-   - For multiple individuals, the frontend will combine their names and request photos containing all of them, or request the full set and filter on the client side if needed. (Future optimization may be added on the backend.)
-5. **Documentation:**
-   - Update `DEVELOPMENT_PLAN.md`, `ISSUES.md`, and `README.md` to reflect the new approach.
-   - Document how query parameters represent the filtering state.
-6. **Testing and Validation:**
-   - Ensure that selecting multiple individuals updates the displayed photos correctly.
-   - Confirm that query params can be bookmarked and reloaded.
-   - Test sorting combined with person-based filtering.
+1. **Remove Person Sub-Routes**  
+   No longer need `albums/album/persons` or `albums/album/persons/person/:person_name`.
+2. **Update Album Route to Use Query Params**  
+   Add a `people` query param to `albums.album`, update toggles, etc.
+3. **UI Updates**  
+   People filters appear in the left nav, integrated with album listing.
+4. **Backend**  
+   The backend remains largely the same. For multi-person queries, client-side filtering is primary; future server optimization possible.
+5. **Documentation**  
+   Update relevant docs: `DEVELOPMENT_PLAN.md`, `ISSUES.md`, `README.md`.
+6. **Testing and Validation**  
+   Confirm query params work and that reloading with persons in the URL is stable.
 
 **Potential Challenges:**
 
-- **Complex Filtering:** As multiple people are selected, performance could degrade for large albums. Consider caching or indexing if needed.
-- **UI Complexity:** Need a clear indication of which people are currently selected and how to reset filters.
-- **Backwards Compatibility:** Removing person sub-routes may require updating links or references.
+- Complex filtering for large libraries might need caching or indexing.
+- UI complexity if many persons are toggled.
 
-**Previous Updates:**
+---
 
-- **December 7, 2024:** Initial person-level sub-routes conceived. _(Note: This approach is now evolving into a unified, query-param-based filter.)_
-- **November 12, 2024:** Introduced nested routes, left nav, and sorting.
-- **November 1, 2024:** Added cache invalidation for data freshness.
-- **October 30, 2024:** Adopted JSON:API serializer.
+### Previous Updates
 
-**Project Goal:**
+- **December 7, 2024**: Initial person-level sub-routes conceived.
+- **November 12, 2024**: Introduced nested routes, left nav, and sorting.
+- **November 1, 2024**: Added cache invalidation for data freshness.
+- **October 30, 2024**: Adopted JSON:API serializer.
+
+---
+
+## Project Goal
+
 Create an intuitive, facet-based photo exploration tool integrated with macOS Photos data, enabling advanced sorting, selection, exporting, and multi-person filtering.
 
-**Current State:**
+---
 
-- **Frontend:** Ember.js with album-level sorting and filtering now done fully on the frontend for improved performance.
-- **Backend:** Express.js, JSON:API, data from `osxphotos`.
-- **Data Handling:** `osxphotos` extracts metadata.
-- **Selection & Export:** In progress.
-- **Documentation & Styling:** Ongoing enhancements.
+## Current State
 
-**Next Steps:**
+- **Frontend**: Ember.js with album-level sorting and filtering done on the frontend for performance.
+- **Backend**: Express.js, JSON:API, data from `osxphotos`.
+- **Data Handling**: `osxphotos` extracts metadata; `photos.json` captures results for each album.
+- **Selection & Export**: In progress.
+- **Documentation & Styling**: Ongoing enhancements.
 
-1. **Implement Multi-Person Filtering with Query Params:**
-   - Refactor UI to remove separate person routes (already done).
-   - Add toggles in the left nav (done).
-   - Update the album route’s model hook to factor in `people` query param (done).
-2. **Improve Export Feature:**
-   - Integrate actual export logic on the backend.
-   - Show feedback to the user during export operations.
-3. **UX and Performance:**
-   - **Immediate Measure:** We have now implemented frontend-only sorting and filtering to avoid expensive re-fetches of large albums.
-   - **Long-Term Vision:** Consider setting up an indexed database on the backend to handle large datasets more efficiently. Also develop a cache invalidation mechanism for Apple Photos library changes, so we know when our snapshot is stale and re-fetch only when necessary.
-4. **Testing & Quality Assurance:**
-   - Test multi-person filtering thoroughly.
-   - Validate sorting and selection persistence with front-end-only filtering.
-   - Confirm that no new network requests are made unnecessarily.
-5. **Documentation & Cleanup:**
-   - Keep all documentation updated.
-   - Refactor code for maintainability.
+---
+
+## Next Steps
+
+1. **Implement Multi-Person Filtering with Query Params**  
+   Completed the initial approach; further refinements ongoing.
+2. **Improve Export Feature**  
+   Integrate actual export logic on the backend, plus UI feedback during export.
+3. **UX and Performance**  
+   Potentially add an indexed DB or partial caching for large datasets; also set up a refresh route.
+4. **Testing & Quality Assurance**  
+   Strengthen acceptance tests (e.g. `person-filtering-test.js`).
+5. **Documentation & Cleanup**  
+   Keep all docs updated; refactor code for maintainability.
+
+---
+
+## Cinematic Montages and Artistic Workflow
+
+With the emerging cinematic use cases (see `CINEMATIC-VISION.md` for deeper discussion):
+
+- **Facilitating “Short Films”**  
+  Users often drag out ~150 images, place them into an external video editor (Final Cut Pro or similar), and generate micro-animations or time-lapse sequences. Our sorting by aesthetic score or by recognized faces can help them find key frames or ensure coverage of all event participants.
+
+- **Montage Tools**  
+  While advanced timeline editing is best left to specialized video software, the Photo Filter app can provide “proto-montage” capabilities:
+
+  - Exporting images in a “chronological yet selective” order.
+  - Tagging or marking intervals for quick selection in FCPX.
+  - Potential future feature: “mini-sequence preview,” letting the user quickly flip through frames in the app (like a mechanical film editor’s spool).
+
+- **Long-Term Vision**
+  - Possibly integrate a “Montage Editor” overlay in the Ember frontend for a quick drag-and-drop sequence.
+  - Provide “story arc” filters (e.g., stable lighting vs. highly varied frames).
+  - Output an “XML timeline” or JSON for direct import into editing software.
+
+This alignment of photography with micro-cinema underscores our commitment to bridging the still and moving image realms. By continuing to refine filtering and selection tools, we enable both everyday photographers and fine-art practitioners to unearth new narrative possibilities.

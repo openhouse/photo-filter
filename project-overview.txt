@@ -1,7 +1,7 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sun Jan 12 11:25:52 EST 2025
-Branch: develop
+Generated on: Sun Jan 12 15:41:09 EST 2025
+Branch: feature/teamwork
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -14,10 +14,13 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── .gitignore
 ├── .nvmrc
 ├── ADVISORY_TEAM.md
+├── ARTISTIC-NOTES.md
+├── CINEMATIC-VISION.md
 ├── COMPASSION.md
 ├── DEVELOPMENT_PLAN.md
 ├── ISSUES.md
 ├── README.md
+├── RELATIONAL-PRACTICES.md
 ├── backend
 │   ├── .DS_Store
 │   ├── .babelrc
@@ -203,7 +206,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       ├── testem.js
 │       ├── tests
 │       │   ├── acceptance
-│       │   │   └── albums-test.js
+│       │   │   ├── albums-test.js
+│       │   │   └── person-filtering-test.js
 │       │   ├── helpers
 │       │   │   └── index.js
 │       │   ├── index.html
@@ -239,7 +243,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-76 directories, 153 files
+76 directories, 157 files
 ```
 
 ---
@@ -309,6 +313,111 @@ The following three individuals would form a dream advisory team for the Photo F
 Collaborating with these three individuals would provide a near-ideal synergy across every major facet of your Photo Filter Application: front-end, backend, and macOS Photos integration.
 ```
 
+### **./ARTISTIC-NOTES.md**
+```
+# ARTISTIC-NOTES.md
+
+This document provides editorial and artistic context for the Photo Filter Application, referencing the ways photography, curation, and narrative come together in the project. It is intended to help future contributors understand the artistic motivations behind certain design decisions.
+
+---
+
+## Editorial and Narrative Approach
+
+- **Intentional Sequences**  
+  The application isn't merely a batch sorter of images; it helps create sequences that function almost like photo essays or mini-narratives. Each album can be ordered or filtered in ways that highlight a story arc—people present, aesthetic scores, or event chronology.
+
+- **Contextual Metadata**  
+  We emphasize user-driven annotation and curation. While the app draws on Apple Photos library data, the user’s personal “artistic sense” (e.g., references to an old 8mm camera or time-lapse sequences) shapes how they pick or weigh certain aesthetic scores.
+
+- **User as Editor**  
+  The user effectively serves as an editor, deciding which images to “export” or highlight. By showing multiple vantage points in quick succession, the short ‘micro animations’ described in our overall project vision come to life.
+
+---
+
+## Why This Matters for Contributors
+
+1. **UI and UX**:  
+   Understanding the user’s editorial desire to quickly form a “photo story” ensures that future UI enhancements (e.g., grouping selected shots, providing an instant storyboard preview) align with the underlying editorial flow.
+
+2. **Documentation**:  
+   Art-based language or code comments that reference “story arcs,” “montage,” or “narrative logic” might appear. These notes let contributors see why the code is structured around flexible sorting, filtering, and partial exports.
+
+3. **Future Integrations**:
+   - Potential tools for “story notes” or “annotations” on images.
+   - Collaborative editing features where multiple users discuss or rank images to shape a final “photo essay.”
+
+---
+
+## Suggestions for Further Development
+
+- **Story Mode**:  
+  A future feature that packages a user’s curated images, along with textual annotations, into a shareable web gallery or mini digital zine.
+
+- **Annotations UI**:  
+  Possibly layering short text notes onto a “selected sequence” of images so that each “chapter” in a photo essay has a distinct thematic anchor.
+
+- **Editorial Guidelines**:  
+  Encouraging or guiding best practices for consistent imagery, color, or timing if the user wants a coherent final look.
+
+---
+
+_Last updated: 2025-01-12_
+```
+
+### **./CINEMATIC-VISION.md**
+```
+# CINEMATIC-VISION.md
+
+The Photo Filter Application stands at the intersection of photography and cinema, enabling the user to create the “shortest of short films,” as described in the project’s original vision. This file elaborates on the cinematic aspects and how they might extend the application’s functionality.
+
+---
+
+## Core Cinematic Concepts
+
+1. **Time-Based Sequencing**  
+   Users can take advantage of the app’s sorting and filtering to create sequences where small differences between frames become visually compelling, reminiscent of time-lapse or stop-motion animation.
+
+2. **Micro-Motion**  
+   When images shot in quick bursts or with intentional repeated framing are lined up, subtle changes (e.g., shifting facial expression, slight camera tilt) create illusions of motion, bridging photography and cinematic flow.
+
+3. **Montage and Discontinuity**  
+   By rearranging images out of chronological order or mixing high aesthetic-score images with unexpected angles, users can produce “montage” effects that disrupt linear narrative. This allows more experimental or conceptual short film structures.
+
+---
+
+## Potential Future Features
+
+- **Montage Editor**  
+  A UI overlay that allows users to drag and drop frames into a timeline. This timeline could export directly to Final Cut Pro–ready clips or sequences.
+
+- **Cinematic “Arcs”**  
+  Extend the concept of filtering by aesthetic score. For instance, choose a “continuity arc” for similar angles or a “contrast arc” to jump between drastically different shots.
+
+- **Smooth Transitions & Keyframing**  
+  Collaborate with advanced post-processing (e.g., using Final Cut or third-party scripts) to identify “key frames” or intervals to create a smoother bridging effect.
+
+---
+
+## Workflow Integration with Video Editors
+
+- **Export for Final Cut Pro**  
+  The application can already export a folder of images with standardized filenames. Integrating optional metadata or “cue sheets” (time stamps, ordering) could make the handoff to FCPX more seamless.
+
+- **Two-Stage Export**
+  1. **Rough Cut**: The user chooses and orders frames in the Photo Filter application.
+  2. **Fine Cut**: Final Cut, Premiere, or DaVinci Resolve handles advanced transitions, color grading, and motion stabilization.
+
+---
+
+## Acknowledgments
+
+- Influenced by the tradition of single-frame shutter usage in film cameras.
+- Inspired by analog film editing aesthetics (cast iron film editors, splicing tape).
+- Encourages a deeper exploration of “the space and time between photos.”
+
+_Last updated: 2025-01-12_
+```
+
 ### **./COMPASSION.md**
 ```
 # COMPASSION.md
@@ -358,75 +467,58 @@ This document outlines the foundational principles and guidelines for embedding 
 
 ## **Stations of the Software Apparatus**
 
-Compassion Software recognizes specific stages in the software lifecycle as opportunities to embody compassion:
+1. **Design**
 
-### **1. Design**
+   - Approach design with humility, curiosity, and an open mind.
+   - Use co-creation methods to include user perspectives early in the process.
+   - Reflect on ethical and relational implications of design choices.
 
-- Approach design with humility, curiosity, and an open mind.
-- Use co-creation methods to include user perspectives early in the process.
-- Reflect on ethical and relational implications of design choices.
+2. **Implementation**
 
-### **2. Implementation**
+   - Write code that reflects transparency, modularity, and adaptability.
+   - Ensure the system can evolve alongside user needs and societal shifts.
+   - Encourage developers to engage in mindful coding practices, reflecting on relational impact.
 
-- Write code that reflects transparency, modularity, and adaptability.
-- Ensure the system can evolve alongside user needs and societal shifts.
-- Encourage developers to engage in mindful coding practices, reflecting on the relational impact of their decisions.
+3. **Interaction**
 
-### **3. Interaction**
+   - Craft user experiences that feel relational and empathetic.
+   - Include prompts for reflection and tools for emotional regulation.
+   - Use nonviolent communication templates that adapt dynamically to user needs.
 
-- Craft user experiences that feel relational and empathetic.
-- Include prompts for reflection and tools for emotional regulation.
-- Use nonviolent communication templates that adapt dynamically to user needs, offering guidance while educating users about relational skills.
-
-### **4. Iteration**
-
-- Treat iteration as a space for learning and renewal.
-- Integrate feedback loops to continuously improve functionality and relational impact.
-- Develop metrics to measure how well the system fosters care, connection, and relational awareness.
+4. **Iteration**
+   - Treat iteration as a space for learning and renewal.
+   - Integrate feedback loops to continuously improve functionality and relational impact.
+   - Develop metrics to measure how well the system fosters care, connection, and relational awareness.
 
 ---
 
 ## **Features to Prioritize**
 
-- **Emotional Mapping**: Visualize user relationships and emotional dynamics, evolving over time based on user input and experiences.
-- **Self-Compassion Toolkit**: Provide mindfulness prompts, stress cycle completion exercises, affirmations, and guidance for self-kindness.
-- **Nonviolent Communication Templates**: Equip users to navigate conflict with empathy and understanding, adapting dynamically to user tone and context.
-- **Safe Spaces**: Ensure privacy and user agency in all reflective or emotional features.
-- **Gamified Acts of Kindness**: Encourage users to practice compassion in small, intentional ways.
-- **Narrative Storytelling Features**: Allow users to co-create evolving emotional and relational stories with the system.
+- **Emotional Mapping**
+- **Self-Compassion Toolkit**
+- **Nonviolent Communication Templates**
+- **Safe Spaces**
+- **Gamified Acts of Kindness**
+- **Narrative Storytelling Features**
 
 ---
 
 ## **Ethical Commitments**
 
-- **Privacy First**: Users retain ownership and control over their data.
-- **Bias Awareness**: Actively identify and mitigate biases in design and algorithms.
-- **Cultural Sensitivity**: Create inclusive systems that reflect diverse perspectives and needs.
-- **Sustainability**: Prioritize resource-efficient technologies to minimize environmental impact.
-- **Developer Accountability**: Establish processes to ensure developers adhere to ethical guidelines and relational goals.
+- **Privacy First**
+- **Bias Awareness**
+- **Cultural Sensitivity**
+- **Sustainability**
+- **Developer Accountability**
 
 ---
 
 ## **Developer Guidelines**
 
 1. **Collaborate with Empathy**
-
-   - Approach teamwork with patience and understanding.
-   - Foster psychological safety within the development environment.
-
 2. **Document Decisions Thoughtfully**
-
-   - Explain not just technical choices, but also ethical and relational considerations.
-   - Use this document as a reference when evaluating the compassion impact of a feature.
-
 3. **Test for Relational Impact**
-
-   - Go beyond functionality to assess how features affect users emotionally and relationally.
-   - Regularly gather user feedback to refine experiences.
-
 4. **Iterate with Care**
-   - Treat each iteration as an opportunity for growth, both for the system and the team.
-   - Reflect on lessons learned and incorporate them into the next cycle.
 
 ---
 
@@ -438,9 +530,9 @@ Compassion Software recognizes specific stages in the software lifecycle as oppo
 
 ---
 
-## **Closing Statement**
+## **Integration with Relational Practices**
 
-Compassion Software redefines how technology can serve humanity by embedding care, connection, and resilience at every stage. By following the principles outlined in this document, we aim to create systems that not only solve problems but also nurture the emotional and relational well-being of all who interact with them.
+We have expanded these principles further in [`RELATIONAL-PRACTICES.md`](./RELATIONAL-PRACTICES.md). That file provides more tactical examples and guidelines, ensuring that the spirit of compassion outlined here is realized in day-to-day collaboration, code reviews, and user interactions.
 ```
 
 ### **./DEVELOPMENT_PLAN.md**
@@ -478,71 +570,86 @@ Compassion Software redefines how technology can serve humanity by embedding car
 
 **Implementation Steps:**
 
-1. **Remove Person Sub-Routes:**
-   - No longer need `albums/album/persons` or `albums/album/persons/person/:person_name`.
-   - Instead, retrieve people from `GET /api/albums/:albumUUID/persons` and display them under the selected album in the left nav.
-2. **Update Album Route to Use Query Params:**
-   - Add a `people` query param to `albums.album`.
-   - When a user toggles a person in the UI, update the `people` query param to reflect the currently selected individuals.
-   - Filter photos based on the intersection of all selected individuals’ sets of photos.
-3. **UI Updates:**
-   - The left nav becomes scrollable and fixed in height, independent from the main content area.
-   - Display the currently selected album title, below it a list of people. Each name toggles inclusion in the people filter.
-   - No need for “Back to Albums” or “View People in This Album” links—navigation and filtering are seamlessly integrated.
-4. **Backend:**
-   - The backend remains largely the same. The frontend can still fetch all people via `GET /api/albums/:albumUUID/persons`.
-   - For multiple individuals, the frontend will combine their names and request photos containing all of them, or request the full set and filter on the client side if needed. (Future optimization may be added on the backend.)
-5. **Documentation:**
-   - Update `DEVELOPMENT_PLAN.md`, `ISSUES.md`, and `README.md` to reflect the new approach.
-   - Document how query parameters represent the filtering state.
-6. **Testing and Validation:**
-   - Ensure that selecting multiple individuals updates the displayed photos correctly.
-   - Confirm that query params can be bookmarked and reloaded.
-   - Test sorting combined with person-based filtering.
+1. **Remove Person Sub-Routes**  
+   No longer need `albums/album/persons` or `albums/album/persons/person/:person_name`.
+2. **Update Album Route to Use Query Params**  
+   Add a `people` query param to `albums.album`, update toggles, etc.
+3. **UI Updates**  
+   People filters appear in the left nav, integrated with album listing.
+4. **Backend**  
+   The backend remains largely the same. For multi-person queries, client-side filtering is primary; future server optimization possible.
+5. **Documentation**  
+   Update relevant docs: `DEVELOPMENT_PLAN.md`, `ISSUES.md`, `README.md`.
+6. **Testing and Validation**  
+   Confirm query params work and that reloading with persons in the URL is stable.
 
 **Potential Challenges:**
 
-- **Complex Filtering:** As multiple people are selected, performance could degrade for large albums. Consider caching or indexing if needed.
-- **UI Complexity:** Need a clear indication of which people are currently selected and how to reset filters.
-- **Backwards Compatibility:** Removing person sub-routes may require updating links or references.
+- Complex filtering for large libraries might need caching or indexing.
+- UI complexity if many persons are toggled.
 
-**Previous Updates:**
+---
 
-- **December 7, 2024:** Initial person-level sub-routes conceived. _(Note: This approach is now evolving into a unified, query-param-based filter.)_
-- **November 12, 2024:** Introduced nested routes, left nav, and sorting.
-- **November 1, 2024:** Added cache invalidation for data freshness.
-- **October 30, 2024:** Adopted JSON:API serializer.
+### Previous Updates
 
-**Project Goal:**
+- **December 7, 2024**: Initial person-level sub-routes conceived.
+- **November 12, 2024**: Introduced nested routes, left nav, and sorting.
+- **November 1, 2024**: Added cache invalidation for data freshness.
+- **October 30, 2024**: Adopted JSON:API serializer.
+
+---
+
+## Project Goal
+
 Create an intuitive, facet-based photo exploration tool integrated with macOS Photos data, enabling advanced sorting, selection, exporting, and multi-person filtering.
 
-**Current State:**
+---
 
-- **Frontend:** Ember.js with album-level sorting and filtering now done fully on the frontend for improved performance.
-- **Backend:** Express.js, JSON:API, data from `osxphotos`.
-- **Data Handling:** `osxphotos` extracts metadata.
-- **Selection & Export:** In progress.
-- **Documentation & Styling:** Ongoing enhancements.
+## Current State
 
-**Next Steps:**
+- **Frontend**: Ember.js with album-level sorting and filtering done on the frontend for performance.
+- **Backend**: Express.js, JSON:API, data from `osxphotos`.
+- **Data Handling**: `osxphotos` extracts metadata; `photos.json` captures results for each album.
+- **Selection & Export**: In progress.
+- **Documentation & Styling**: Ongoing enhancements.
 
-1. **Implement Multi-Person Filtering with Query Params:**
-   - Refactor UI to remove separate person routes (already done).
-   - Add toggles in the left nav (done).
-   - Update the album route’s model hook to factor in `people` query param (done).
-2. **Improve Export Feature:**
-   - Integrate actual export logic on the backend.
-   - Show feedback to the user during export operations.
-3. **UX and Performance:**
-   - **Immediate Measure:** We have now implemented frontend-only sorting and filtering to avoid expensive re-fetches of large albums.
-   - **Long-Term Vision:** Consider setting up an indexed database on the backend to handle large datasets more efficiently. Also develop a cache invalidation mechanism for Apple Photos library changes, so we know when our snapshot is stale and re-fetch only when necessary.
-4. **Testing & Quality Assurance:**
-   - Test multi-person filtering thoroughly.
-   - Validate sorting and selection persistence with front-end-only filtering.
-   - Confirm that no new network requests are made unnecessarily.
-5. **Documentation & Cleanup:**
-   - Keep all documentation updated.
-   - Refactor code for maintainability.
+---
+
+## Next Steps
+
+1. **Implement Multi-Person Filtering with Query Params**  
+   Completed the initial approach; further refinements ongoing.
+2. **Improve Export Feature**  
+   Integrate actual export logic on the backend, plus UI feedback during export.
+3. **UX and Performance**  
+   Potentially add an indexed DB or partial caching for large datasets; also set up a refresh route.
+4. **Testing & Quality Assurance**  
+   Strengthen acceptance tests (e.g. `person-filtering-test.js`).
+5. **Documentation & Cleanup**  
+   Keep all docs updated; refactor code for maintainability.
+
+---
+
+## Cinematic Montages and Artistic Workflow
+
+With the emerging cinematic use cases (see `CINEMATIC-VISION.md` for deeper discussion):
+
+- **Facilitating “Short Films”**  
+  Users often drag out ~150 images, place them into an external video editor (Final Cut Pro or similar), and generate micro-animations or time-lapse sequences. Our sorting by aesthetic score or by recognized faces can help them find key frames or ensure coverage of all event participants.
+
+- **Montage Tools**  
+  While advanced timeline editing is best left to specialized video software, the Photo Filter app can provide “proto-montage” capabilities:
+
+  - Exporting images in a “chronological yet selective” order.
+  - Tagging or marking intervals for quick selection in FCPX.
+  - Potential future feature: “mini-sequence preview,” letting the user quickly flip through frames in the app (like a mechanical film editor’s spool).
+
+- **Long-Term Vision**
+  - Possibly integrate a “Montage Editor” overlay in the Ember frontend for a quick drag-and-drop sequence.
+  - Provide “story arc” filters (e.g., stable lighting vs. highly varied frames).
+  - Output an “XML timeline” or JSON for direct import into editing software.
+
+This alignment of photography with micro-cinema underscores our commitment to bridging the still and moving image realms. By continuing to refine filtering and selection tools, we enable both everyday photographers and fine-art practitioners to unearth new narrative possibilities.
 ```
 
 ### **./ISSUES.md**
@@ -932,6 +1039,72 @@ Testing
 License
 
 This project is licensed under the MIT License.
+```
+
+### **./RELATIONAL-PRACTICES.md**
+```
+# RELATIONAL-PRACTICES.md
+
+This document outlines the cultural and mindful norms for collaboration, both among humans and with AI or other automated systems. It builds on the themes in `COMPASSION.md` and provides more specific guidance for sustaining healthy relational dynamics within the Photo Filter Application’s community.
+
+---
+
+## Guiding Principles
+
+1. **User Ownership of Memories**  
+   Photos are intimate carriers of personal or communal memory. Any code that processes these images must treat that data with reverence and respect.
+
+2. **Shared Authorship**  
+   The open-source contributors, third-party developers, and AI assistants are co-authors of the evolving codebase. We collectively own design decisions and share responsibility for maintaining relational integrity.
+
+3. **Transparent Communication**  
+   All major architectural or feature changes should be proposed and documented clearly, with an invitation for feedback. This reduces confusion and fosters empathy.
+
+4. **Mindful Interactions**
+   - **AI Involvement**: Whenever generative AI or large language models assist in code or doc creation, we label it explicitly.
+   - **Conflict Mediation**: If design disputes arise, a short reflection period is advised. We either pick the approach that best serves the relational context or schedule a synchronous conversation.
+
+---
+
+## Recommended Practices
+
+- **Code Reviews**
+
+  - Focus on the _why_ behind changes, not just the _what_.
+  - Offer respectful suggestions, not abrupt demands.
+
+- **Issue Discussions**
+
+  - Frame problems neutrally, highlight potential solutions with compassion for others’ perspectives.
+  - Mark uncertain aspects with “Uncertain” tags.
+
+- **Documentation Updates**
+  - Reference real user stories, actual emotional or relational contexts.
+  - For instance, mention how a certain feature helps a user preserve memories of loved ones in a caring way.
+
+---
+
+## Integrations with `COMPASSION.md`
+
+Where `COMPASSION.md` sets overarching ethical and mindful standards, `RELATIONAL-PRACTICES.md` is more tactical:
+
+- Provides real examples, use-case scenarios, and protocols for collaboration.
+- Recommends mediation processes or reflection sessions for major decisions.
+
+---
+
+## Looking Ahead
+
+1. **Community Dialogues**:  
+   Hosting open “town hall”–style Zoom calls or asynchronous Slack threads for user feedback on major features.
+
+2. **Educational Materials**:  
+   Possibly building short tutorials on “how to sort photos while respecting diverse emotional triggers” or “leading a healthy collaborative design session for new features.”
+
+3. **Respectful Off-Ramps**:  
+   If a collaborator or user wants to disengage from certain code responsibilities, we have a plan for handing off tasks so that no one feels undue pressure.
+
+_Last updated: 2025-01-12_
 ```
 
 ### **./project-guidelines.md**
@@ -3582,32 +3755,101 @@ export default router;
 // backend/routes/api.js
 
 import express from "express";
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
 import {
   getAlbumsData,
   getAlbumById,
   getPhotosByAlbumData,
 } from "../controllers/api/index.js";
-
-// Import the new people controllers
 import {
   getPeopleInAlbum,
   getPhotosByPerson,
 } from "../controllers/api/people-controller.js";
+import { runPythonScript } from "../utils/run-python-script.js";
+import { runOsxphotosExportImages } from "../utils/export-images.js";
+
+// If needed for resolving paths in a Node ES Module:
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const apiRouter = express.Router();
 
-// API route to get all albums
+// =====================================
+//   Existing Endpoints
+// =====================================
+
+// Fetch all albums
 apiRouter.get("/albums", getAlbumsData);
 
-// API route to get a single album by UUID
+// Fetch a single album by UUID
 apiRouter.get("/albums/:albumUUID", getAlbumById);
 
-// API route to get photos by album UUID
+// Fetch photos for a given album
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
-// API routes for people in an album
+// People in an album
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
+
+// Photos of a specific person in an album
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
+
+// =====================================
+//   New REFRESH Endpoint
+// =====================================
+apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
+  try {
+    const { albumUUID } = req.params;
+
+    // Paths
+    const dataDir = path.join(
+      __dirname,
+      "..",
+      "..",
+      "data",
+      "albums",
+      albumUUID
+    );
+    const photosPath = path.join(dataDir, "photos.json");
+    const imagesDir = path.join(dataDir, "images");
+    const venvDir = path.join(__dirname, "..", "..", "venv");
+    const pythonPath = path.join(venvDir, "bin", "python3");
+    const scriptPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "scripts",
+      "export_photos_in_album.py"
+    );
+    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+
+    // Remove existing data to force a re-export
+    if (await fs.pathExists(photosPath)) {
+      await fs.remove(photosPath);
+    }
+    if (await fs.pathExists(imagesDir)) {
+      await fs.remove(imagesDir);
+    }
+
+    // Re-run Python script to get fresh metadata
+    await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+    // Then export images again
+    await runOsxphotosExportImages(
+      osxphotosPath,
+      albumUUID,
+      imagesDir,
+      photosPath
+    );
+
+    return res.json({
+      message: `Album ${albumUUID} metadata and images have been refreshed.`,
+    });
+  } catch (error) {
+    console.error("Error in refresh endpoint:", error);
+    res.status(500).json({ errors: [{ detail: error.message }] });
+  }
+});
 
 export default apiRouter;
 ```
@@ -4662,6 +4904,55 @@ module('Acceptance | albums', function (hooks) {
 
     // Check that images have loaded
     assert.dom('.photo-item img').exists('Photo image is displayed');
+  });
+});
+```
+
+### **./frontend/photo-filter-frontend/tests/acceptance/person-filtering-test.js**
+```
+// frontend/photo-filter-frontend/tests/acceptance/person-filtering-test.js
+
+import { module, test } from 'qunit';
+import { visit, click, findAll, currentURL } from '@ember/test-helpers';
+import { setupApplicationTest } from '../helpers/index.js';
+
+module('Acceptance | Person Filtering', function (hooks) {
+  setupApplicationTest(hooks);
+
+  test('toggle multiple people in an album', async function (assert) {
+    await visit('/albums');
+    assert.strictEqual(currentURL(), '/albums', 'At the albums index route');
+
+    // Click the first album link
+    const albumLinks = findAll('.menu li a');
+    assert.ok(albumLinks.length > 0, 'We have at least one album link');
+    await click(albumLinks[0]);
+
+    // Now should be /albums/:album_id
+    let url = currentURL();
+    assert.ok(url.startsWith('/albums/'), 'Navigated to an album detail route');
+
+    // There should be person toggle buttons
+    const personButtons = findAll('.btn.btn-xs');
+    assert.ok(personButtons.length > 0, 'Person toggles exist on the page');
+
+    // Toggle the first person
+    await click(personButtons[0]);
+    url = currentURL();
+    assert.ok(
+      url.includes('persons='),
+      'URL now contains persons query param after toggling',
+    );
+
+    // Optionally toggle a second person if available
+    if (personButtons.length > 1) {
+      await click(personButtons[1]);
+      url = currentURL();
+      assert.ok(
+        url.includes('%2C'),
+        'Multiple persons are included in the query param (comma-encoded)',
+      );
+    }
   });
 });
 ```
