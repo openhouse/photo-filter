@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Wed Jan  1 23:40:37 EST 2025
+Generated on: Sun Jan 12 09:53:41 EST 2025
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -32,9 +32,13 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── ---albums.json
+│   │   ├── --albums.json
 │   │   ├── -albums.json
 │   │   ├── .DS_Store
 │   │   ├── albums
+│   │   │   ├── --1AF4375A-A948-45C7-B4B9-C9C2D4CB5DC5
+│   │   │   │   └── photos.json
 │   │   │   ├── -1AF4375A-A948-45C7-B4B9-C9C2D4CB5DC5
 │   │   │   │   └── photos.json
 │   │   │   ├── .DS_Store
@@ -54,7 +58,13 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   │   └── photos.json
 │   │   │   ├── 69865EDF-08F2-40B1-8E20-F802D6C4E6D3
 │   │   │   │   └── photos.json
+│   │   │   ├── 8F0E0536-45BB-4EED-A62B-B8F56D61412F
+│   │   │   │   └── photos.json
 │   │   │   ├── 918451EC-C6A5-416D-B919-D23AE46FEBBF
+│   │   │   │   └── photos.json
+│   │   │   ├── 9379D36A-15A0-4705-BFC1-23574AE145D8
+│   │   │   │   └── photos.json
+│   │   │   ├── 9D1ED02F-D8D1-43F9-ACE0-1D35B14DE195
 │   │   │   │   └── photos.json
 │   │   │   ├── A9641171-0398-46FC-B1EF-03B66D73BF32
 │   │   │   │   └── photos.json
@@ -106,7 +116,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── person.hbs
 │   │   └── persons.hbs
 │   └── yarn.lock
-├── cleanup-duplicates.sh
 ├── frontend
 │   ├── .DS_Store
 │   └── photo-filter-frontend
@@ -218,6 +227,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   └── stylesheets
 │       └── css
 │           └── style.css
+├── scripts
+│   ├── cleanup-duplicates.sh
+│   └── create-video.sh
 ├── test-images
 │   ├── .osxphotos_export.db
 │   ├── IMG_0743.HEIC
@@ -225,7 +237,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-71 directories, 145 files
+76 directories, 152 files
 ```
 
 ---
@@ -2698,6 +2710,56 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 }
 ```
 
+### **./backend/data/--albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
+### **./backend/data/---albums.json**
+```json
+[
+    {
+        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
+        "title": "Inner Space"
+    },
+    {
+        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
+        "title": "Carmen"
+    },
+    {
+        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
+        "title": "Jamie"
+    },
+    {
+        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
+        "title": "LoVid"
+    },
+    {
+        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
+        "title": "Lera Show"
+...
+```
+
 ### **./backend/data/albums.json**
 ```json
 [
@@ -2873,6 +2935,56 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/9379D36A-15A0-4705-BFC1-23574AE145D8/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Snow"
+        ],
+        "burst": false,
+        "cloud_guid": "AeXFxa+Ga0PHwnMCmCZZC+qJZli9",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-01-06 14:55:41.022275-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-01-06 13:58:42-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 160,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
+### **./backend/data/albums/8F0E0536-45BB-4EED-A62B-B8F56D61412F/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "With Stefania"
+        ],
+        "burst": false,
+        "cloud_guid": "Ae1jAv2u3zZVfKq8TJccL1BVavdL",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-01-07 18:34:44.419988-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-01-07 16:26:42-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 500,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
 ### **./backend/data/albums/4CA23588-B72F-4807-8015-7ED9CABE44CB/photos.json**
 ```json
 [
@@ -2948,6 +3060,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/--1AF4375A-A948-45C7-B4B9-C9C2D4CB5DC5/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V-02",
+            "Stefania"
+        ],
+        "burst": false,
+        "cloud_guid": "AUf+djE+jaJNIaz2xEN31IC7yKg+",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-01-01 20:27:27.985500-05:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-01-01 19:29:14-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 1250,
+            "metering_mode": 5,
+            "sample_rate": null,
+...
+```
+
 ### **./backend/data/albums/F3E7E679-D0C3-4442-9984-BA2C2B9DEA4C/photos.json**
 ```json
 [
@@ -2995,6 +3132,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
         "date": "2024-11-30 19:07:52-05:00",
         "description": null,
         "exif_info": {
+...
+```
+
+### **./backend/data/albums/9D1ED02F-D8D1-43F9-ACE0-1D35B14DE195/photos.json**
+```json
+[
+    {
+        "albums": [
+            "FUJIFILM X100V",
+            "Kendell + Mandy",
+            "Sold the building"
+        ],
+        "burst": false,
+        "cloud_guid": "AbKvwshLoD5UVXKZ2eDVsCSnrfVk",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-03-20 23:52:55.841168-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2024-03-20 21:24:15-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 640,
+            "metering_mode": 5,
 ...
 ```
 
