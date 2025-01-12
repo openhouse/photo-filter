@@ -48,6 +48,12 @@ The following three individuals would form a dream advisory team for the Photo F
 - Having Rhet’s insights ensures that your macOS Photos integration remains stable when Apple updates Photos’ schema or metadata.
 - He can also recommend best practices for large-scale exports and metadata transformations.
 
+## 4. Deborah Treisman
+
+## 5. Margaret Morse
+
+## 6. Warren Sack
+
 ---
 
 ## Summary

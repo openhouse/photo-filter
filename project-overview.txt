@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 -e 
-Generated on: Sun Jan 12 15:41:09 EST 2025
+Generated on: Sun Jan 12 17:22:20 EST 2025
 Branch: feature/teamwork
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
@@ -48,6 +48,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   │   └── photos.json
 │   │   │   ├── .DS_Store
 │   │   │   ├── 07B45549-D8E7-40E1-BBC2-AA6A8383054B
+│   │   │   │   └── photos.json
+│   │   │   ├── 13F82066-89B7-44D1-B42E-C6D139EDB3EA
 │   │   │   │   └── photos.json
 │   │   │   ├── 16BC5397-4A87-49A1-8404-85D6473F3931
 │   │   │   │   └── photos.json
@@ -208,8 +210,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── acceptance
 │       │   │   ├── albums-test.js
 │       │   │   └── person-filtering-test.js
-│       │   ├── helpers
-│       │   │   └── index.js
+│       │   ├── helpers.js
 │       │   ├── index.html
 │       │   ├── integration
 │       │   │   └── .gitkeep
@@ -243,7 +244,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-76 directories, 157 files
+76 directories, 158 files
 ```
 
 ---
@@ -301,6 +302,12 @@ The following three individuals would form a dream advisory team for the Photo F
 - Your pipeline uses Python scripts (osxphotos or a close variant) to export and process photos.
 - Having Rhet’s insights ensures that your macOS Photos integration remains stable when Apple updates Photos’ schema or metadata.
 - He can also recommend best practices for large-scale exports and metadata transformations.
+
+## 4. Deborah Treisman
+
+## 5. Margaret Morse
+
+## 6. Warren Sack
 
 ---
 
@@ -3348,6 +3355,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Inner Space"
+        ],
+        "burst": false,
+        "cloud_guid": "ARvfaM8YBQ1gndJN4II4v0oryoh/",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2022-12-01 12:42:43.357395-05:00",
+        "date_modified": "2024-06-13 23:27:13.805682-04:00",
+        "date_trashed": null,
+        "date": "2022-12-01 11:42:42.329834-06:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 64,
+            "metering_mode": 5,
+            "sample_rate": null,
+            "track_format": null,
+...
+```
+
 ### **./backend/data/albums/561CCDD4-26A7-4898-8514-ECE1AABF1409/photos.json**
 ```json
 [
@@ -4810,6 +4842,8 @@ module('Unit | Model | album', function (hooks) {
 
 ### **./frontend/photo-filter-frontend/tests/unit/routes/album-test.js**
 ```
+// tests/unit/routes/album-test.js
+
 import { module, test } from 'qunit';
 import { setupTest } from 'photo-filter-frontend/tests/helpers';
 
@@ -4817,7 +4851,8 @@ module('Unit | Route | album', function (hooks) {
   setupTest(hooks);
 
   test('it exists', function (assert) {
-    let route = this.owner.lookup('route:album');
+    // Correctly look up the nested route
+    let route = this.owner.lookup('route:albums/album');
     assert.ok(route);
   });
 });
@@ -4872,79 +4907,125 @@ start();
 
 ### **./frontend/photo-filter-frontend/tests/acceptance/albums-test.js**
 ```
-// frontend/photo-filter-frontend/tests/acceptance/albums-test.js
+// tests/acceptance/albums-test.js
 
 import { module, test } from 'qunit';
 import { visit, click, findAll, currentURL } from '@ember/test-helpers';
-import { setupApplicationTest } from '../helpers/index.js';
+import { setupApplicationTest } from 'photo-filter-frontend/tests/helpers';
 
 module('Acceptance | albums', function (hooks) {
   setupApplicationTest(hooks);
 
-  test('visiting /albums and viewing an album', async function (assert) {
+  test('Visiting /albums shows the album list', async function (assert) {
+    // 1. Go to /albums
     await visit('/albums');
 
-    assert.strictEqual(currentURL(), '/albums');
-    assert.dom('h1').hasText('Select an Album');
+    // 2. Confirm we landed on the correct route
+    assert.strictEqual(currentURL(), '/albums', 'We are on the /albums route');
 
-    const albumLinks = findAll('a');
-    assert.ok(albumLinks.length > 0, 'There are album links');
+    // 3. Check that album links appear in the sidebar menu
+    let albumLinks = findAll('.menu li a');
+    assert.ok(
+      albumLinks.length > 0,
+      `Expected at least one album link in the sidebar, found ${albumLinks.length}`,
+    );
 
-    // Click the first album link
+    // Just to demonstrate how many albums we found
+    console.log(`Found ${albumLinks.length} album link(s)`);
+  });
+
+  test('Clicking an album link transitions to that album’s route', async function (assert) {
+    // 1. Visit /albums
+    await visit('/albums');
+    assert.strictEqual(
+      currentURL(),
+      '/albums',
+      'We start on the /albums route',
+    );
+
+    // 2. Grab all the album links
+    let albumLinks = findAll('.menu li a');
+    assert.ok(albumLinks.length > 0, 'We have at least one album link');
+
+    // 3. Click the first album link
     await click(albumLinks[0]);
 
-    // The URL should change to the album route
-    assert.ok(currentURL().startsWith('/albums/'), 'Navigated to album route');
+    // 4. The current URL should now reflect that album’s route
+    let url = currentURL();
+    assert.ok(
+      url.startsWith('/albums/'),
+      'After clicking the first album link, we navigate to /albums/:album_id',
+    );
 
-    // Check that photos are displayed
-    assert.dom('.photo-grid').exists('Photo grid is displayed');
+    // 5. Verify that the photo grid or similar content is displayed
+    // In your photo-grid.hbs, the root container is class="grid ..."
+    // So let's confirm that .grid is in the DOM
     assert
-      .dom('.photo-item')
-      .exists({ count: 1 }, 'At least one photo is displayed');
+      .dom('.grid')
+      .exists('The photo-grid component (with class `.grid`) is displayed');
 
-    // Check that images have loaded
-    assert.dom('.photo-item img').exists('Photo image is displayed');
+    // 6. Check for photo items
+    // In your photo-grid.hbs, each item is inside a .card or .photo-item, so adjust as needed
+    let photoCards = findAll('.card');
+    assert.ok(photoCards.length > 0, 'We see at least one .card in the album');
+
+    // 7. Confirm an image is displayed
+    assert
+      .dom('.card figure img')
+      .exists('An image is rendered for each photo item');
   });
 });
 ```
 
 ### **./frontend/photo-filter-frontend/tests/acceptance/person-filtering-test.js**
 ```
-// frontend/photo-filter-frontend/tests/acceptance/person-filtering-test.js
+// tests/acceptance/person-filtering-test.js
 
 import { module, test } from 'qunit';
 import { visit, click, findAll, currentURL } from '@ember/test-helpers';
-import { setupApplicationTest } from '../helpers/index.js';
+import { setupApplicationTest } from 'photo-filter-frontend/tests/helpers';
 
 module('Acceptance | Person Filtering', function (hooks) {
   setupApplicationTest(hooks);
 
   test('toggle multiple people in an album', async function (assert) {
+    // 1. Visit /albums
     await visit('/albums');
-    assert.strictEqual(currentURL(), '/albums', 'At the albums index route');
+    assert.strictEqual(currentURL(), '/albums', 'We are at the /albums route');
 
-    // Click the first album link
+    // 2. Click the first album link
     const albumLinks = findAll('.menu li a');
-    assert.ok(albumLinks.length > 0, 'We have at least one album link');
+    assert.ok(
+      albumLinks.length > 0,
+      'We have at least one album link in the sidebar',
+    );
     await click(albumLinks[0]);
 
-    // Now should be /albums/:album_id
+    // 3. We should now be at /albums/:album_id
     let url = currentURL();
     assert.ok(url.startsWith('/albums/'), 'Navigated to an album detail route');
 
-    // There should be person toggle buttons
+    // 4. The UI should display person toggle buttons
+    // In your album.hbs, you have:
+    //   {{#each this.model.persons as |person|}}
+    //     <button type="button" class="btn btn-xs" ...>
     const personButtons = findAll('.btn.btn-xs');
-    assert.ok(personButtons.length > 0, 'Person toggles exist on the page');
+    assert.ok(
+      personButtons.length > 0,
+      'Person toggles exist on the page for filtering',
+    );
 
-    // Toggle the first person
+    // 5. Toggle the first person
     await click(personButtons[0]);
+
+    // 6. Check that the URL now includes a query param for persons
     url = currentURL();
     assert.ok(
       url.includes('persons='),
-      'URL now contains persons query param after toggling',
+      'URL now contains persons query param after toggling the first person',
     );
 
-    // Optionally toggle a second person if available
+    // 7. Optionally toggle a second person if available
     if (personButtons.length > 1) {
       await click(personButtons[1]);
       url = currentURL();
@@ -4957,50 +5038,35 @@ module('Acceptance | Person Filtering', function (hooks) {
 });
 ```
 
-### **./frontend/photo-filter-frontend/tests/helpers/index.js**
+### **./frontend/photo-filter-frontend/tests/helpers.js**
 ```
+// tests/helpers.js
+
 import {
   setupApplicationTest as upstreamSetupApplicationTest,
   setupRenderingTest as upstreamSetupRenderingTest,
   setupTest as upstreamSetupTest,
 } from 'ember-qunit';
 
-// This file exists to provide wrappers around ember-qunit's
-// test setup functions. This way, you can easily extend the setup that is
-// needed per test type.
+// This file provides wrappers around ember-qunit's test setup functions.
+// Additional per-test-type setup could be added here.
 
-function setupApplicationTest(hooks, options) {
+export function setupApplicationTest(hooks, options) {
   upstreamSetupApplicationTest(hooks, options);
 
-  // Additional setup for application tests can be done here.
-  //
-  // For example, if you need an authenticated session for each
-  // application test, you could do:
-  //
+  // For example:
   // hooks.beforeEach(async function () {
-  //   await authenticateSession(); // ember-simple-auth
+  //   // e.g., authenticateSession(); // for ember-simple-auth
   // });
-  //
-  // This is also a good place to call test setup functions coming
-  // from other addons:
-  //
-  // setupIntl(hooks, 'en-us'); // ember-intl
-  // setupMirage(hooks); // ember-cli-mirage
 }
 
-function setupRenderingTest(hooks, options) {
+export function setupRenderingTest(hooks, options) {
   upstreamSetupRenderingTest(hooks, options);
-
-  // Additional setup for rendering tests can be done here.
 }
 
-function setupTest(hooks, options) {
+export function setupTest(hooks, options) {
   upstreamSetupTest(hooks, options);
-
-  // Additional setup for unit tests can be done here.
 }
-
-export { setupApplicationTest, setupRenderingTest, setupTest };
 ```
 
 ### **./frontend/photo-filter-frontend/README.md**
