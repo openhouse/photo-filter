@@ -1,39 +1,54 @@
 #!/bin/bash
 
 # ./generate-overview.sh
+#
+# Generates project-overview.txt with:
+#   - Timestamp
+#   - Current Git branch
+#   - Project structure (via tree)
+#   - File listings/contents for specific file types
+#
+# Usage:
+#   chmod +x generate-overview.sh
+#   ./generate-overview.sh
 
-# Generate project overview
 OUTPUT_FILE="project-overview.txt"
 
-echo "# Project Overview: Photo Filter" > $OUTPUT_FILE
+# Determine current Git branch (will show 'HEAD' if detached)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-echo -e "\nGenerated on: $(date)\n" >> $OUTPUT_FILE
+echo "# Project Overview: Photo Filter" > "$OUTPUT_FILE"
 
-echo "This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications." >> $OUTPUT_FILE
-echo "---" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
+# Write timestamp and branch info
+echo -e "\nGenerated on: $(date)" >> "$OUTPUT_FILE"
+echo "Branch: $CURRENT_BRANCH" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
 
-echo "## Project Structure" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
+echo "This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications." >> "$OUTPUT_FILE"
+echo "---" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+
+echo "## Project Structure" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
 
 # Exclude specified directories
 EXCLUDE_DIRS='node_modules|.git|venv|dist|build|cache|logs|images|images-source'
 
 # Generate the directory tree
-echo "\`\`\`" >> $OUTPUT_FILE
-tree -a -I "$EXCLUDE_DIRS" >> $OUTPUT_FILE
-echo "\`\`\`" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
+echo "\`\`\`" >> "$OUTPUT_FILE"
+tree -a -I "$EXCLUDE_DIRS" >> "$OUTPUT_FILE"
+echo "\`\`\`" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
 
-echo "---" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
+echo "---" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
 
 # Function to list files with specific extensions
 list_files() {
   local DIR=$1
   local OUTPUT=$2
 
-  FILES=$(find $DIR -type f \( \
+  FILES=$(find "$DIR" -type f \( \
     -name "*.js" -o \
     -name "*.ts" -o \
     -name "*.scss" -o \
@@ -55,39 +70,39 @@ list_files() {
   for FILE in $FILES; do
     # For large JSON files, include only the first 20 lines
     if [[ "$FILE" == *.json && $(wc -l < "$FILE") -gt 100 ]]; then
-      echo "### **$FILE**" >> $OUTPUT
-      echo "\`\`\`json" >> $OUTPUT
-      head -n 20 "$FILE" >> $OUTPUT
-      echo "..." >> $OUTPUT
-      echo "\`\`\`" >> $OUTPUT
-      echo "" >> $OUTPUT
+      echo "### **$FILE**" >> "$OUTPUT"
+      echo "\`\`\`json" >> "$OUTPUT"
+      head -n 20 "$FILE" >> "$OUTPUT"
+      echo "..." >> "$OUTPUT"
+      echo "\`\`\`" >> "$OUTPUT"
+      echo "" >> "$OUTPUT"
     else
-      echo "### **$FILE**" >> $OUTPUT
-      echo "\`\`\`" >> $OUTPUT
-      cat "$FILE" >> $OUTPUT
-      echo "\`\`\`" >> $OUTPUT
-      echo "" >> $OUTPUT
+      echo "### **$FILE**" >> "$OUTPUT"
+      echo "\`\`\`" >> "$OUTPUT"
+      cat "$FILE" >> "$OUTPUT"
+      echo "\`\`\`" >> "$OUTPUT"
+      echo "" >> "$OUTPUT"
     fi
   done
 }
 
 # Include root-level markdown files
-echo "## Root-Level Files" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
+echo "## Root-Level Files" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
 for FILE in *.md; do
   if [[ -f "$FILE" ]]; then
-    echo "### **./$FILE**" >> $OUTPUT_FILE
-    echo "\`\`\`" >> $OUTPUT_FILE
-    cat "$FILE" >> $OUTPUT_FILE
-    echo "\`\`\`" >> $OUTPUT_FILE
-    echo "" >> $OUTPUT_FILE
+    echo "### **./$FILE**" >> "$OUTPUT_FILE"
+    echo "\`\`\`" >> "$OUTPUT_FILE"
+    cat "$FILE" >> "$OUTPUT_FILE"
+    echo "\`\`\`" >> "$OUTPUT_FILE"
+    echo "" >> "$OUTPUT_FILE"
   fi
 done
 
-echo "## Backend Files" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
-list_files "./backend" $OUTPUT_FILE
+echo "## Backend Files" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+list_files "./backend" "$OUTPUT_FILE"
 
-echo "## Frontend Files" >> $OUTPUT_FILE
-echo "" >> $OUTPUT_FILE
-list_files "./frontend/photo-filter-frontend" $OUTPUT_FILE
+echo "## Frontend Files" >> "$OUTPUT_FILE"
+echo "" >> "$OUTPUT_FILE"
+list_files "./frontend/photo-filter-frontend" "$OUTPUT_FILE"
