@@ -1,7 +1,7 @@
 # Project Overview: Photo Filter
 
-Generated on: Sun Jan 12 21:27:04 EST 2025
-System Architecture: x86_64
+Generated on: Sun Jan 12 22:27:34 EST 2025
+System Architecture: arm64
 Operating System: macOS 15.2
 Node Version: v20.18.1
 Branch: feature/teamwork
