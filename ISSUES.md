@@ -227,3 +227,29 @@ When an album contains a very large number of photos (hundreds or thousands), Ch
 
 - For truly large datasets, implement full pagination instead of a single “limit” slice.
 - Monitor memory usage when increasing `limit`.
+
+---
+
+## Issue 20: Time Taxonomy in Left Nav
+
+**Opened By:** [Your Name], Jan 12, 2025  
+**Status:** Open
+
+### Description
+
+We want to add a new time-based taxonomy (Years → Months → Weeks → Days) in the left nav. Only show nodes with existing photos. Let the user multi-select date ranges to form a combined album view on the right side, possibly also filtering by people.
+
+### Proposed Actions
+
+1. **Add a new `time-index` endpoint** returning a hierarchical JSON of years, months, weeks, days.
+2. **Implement a new Ember route and left nav section** for the time taxonomy.
+3. **Support multi-select** (like checkboxes).
+4. **Combine with existing person filters**.
+
+### Next Steps
+
+- Add documentation (`TIMELINE_TAXONOMY.md`) describing the data structure.
+- Add a proof of concept for generating a time index from our photo metadata.
+- Build or update acceptance tests to ensure multi-time-slice selection works.
+
+---

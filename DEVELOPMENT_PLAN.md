@@ -111,3 +111,48 @@ With the emerging cinematic use cases (see `CINEMATIC-VISION.md` for deeper disc
   - Output an “XML timeline” or JSON for direct import into editing software.
 
 This alignment of photography with micro-cinema underscores our commitment to bridging the still and moving image realms. By continuing to refine filtering and selection tools, we enable both everyday photographers and fine-art practitioners to unearth new narrative possibilities.
+
+---
+
+## **Time Taxonomy Feature (Planned)**
+
+**Date:** January 12, 2025
+
+**Overview:**
+We will implement a **time-based hierarchy** in the left nav, similar to how we list people or albums. The system will only show Year → Month → Week → Day nodes if photos exist for those nodes. Clicking them filters the photo grid accordingly.
+
+**Key Steps:**
+
+1. **Metadata Aggregation**
+
+   - Parse each photo’s date/time.
+   - Populate a “time index” table or JSON structure, grouping by year, month, etc.
+
+2. **Backend Endpoint**
+
+   - A new route, e.g. `GET /api/time-index`, returns a hierarchical JSON of available years/months/weeks/days.
+
+3. **Frontend UI**
+
+   - In Ember, create a “Time” section in the left nav. Expand/collapse each year, month, etc.
+   - Multi-select logic, updating query params with the chosen date slices.
+
+4. **Querying**
+
+   - Combine date filters with existing person/album filters. For instance, `dates=2024-12-07,2024-12-08` plus `persons=Margaret,Douglas`.
+
+5. **Testing & Documentation**
+   - Acceptance tests for multi-date selection.
+   - Document in `TIMELINE_TAXONOMY.md`.
+
+**Potential Roadblocks:**
+
+- Large date range or scattered photos might complicate the UI. We’ll consider partial or lazy loading.
+- Weeks are tricky—defining them consistently and avoiding user confusion.
+
+**Schedule Estimate:**
+
+- Implementation to begin after finishing the multi-person filtering enhancements (by mid-January 2025).
+- Initial release by early February 2025, with refinements continuing.
+
+---
