@@ -11,7 +11,7 @@
 
     {{#if this.currentAlbum.isAlbumRoute}}
       <div class="flex items-center space-x-4">
-        <!-- Album Title -->
+        <!-- Current album title (if any) -->
         <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
 
         <!-- Sorting Options -->
@@ -47,11 +47,15 @@
               <option
                 value="desc"
                 selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
+              >
+                Descending
+              </option>
               <option
                 value="asc"
                 selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
+              >
+                Ascending
+              </option>
             </select>
           </div>
         </div>
@@ -59,7 +63,35 @@
     {{/if}}
   </nav>
 
+  <!-- Main layout: side nav + main content -->
   <div class="h-full w-full pt-16 flex">
-    {{outlet}}
+    <!-- Left nav area (always visible) -->
+    <div
+      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
+    >
+      {{! Time navigation }}
+      <TimeNav />
+
+      {{! Albums list: from application route model }}
+      <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
+      <ul class="menu p-0 w-full mb-4">
+        {{#each this.model as |album|}}
+          <li class="mb-1">
+            <LinkTo
+              @route="albums.album"
+              @model={{album.id}}
+              class="rounded hover:bg-gray-200 px-2 py-1"
+            >
+              {{album.title}}
+            </LinkTo>
+          </li>
+        {{/each}}
+      </ul>
+    </div>
+
+    <!-- Main content outlet -->
+    <div id="main-content-area" class="flex-1 overflow-auto p-4">
+      {{outlet}}
+    </div>
   </div>
 </div>

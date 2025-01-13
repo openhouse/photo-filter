@@ -8,9 +8,8 @@
   {{else if this.timeIndex}}
     {{#each this.timeIndex.years as |yearObj|}}
       <div class="mb-2">
-        {{! Year checkbox }}
-        {{! dateKey = "2024" }}
-        {{#let (buildDateKey yearObj.year) as |yearKey|}}
+        {{! Instead of (buildDateKey), use (this.buildDateKey) }}
+        {{#let (this.buildDateKey yearObj.year) as |yearKey|}}
           <label>
             <input
               type="checkbox"
@@ -19,11 +18,13 @@
             />
             <strong>{{yearObj.year}}</strong>
           </label>
+
           <div class="ml-4 mt-1">
-            {{! For each month }}
             {{#each yearObj.months as |monthObj|}}
-              {{! e.g. "2024-12" }}
-              {{#let (buildDateKey yearObj.year monthObj.month) as |monthKey|}}
+              {{#let
+                (this.buildDateKey yearObj.year monthObj.month)
+                as |monthKey|
+              }}
                 <div class="mb-1">
                   <label>
                     <input
@@ -36,10 +37,11 @@
                   </label>
 
                   <div class="ml-5 mt-1">
-                    {{! Each day }}
                     {{#each monthObj.days as |dayNumber|}}
                       {{#let
-                        (buildDateKey yearObj.year monthObj.month dayNumber)
+                        (this.buildDateKey
+                          yearObj.year monthObj.month dayNumber
+                        )
                         as |dayKey|
                       }}
                         <label class="mr-2">

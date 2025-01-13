@@ -1,10 +1,10 @@
 # Project Overview: Photo Filter
 
-Generated on: Mon Jan 13 00:08:21 EST 2025
+Generated on: Mon Jan 13 12:17:28 EST 2025
 System Architecture: x86_64
 Operating System: macOS 15.2
 Node Version: v20.18.1
-Branch: develop
+Branch: feature/timenav
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -16,7 +16,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── .DS_Store
 ├── .gitignore
 ├── .nvmrc
-├── ADVISORY_TEAM.md
+├── ADVISORY-TEAM.md
 ├── ARTISTIC-NOTES.md
 ├── CINEMATIC-VISION.md
 ├── COMPASSION.md
@@ -190,6 +190,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   │   │   └── persons
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
+│       │   │   ├── application.js
 │       │   │   └── index.js
 │       │   ├── serializers
 │       │   ├── services
@@ -203,7 +204,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │       │   │   └── persons
 │       │       │   └── album.hbs
 │       │       ├── albums.hbs
-│       │       └── application.hbs
+│       │       ├── application.hbs
+│       │       └── index.hbs
 │       ├── config
 │       │   ├── ember-cli-update.json
 │       │   ├── environment.js
@@ -255,14 +257,14 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── test-osxphotos.js
 └── top_photo_uuids.txt
 
-76 directories, 166 files
+76 directories, 168 files
 ```
 
 ---
 
 ## Root-Level Files
 
-### **./ADVISORY_TEAM.md**
+### **./ADVISORY-TEAM.md**
 ```
 # Advisory Team
 
@@ -4698,9 +4700,8 @@ export default class PhotoGridComponent extends Component {
   {{else if this.timeIndex}}
     {{#each this.timeIndex.years as |yearObj|}}
       <div class="mb-2">
-        {{! Year checkbox }}
-        {{! dateKey = "2024" }}
-        {{#let (buildDateKey yearObj.year) as |yearKey|}}
+        {{! Instead of (buildDateKey), use (this.buildDateKey) }}
+        {{#let (this.buildDateKey yearObj.year) as |yearKey|}}
           <label>
             <input
               type="checkbox"
@@ -4709,11 +4710,13 @@ export default class PhotoGridComponent extends Component {
             />
             <strong>{{yearObj.year}}</strong>
           </label>
+
           <div class="ml-4 mt-1">
-            {{! For each month }}
             {{#each yearObj.months as |monthObj|}}
-              {{! e.g. "2024-12" }}
-              {{#let (buildDateKey yearObj.year monthObj.month) as |monthKey|}}
+              {{#let
+                (this.buildDateKey yearObj.year monthObj.month)
+                as |monthKey|
+              }}
                 <div class="mb-1">
                   <label>
                     <input
@@ -4726,10 +4729,11 @@ export default class PhotoGridComponent extends Component {
                   </label>
 
                   <div class="ml-5 mt-1">
-                    {{! Each day }}
                     {{#each monthObj.days as |dayNumber|}}
                       {{#let
-                        (buildDateKey yearObj.year monthObj.month dayNumber)
+                        (this.buildDateKey
+                          yearObj.year monthObj.month dayNumber
+                        )
                         as |dayKey|
                       }}
                         <label class="mr-2">
@@ -4757,28 +4761,18 @@ export default class PhotoGridComponent extends Component {
 
 ### **./frontend/photo-filter-frontend/app/components/time-nav.js**
 ```
-// frontend/photo-filter-frontend/app/components/time-nav.js
-
 import Component from '@glimmer/component';
 import { tracked } from '@glimmer/tracking';
 import { action } from '@ember/object';
 import config from 'photo-filter-frontend/config/environment';
 import { service } from '@ember/service';
 
-/**
- * time-nav
- *
- * This component fetches the time index from /api/time-index and displays
- * a nested tree of Years → Months → Days. Each node has a checkbox, and
- * selecting them updates the `dates` array in the query params (coexisting
- * with person filters).
- */
 export default class TimeNavComponent extends Component {
   @service router;
 
-  @tracked timeIndex = null; // The structure from /api/time-index
+  @tracked timeIndex = null;
   @tracked isLoading = true;
-  @tracked selectedDates = []; // Array of strings like "2024-12-07"
+  @tracked selectedDates = [];
 
   constructor() {
     super(...arguments);
@@ -4789,7 +4783,7 @@ export default class TimeNavComponent extends Component {
     try {
       const response = await fetch(`${config.APP.apiHost}/api/time-index`);
       const data = await response.json();
-      this.timeIndex = data; // { years: [...] }
+      this.timeIndex = data;
       this.isLoading = false;
     } catch (error) {
       console.error('Error loading time index:', error);
@@ -4797,12 +4791,8 @@ export default class TimeNavComponent extends Component {
     }
   }
 
-  /**
-   * Called when the user toggles a checkbox (year, month, or day).
-   */
   @action
   toggleSelection(dateKey) {
-    // dateKey might be "2024" or "2024-12" or "2024-12-07"
     let updated = [...this.selectedDates];
     if (updated.includes(dateKey)) {
       updated = updated.filter((d) => d !== dateKey);
@@ -4811,39 +4801,37 @@ export default class TimeNavComponent extends Component {
     }
     this.selectedDates = updated.sort();
 
-    // We add the array to the query params as JSON
     this.updateQueryParams();
   }
 
-  /**
-   * Pushes the current selectedDates array into the route's query param 'dates'.
-   */
   updateQueryParams() {
-    // Use the existing route (albums.album or some other route).
-    // For example, if we’re on /albums/album/..., we merge in `dates=...`.
-    // Or you might store it in some shared service.
-    // The simplest is to do a transition that merges the new dates param:
     let currentRouteName = this.router.currentRouteName;
-    let albumId = this.router.currentRoute.params.album_id;
-    // Let’s unify it with persons if that’s how your route handles multiple filters:
+    let albumId = this.router.currentRoute.params.album_id || null;
     let currentQp = this.router.currentRoute.queryParams || {};
 
-    // Convert selectedDates to string
     const datesJson = JSON.stringify(this.selectedDates);
 
-    this.router.transitionTo(currentRouteName, albumId, {
-      queryParams: {
-        ...currentQp,
-        dates: datesJson,
-      },
-    });
+    if (albumId) {
+      this.router.transitionTo(currentRouteName, albumId, {
+        queryParams: {
+          ...currentQp,
+          dates: datesJson,
+        },
+      });
+    } else {
+      this.router.transitionTo(currentRouteName, {
+        queryParams: {
+          ...currentQp,
+          dates: datesJson,
+        },
+      });
+    }
   }
 
   /**
-   * Utility to build a dateKey string. E.g.:
-   * - Year only: "2024"
-   * - Year+Month: "2024-12"
-   * - Year+Month+Day: "2024-12-07"
+   * E.g. buildDateKey(2025) => "2025"
+   *      buildDateKey(2025, 3) => "2025-03"
+   *      buildDateKey(2025, 3, 14) => "2025-03-14"
    */
   buildDateKey(year, month = null, day = null) {
     if (day) {
@@ -4876,40 +4864,13 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<!-- frontend/photo-filter-frontend/app/templates/albums.hbs -->
+<h1 class="text-2xl font-bold mb-4">Albums Route</h1>
+{{outlet}}```
 
-<div class="h-full w-full flex">
-
-  <!-- Left nav: fixed width, scrollable -->
-  <div
-    class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
-  >
-
-    <h3 class="text-lg font-semibold mb-2">Albums</h3>
-    <ul class="menu p-0 w-full mb-4">
-      {{#each this.model as |album|}}
-        <li class="mb-1">
-          <LinkTo
-            @route="albums.album"
-            @model={{album.id}}
-            class="rounded hover:bg-gray-200 px-2 py-1"
-          >
-            {{album.title}}
-          </LinkTo>
-        </li>
-      {{/each}}
-    </ul>
-
-    <!-- Now we add the time nav -->
-    <TimeNav />
-
-  </div>
-
-  <!-- Main content area -->
-  <div id="main-content-area" class="flex-1 overflow-auto p-4">
-    {{outlet}}
-  </div>
-</div>```
+### **./frontend/photo-filter-frontend/app/templates/index.hbs**
+```
+<h2>Welcome to Photo Filter!</h2>
+<p>Use the left nav to explore by Time or Albums.</p>```
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
 ```
@@ -4926,7 +4887,7 @@ Router.map(function () {
 
     {{#if this.currentAlbum.isAlbumRoute}}
       <div class="flex items-center space-x-4">
-        <!-- Album Title -->
+        <!-- Current album title (if any) -->
         <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
 
         <!-- Sorting Options -->
@@ -4962,11 +4923,15 @@ Router.map(function () {
               <option
                 value="desc"
                 selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
+              >
+                Descending
+              </option>
               <option
                 value="asc"
                 selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
+              >
+                Ascending
+              </option>
             </select>
           </div>
         </div>
@@ -4974,8 +4939,36 @@ Router.map(function () {
     {{/if}}
   </nav>
 
+  <!-- Main layout: side nav + main content -->
   <div class="h-full w-full pt-16 flex">
-    {{outlet}}
+    <!-- Left nav area (always visible) -->
+    <div
+      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
+    >
+      {{! Time navigation }}
+      <TimeNav />
+
+      {{! Albums list: from application route model }}
+      <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
+      <ul class="menu p-0 w-full mb-4">
+        {{#each this.model as |album|}}
+          <li class="mb-1">
+            <LinkTo
+              @route="albums.album"
+              @model={{album.id}}
+              class="rounded hover:bg-gray-200 px-2 py-1"
+            >
+              {{album.title}}
+            </LinkTo>
+          </li>
+        {{/each}}
+      </ul>
+    </div>
+
+    <!-- Main content outlet -->
+    <div id="main-content-area" class="flex-1 overflow-auto p-4">
+      {{outlet}}
+    </div>
   </div>
 </div>```
 
@@ -5219,17 +5212,13 @@ export default class AlbumsAlbumController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/routes/index.js**
 ```
-// app/routes/index.js
+// frontend/photo-filter-frontend/app/routes/index.js
 
 import Route from '@ember/routing/route';
-import { inject as service } from '@ember/service';
 
 export default class IndexRoute extends Route {
-  @service router;
-
-  beforeModel() {
-    this.router.replaceWith('albums');
-  }
+  // No redirect now, so the user stays at '/'
+  // (Add a template if you want a custom landing page.)
 }
 ```
 
@@ -5242,6 +5231,21 @@ export default class AlbumsRoute extends Route {
   @service store;
 
   async model() {
+    return this.store.findAll('album');
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/routes/application.js**
+```
+import Route from '@ember/routing/route';
+import { inject as service } from '@ember/service';
+
+export default class ApplicationRoute extends Route {
+  @service store;
+
+  async model() {
+    // Fetch all albums so we can display them in the universal sidebar
     return this.store.findAll('album');
   }
 }
