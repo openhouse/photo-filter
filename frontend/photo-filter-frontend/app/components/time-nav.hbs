@@ -8,12 +8,11 @@
   {{else if this.timeIndex}}
     {{#each this.timeIndex.years as |yearObj|}}
       <div class="mb-2">
-        {{! Instead of (buildDateKey), use (this.buildDateKey) }}
         {{#let (this.buildDateKey yearObj.year) as |yearKey|}}
           <label>
             <input
               type="checkbox"
-              checked={{this.selectedDates.includes yearKey}}
+              checked={{this.selectedDatesArray.includes yearKey}}
               {{on "change" (fn this.toggleSelection yearKey)}}
             />
             <strong>{{yearObj.year}}</strong>
@@ -29,7 +28,7 @@
                   <label>
                     <input
                       type="checkbox"
-                      checked={{this.selectedDates.includes monthKey}}
+                      checked={{this.selectedDatesArray.includes monthKey}}
                       {{on "change" (fn this.toggleSelection monthKey)}}
                     />
                     Month
@@ -47,7 +46,7 @@
                         <label class="mr-2">
                           <input
                             type="checkbox"
-                            checked={{this.selectedDates.includes dayKey}}
+                            checked={{this.selectedDatesArray.includes dayKey}}
                             {{on "change" (fn this.toggleSelection dayKey)}}
                           />
                           {{dayNumber}}
