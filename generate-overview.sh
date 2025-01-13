@@ -1,12 +1,13 @@
-#!/bin/bash
-
-# ./generate-overview.sh
+#!/usr/bin/env bash
+#
+# generate-overview.sh
 #
 # Generates project-overview.txt with:
+#   - System / environment details (arch, OS, Node version)
 #   - Timestamp
 #   - Current Git branch
-#   - Project structure (via tree)
-#   - File listings/contents for specific file types
+#   - Project structure (via tree or fallback to ls -R)
+#   - File listings/contents for specific file types, partial JSON for large JSON files
 #
 # Usage:
 #   chmod +x generate-overview.sh
@@ -14,36 +15,61 @@
 
 OUTPUT_FILE="project-overview.txt"
 
-# Determine current Git branch (will show 'HEAD' if detached)
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
+# 1) Start fresh
 echo "# Project Overview: Photo Filter" > "$OUTPUT_FILE"
 
-# Write timestamp and branch info
-echo -e "\nGenerated on: $(date)" >> "$OUTPUT_FILE"
+# 2) Environment details
+{
+  echo ""
+  echo "Generated on: $(date)"
+  echo "System Architecture: $(uname -m || echo 'Unknown Architecture')"
+
+  # Check if we’re on Darwin (macOS)
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    # Attempt to get product version with sw_vers
+    MACOS_VERSION=$(sw_vers -productVersion 2>/dev/null || echo "Unknown")
+    echo "Operating System: macOS $MACOS_VERSION"
+  else
+    # If not Darwin, optionally show something else
+    echo "Operating System: $(uname -sr || echo 'Unknown OS')"
+  fi
+
+  echo "Node Version: $(node --version || echo 'Node Not Found')"
+} >> "$OUTPUT_FILE"
+
+# 3) Current Git branch (shows 'HEAD' if detached)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "UNKNOWN")
 echo "Branch: $CURRENT_BRANCH" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
+# Basic project description
 echo "This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications." >> "$OUTPUT_FILE"
 echo "---" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
+# 4) Project structure
 echo "## Project Structure" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
-# Exclude specified directories
+# Exclude these directories from the tree listing
 EXCLUDE_DIRS='node_modules|.git|venv|dist|build|cache|logs|images|images-source'
 
-# Generate the directory tree
 echo "\`\`\`" >> "$OUTPUT_FILE"
-tree -a -I "$EXCLUDE_DIRS" >> "$OUTPUT_FILE"
+if command -v tree >/dev/null 2>&1; then
+  # Use tree if available
+  tree -a -I "$EXCLUDE_DIRS" >> "$OUTPUT_FILE"
+else
+  # Fallback to ls -R if tree is not installed
+  echo "[No 'tree' command found; using 'ls -R' fallback.]" >> "$OUTPUT_FILE"
+  ls -R . >> "$OUTPUT_FILE"
+fi
 echo "\`\`\`" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
 echo "---" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 
-# Function to list files with specific extensions
+# 5) Function to list & embed file contents
 list_files() {
   local DIR=$1
   local OUTPUT=$2
@@ -68,7 +94,7 @@ list_files() {
     -not -path "*/logs/*")
 
   for FILE in $FILES; do
-    # For large JSON files, include only the first 20 lines
+    # If JSON file is very large, only show first 20 lines
     if [[ "$FILE" == *.json && $(wc -l < "$FILE") -gt 100 ]]; then
       echo "### **$FILE**" >> "$OUTPUT"
       echo "\`\`\`json" >> "$OUTPUT"
@@ -86,7 +112,7 @@ list_files() {
   done
 }
 
-# Include root-level markdown files
+# 6) Root-level markdown files
 echo "## Root-Level Files" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 for FILE in *.md; do
@@ -99,10 +125,14 @@ for FILE in *.md; do
   fi
 done
 
+# 7) Backend files
 echo "## Backend Files" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 list_files "./backend" "$OUTPUT_FILE"
 
+# 8) Frontend files
 echo "## Frontend Files" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 list_files "./frontend/photo-filter-frontend" "$OUTPUT_FILE"
+
+echo "Overview generation complete! See '$OUTPUT_FILE'."
