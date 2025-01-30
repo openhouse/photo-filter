@@ -1,66 +1,120 @@
 {{! frontend/photo-filter-frontend/app/components/time-nav.hbs }}
-
 <div class="time-nav p-2 border border-gray-200 rounded">
   <h2 class="font-bold mb-2">Time</h2>
 
   {{#if this.isLoading}}
     <p>Loading time index...</p>
   {{else if this.timeIndex}}
-    {{#each this.timeIndex.years as |yearObj|}}
-      <div class="mb-2">
-        {{#let (this.buildDateKey yearObj.year) as |yearKey|}}
-          <label>
-            <input
-              type="checkbox"
-              checked={{this.selectedDatesArray.includes yearKey}}
-              {{on "change" (fn this.toggleSelection yearKey)}}
-            />
-            <strong>{{yearObj.year}}</strong>
-          </label>
-
-          <div class="ml-4 mt-1">
-            {{#each yearObj.months as |monthObj|}}
-              {{#let
-                (this.buildDateKey yearObj.year monthObj.month)
-                as |monthKey|
-              }}
-                <div class="mb-1">
+    {{#if (and (eq (type-of this.timeIndex) "object") this.timeIndex.years)}}
+      {{#if (is-array this.timeIndex.years)}}
+        {{#if (gt this.timeIndex.years.length 0)}}
+          {{! Loop over all years }}
+          {{#each this.timeIndex.years as |yearObj|}}
+            {{#if (and (eq (type-of yearObj) "object") yearObj.year)}}
+              {{#let (this.buildDateKey yearObj.year) as |yearKey|}}
+                <div class="mb-2">
                   <label>
                     <input
                       type="checkbox"
-                      checked={{this.selectedDatesArray.includes monthKey}}
-                      {{on "change" (fn this.toggleSelection monthKey)}}
+                      checked={{this.selectedDatesIncludes yearKey}}
+                      {{on "change" (fn this.toggleSelection yearKey)}}
                     />
-                    Month
-                    {{monthObj.month}}
+                    <strong>{{yearObj.year}}</strong>
                   </label>
 
-                  <div class="ml-5 mt-1">
-                    {{#each monthObj.days as |dayNumber|}}
-                      {{#let
-                        (this.buildDateKey
-                          yearObj.year monthObj.month dayNumber
-                        )
-                        as |dayKey|
-                      }}
-                        <label class="mr-2">
-                          <input
-                            type="checkbox"
-                            checked={{this.selectedDatesArray.includes dayKey}}
-                            {{on "change" (fn this.toggleSelection dayKey)}}
-                          />
-                          {{dayNumber}}
-                        </label>
-                      {{/let}}
-                    {{/each}}
-                  </div>
+                  {{#if
+                    (and
+                      (eq (type-of yearObj.months) "array")
+                      (gt yearObj.months.length 0)
+                    )
+                  }}
+                    <div class="ml-4 mt-1">
+                      {{#each yearObj.months as |monthObj|}}
+                        {{#if
+                          (and (eq (type-of monthObj) "object") monthObj.month)
+                        }}
+                          {{#let
+                            (this.buildDateKey yearObj.year monthObj.month)
+                            as |monthKey|
+                          }}
+                            <div class="mb-1">
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={{this.selectedDatesIncludes
+                                    monthKey
+                                  }}
+                                  {{on
+                                    "change"
+                                    (fn this.toggleSelection monthKey)
+                                  }}
+                                />
+                                Month
+                                {{monthObj.month}}
+                              </label>
+
+                              {{#if
+                                (and
+                                  (eq (type-of monthObj.days) "array")
+                                  (gt monthObj.days.length 0)
+                                )
+                              }}
+                                <div class="ml-5 mt-1">
+                                  {{#each monthObj.days as |dayNumber|}}
+                                    {{#let
+                                      (this.buildDateKey
+                                        yearObj.year monthObj.month dayNumber
+                                      )
+                                      as |dayKey|
+                                    }}
+                                      <label class="mr-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={{this.selectedDatesIncludes
+                                            dayKey
+                                          }}
+                                          {{on
+                                            "change"
+                                            (fn this.toggleSelection dayKey)
+                                          }}
+                                        />
+                                        {{dayNumber}}
+                                      </label>
+                                    {{/let}}
+                                  {{/each}}
+                                </div>
+                              {{else}}
+                                <p class="text-sm opacity-50 ml-5">
+                                  No valid day array for month
+                                  {{monthObj.month}}
+                                </p>
+                              {{/if}}
+                            </div>
+                          {{/let}}
+                        {{/if}}
+                      {{/each}}
+                    </div>
+                  {{else}}
+                    <p class="text-sm opacity-50 ml-4">
+                      No months found for year
+                      {{yearObj.year}}
+                    </p>
+                  {{/if}}
                 </div>
               {{/let}}
-            {{/each}}
-          </div>
-        {{/let}}
-      </div>
-    {{/each}}
+            {{/if}}
+          {{/each}}
+        {{else}}
+          <p>No items: <code>timeIndex.years</code> array is empty.</p>
+        {{/if}}
+      {{else}}
+        <p><code>timeIndex.years</code> is not an array.</p>
+      {{/if}}
+    {{else}}
+      <p>timeIndex is missing a
+        <code>years</code>
+        array or is not an object.</p>
+    {{/if}}
   {{else}}
     <p>No time data found.</p>
   {{/if}}

@@ -4,7 +4,6 @@
   "description": "A monorepo containing both the Photo Filter backend (Express.js) and frontend (Ember.js).",
   "private": true,
   "scripts": {
-    "install": "npm install --workspaces",
     "build": "npm run build:backend && npm run build:frontend",
     "build:backend": "npm --prefix backend run build || echo 'No build script for backend'",
     "build:frontend": "npm --prefix frontend/photo-filter-frontend run build",
