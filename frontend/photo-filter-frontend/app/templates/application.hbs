@@ -1,9 +1,13 @@
 {{page-title "PhotoFilterFrontend"}}
 
+{{! Inject services so template can read reactive state }}
+{{this.currentAlbum}}
+{{this.reload}}
+
 <div
   class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
 >
-  <!-- Fixed top nav -->
+  <!-- ─── Top Navigation Bar ─────────────────────────────────────────────── -->
   <nav
     class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
   >
@@ -11,10 +15,12 @@
 
     {{#if this.currentAlbum.isAlbumRoute}}
       <div class="flex items-center space-x-4">
-        <!-- Current album title (if any) -->
-        <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
+        <!-- Current album title -->
+        <h2 class="text-lg font-semibold">
+          {{this.currentAlbum.albumTitle}}
+        </h2>
 
-        <!-- Sorting Options -->
+        <!-- Sorting controls (unchanged) -->
         <div class="flex items-center space-x-2">
           <div class="form-control">
             <label class="label text-sm font-semibold">Sort by</label>
@@ -23,15 +29,15 @@
               class="select select-xs select-bordered"
               {{on "change" (fn this.updateSortAttribute)}}
             >
-              {{#each this.currentAlbum.scoreAttributes as |attribute|}}
+              {{#each this.currentAlbum.scoreAttributes as |attr|}}
                 <option
-                  value="score.{{attribute}}"
+                  value="score.{{attr}}"
                   selected={{eq
                     this.currentAlbum.sortAttribute
-                    (concat "score." attribute)
+                    (concat "score." attr)
                   }}
                 >
-                  {{capitalize attribute}}
+                  {{capitalize attr}}
                 </option>
               {{/each}}
             </select>
@@ -47,15 +53,11 @@
               <option
                 value="desc"
                 selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >
-                Descending
-              </option>
+              >Descending</option>
               <option
                 value="asc"
                 selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >
-                Ascending
-              </option>
+              >Ascending</option>
             </select>
           </div>
         </div>
@@ -63,35 +65,42 @@
     {{/if}}
   </nav>
 
-  <!-- Main layout: side nav + main content -->
-  <div class="h-full w-full pt-16 flex">
-    <!-- Left nav area (always visible) -->
+  <!-- ─── Library‑Updated Pill (appears on any stale album) ──────────────── -->
+  {{#if (gt this.reload.staleAlbums.size 0)}}
     <div
+      class="fixed top-16 left-1/2 -translate-x-1/2 bg-info text-info-content px-3 py-1 rounded shadow"
+    >
+      Library updated — click ↻ next to an album to refresh
+    </div>
+  {{/if}}
+
+  <!-- ─── Main Layout: Side Nav + Outlet ─────────────────────────────────── -->
+  <div class="h-full w-full pt-16 flex">
+    <!-- Left Navigation Column -->
+    <aside
       class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
     >
-      {{! Time navigation }}
       <TimeNav />
 
-      {{! Albums list: from application route model }}
       <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
-      <ul class="menu p-0 w-full mb-4">
+      <ul class="space-y-1">
         {{#each this.model as |album|}}
-          <li class="mb-1">
+          <li>
             <LinkTo
               @route="albums.album"
               @model={{album.id}}
-              class="rounded hover:bg-gray-200 px-2 py-1"
+              class="hover:underline"
             >
               {{album.title}}
             </LinkTo>
           </li>
         {{/each}}
       </ul>
-    </div>
+    </aside>
 
-    <!-- Main content outlet -->
-    <div id="main-content-area" class="flex-1 overflow-auto p-4">
+    <!-- Routed Content -->
+    <main class="flex-1 overflow-auto p-4">
       {{outlet}}
-    </div>
+    </main>
   </div>
 </div>

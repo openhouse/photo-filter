@@ -1,2 +1,26 @@
-<h1 class="text-2xl font-bold mb-4">Albums Route</h1>
-{{outlet}}
+<h1 class="text-2xl font-bold mb-4">Albums</h1>
+
+<ul>
+  {{#each this.model as |album|}}
+    <li class="flex items-center space-x-2 group py-1">
+      <LinkTo
+        @route="albums.album"
+        @model={{album.id}}
+        class="underline-offset-2 group-hover:underline"
+      >
+        {{album.title}}
+      </LinkTo>
+
+      {{#if (this.reload.staleAlbums.has album.id)}}
+        <button
+          type="button"
+          class="text-sm opacity-0 group-hover:opacity-100 transition"
+          {{on "click" (fn this.refreshAlbum album.id)}}
+          title="Refresh"
+        >
+          ↻
+        </button>
+      {{/if}}
+    </li>
+  {{/each}}
+</ul>

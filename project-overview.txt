@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Sat Apr 19 23:29:31 EDT 2025
+Generated on: Sun Apr 20 09:38:49 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.3.2
 Node Version: v20.18.1
@@ -37,6 +37,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   │   ├── -photos-controller.js
 │   │   │   ├── albums-controller.js
 │   │   │   ├── index.js
+│   │   │   ├── library-controller.js
 │   │   │   ├── people-controller.js
 │   │   │   ├── photos-controller.js
 │   │   │   └── time-controller.js
@@ -46,6 +47,14 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── .DS_Store
+│   │   ├── albums
+│   │   │   ├── 03F35C45-E2AC-47FA-8101-70D5B6B97BC0
+│   │   │   │   └── photos.json
+│   │   │   ├── DED2B591-F17C-4ADE-B902-38504CBB5740
+│   │   │   │   └── photos.json
+│   │   │   └── EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3
+│   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -77,6 +86,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
 │   │   ├── helpers.js
+│   │   ├── refresh-album.js
 │   │   └── run-python-script.js
 │   └── views
 │       ├── albums.hbs
@@ -113,6 +123,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   ├── .gitkeep
 │       │   │   ├── photo-grid.hbs
 │       │   │   ├── photo-grid.js
+│       │   │   ├── progress-bar.hbs
+│       │   │   ├── progress-bar.js
 │       │   │   ├── time-nav.hbs
 │       │   │   └── time-nav.ts
 │       │   ├── config
@@ -123,6 +135,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   │   ├── album
 │       │   │   │   │   └── persons
 │       │   │   │   └── album.js
+│       │   │   ├── albums.js
 │       │   │   └── application.js
 │       │   ├── helpers
 │       │   │   ├── .gitkeep
@@ -151,6 +164,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── serializers
 │       │   ├── services
 │       │   │   ├── current-album.js
+│       │   │   ├── reload.js
 │       │   │   └── store.js
 │       │   ├── styles
 │       │   │   └── app.css
@@ -227,7 +241,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── top_photo_uuids.txt
 └── tsconfig.json
 
-63 directories, 151 files
+67 directories, 161 files
 ```
 
 ---
@@ -2238,6 +2252,86 @@ describe("getAlbumsData", () => {
 });
 ```
 
+### **./backend/utils/refresh-album.js**
+```
+// backend/utils/refresh-album.js
+import path from "path";
+import fs from "fs-extra";
+import crypto from "crypto";
+import { runPythonScript } from "./run-python-script.js";
+import { runOsxphotosExportImages } from "./export-images.js";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+/**
+ * Refresh a single album incrementally.
+ * Returns { updatedPhotoUUIDs: string[], staleScores: boolean }
+ */
+export async function refreshAlbumIncremental(albumUUID) {
+  const dataDir = path.join(__dirname, "..", "data");
+  const albumDir = path.join(dataDir, "albums", albumUUID);
+  const photosPath = path.join(albumDir, "photos.json");
+  const imagesDir = path.join(albumDir, "images");
+
+  const venvDir = path.join(__dirname, "..", "venv");
+  const pythonPath = path.join(venvDir, "bin", "python3");
+  const exportScript = path.join(
+    __dirname,
+    "..",
+    "scripts",
+    "export_photos_in_album.py"
+  );
+  const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+
+  await fs.ensureDir(albumDir);
+  await fs.ensureDir(imagesDir);
+
+  // ---------- previous sync metadata ----------
+  let lastSyncEpoch = 0;
+  let prevScoreHash = null;
+  if (await fs.pathExists(photosPath)) {
+    const prev = await fs.readJson(photosPath);
+    if (Array.isArray(prev) && prev.length) {
+      lastSyncEpoch = Math.max(...prev.map((p) => Date.parse(p.date) / 1000));
+      prevScoreHash = calcScoreHash(prev);
+    }
+  }
+
+  // ---------- metadata export ----------
+  await runPythonScript(pythonPath, exportScript, [albumUUID], photosPath);
+
+  // ---------- image export (incremental) ----------
+  await runOsxphotosExportImages(
+    osxphotosPath,
+    albumUUID,
+    imagesDir,
+    photosPath,
+    lastSyncEpoch
+  );
+
+  const current = await fs.readJson(photosPath);
+  const currentScoreHash = calcScoreHash(current);
+
+  // Determine updated photo UUIDs
+  const updatedPhotoUUIDs = current
+    .filter((p) => Date.parse(p.date) / 1000 > lastSyncEpoch)
+    .map((p) => p.uuid);
+
+  return {
+    updatedPhotoUUIDs,
+    staleScores: prevScoreHash !== currentScoreHash,
+  };
+}
+
+function calcScoreHash(photos) {
+  const h = crypto.createHash("md5");
+  photos.forEach((p) => h.update(`${p.uuid}:${p.score?.overall ?? ""}`));
+  return h.digest("hex");
+}
+```
+
 ### **./backend/utils/run-python-script.js**
 ```
 // ./utils/run-python-script.js
@@ -2378,56 +2472,41 @@ export function capitalizeAttributeName(attributeName) {
 ### **./backend/utils/export-images.js**
 ```
 // backend/utils/export-images.js
-
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
 /**
- * Export images using osxphotos for a given album.
- * @param {string} osxphotosPath - Path to the osxphotos executable in the virtualenv.
- * @param {string} albumUUID - The UUID of the album to export.
- * @param {string} imagesDir - The directory to which images will be exported.
- * @param {string} photosPath - The path to the photos.json file.
+ * Incremental osxphotos export.
+ * If lastSyncEpoch > 0, we add --modified-since to copy only deltas.
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
   albumUUID,
   imagesDir,
-  photosPath
+  photosPath,
+  lastSyncEpoch = 0
 ) {
-  // Read photo UUIDs from photos.json
+  // Collect UUIDs
   const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
+  const uuidsFile = path.join(imagesDir, "uuids.txt");
   await fs.ensureDir(imagesDir);
+  await fs.writeFile(
+    uuidsFile,
+    photosData.map((p) => p.uuid).join("\n"),
+    "utf-8"
+  );
 
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
+  const modifiedFlag =
+    lastSyncEpoch > 0 ? `--modified-since ${Math.floor(lastSyncEpoch)}` : "";
 
-  // Use a date/time prefix and original_name directly via osxphotos template:
-  // {created.strftime,%Y%m%d-%H%M%S}-{original_name}
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{created.strftime,%Y%m%d-%H%M%S}-{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
+  // Template keeps stable filenames; --update copies only new/changed files
+  const cmd = `"${osxphotosPath}" export "${imagesDir}" \
+--uuid-from-file "${uuidsFile}" \
+--filename "{created.strftime,%Y%m%d-%H%M%S}-{original_name}" \
+--convert-to-jpeg --jpeg-ext jpg --update ${modifiedFlag}`;
 
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
-}
-
-/**
- * Safely get a nested property from an object.
- * @param {object} obj - The object to retrieve the property from.
- * @param {string} propertyPath - The dot-separated path (e.g. "score.overall").
- * @returns {*} - The property value or null if not found.
- */
-export function getNestedProperty(obj, propertyPath) {
-  return propertyPath
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
+  await execCommand(cmd, "Error exporting images:");
 }
 ```
 
@@ -3036,128 +3115,66 @@ export { getAlbums, getPhotosByAlbum };
 ### **./backend/controllers/api/albums-controller.js**
 ```
 // backend/controllers/api/albums-controller.js
-
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
 import { Serializer } from "jsonapi-serializer";
+import { refreshAlbumIncremental } from "../../utils/refresh-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const PersonSerializer = new Serializer("person", {
-  id: "id",
-  attributes: ["name"],
-  keyForAttribute: "camelCase",
-  pluralizeType: false,
-});
+const dataDir = path.join(__dirname, "..", "..", "data");
+const albumsJsonPath = path.join(dataDir, "albums.json");
 
 const AlbumSerializer = new Serializer("album", {
   id: "uuid",
-  attributes: ["title"],
+  attributes: ["title", "dataVersion", "scoreHash", "isStale"],
   keyForAttribute: "camelCase",
   pluralizeType: false,
-  relationships: {
-    persons: {
-      type: "person",
-    },
-  },
 });
 
-export const getAlbumsData = async (req, res) => {
+/* ------ helpers ------ */
+async function loadAlbums() {
+  return (await fs.readJson(albumsJsonPath)).map((a) => ({
+    ...a,
+    isStale: !!a.isStale,
+  }));
+}
+async function saveAlbums(albums) {
+  await fs.writeJson(albumsJsonPath, albums, { spaces: 2 });
+}
+
+/* ------ routes ------ */
+
+// GET /api/albums
+export async function getAlbumsData(_req, res) {
+  const albums = await loadAlbums();
+  res.json(AlbumSerializer.serialize(albums));
+}
+
+// POST /api/albums/:albumUUID/refresh
+export async function refreshAlbum(req, res) {
   try {
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const albumsPath = path.join(dataDir, "albums.json");
-    const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "scripts",
-      "export_albums.py"
-    );
+    const { albumUUID } = req.params;
+    const result = await refreshAlbumIncremental(albumUUID);
 
-    await fs.ensureDir(dataDir);
-
-    if (!(await fs.pathExists(albumsPath))) {
-      console.log("albums.json not found. Exporting albums using osxphotos...");
-      await runPythonScript(pythonPath, scriptPath, [], albumsPath);
+    // mark album fresh
+    const albums = await loadAlbums();
+    const i = albums.findIndex((a) => a.uuid === albumUUID);
+    if (i !== -1) {
+      albums[i].dataVersion = new Date().toISOString();
+      albums[i].scoreHash = result.staleScores
+        ? Date.now().toString(36)
+        : albums[i].scoreHash;
+      albums[i].isStale = false;
+      await saveAlbums(albums);
     }
 
-    const albumsData = await fs.readJson(albumsPath);
-    const jsonApiData = AlbumSerializer.serialize(albumsData);
-    res.json(jsonApiData);
-  } catch (error) {
-    console.error("Error fetching albums:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+    res.json(result);
+  } catch (e) {
+    console.error("refresh album error:", e);
+    res.status(500).json({ errors: [{ detail: e.message }] });
   }
-};
-
-export const getAlbumById = async (req, res) => {
-  try {
-    const albumUUID = req.params.albumUUID;
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const albumsPath = path.join(dataDir, "albums.json");
-    const photosDir = path.join(dataDir, "albums", albumUUID);
-    const photosPath = path.join(photosDir, "photos.json");
-
-    const albumsData = await fs.readJson(albumsPath);
-    const album = albumsData.find((a) => a.uuid === albumUUID);
-
-    if (!album) {
-      return res.status(404).json({ errors: [{ detail: "Album not found" }] });
-    }
-
-    let persons = [];
-    if (await fs.pathExists(photosPath)) {
-      const photosData = await fs.readJson(photosPath);
-      const allPersons = new Set();
-      photosData.forEach((photo) => {
-        if (Array.isArray(photo.persons)) {
-          photo.persons.forEach((name) => allPersons.add(name));
-        }
-      });
-      persons = Array.from(allPersons).map((name) => {
-        return {
-          id: slugifyName(name),
-          name: name,
-        };
-      });
-    }
-
-    const albumRecord = {
-      uuid: album.uuid,
-      title: album.title,
-    };
-
-    let albumJsonApi = AlbumSerializer.serialize(albumRecord);
-    albumJsonApi.data.relationships = albumJsonApi.data.relationships || {};
-    albumJsonApi.data.relationships.persons = {
-      data: persons.map((p) => ({ type: "person", id: p.id })),
-    };
-
-    const personJsonApi = PersonSerializer.serialize(persons);
-
-    const merged = {
-      data: albumJsonApi.data,
-      included: personJsonApi.data,
-      meta: {},
-    };
-
-    res.json(merged);
-  } catch (error) {
-    console.error("Error fetching album:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
-  }
-};
-
-function slugifyName(name) {
-  return name
-    .toLowerCase()
-    .replace(/[\s+]/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
 }
 ```
 
@@ -3895,6 +3912,42 @@ function slugifyName(name) {
 }
 ```
 
+### **./backend/controllers/api/library-controller.js**
+```
+// backend/controllers/api/library-controller.js
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const albumsJsonPath = path.join(__dirname, "..", "..", "data", "albums.json");
+
+let cache = { ts: 0, stale: [], hash: null };
+
+export async function getLibraryStatus(_req, res) {
+  const now = Date.now();
+  if (now - cache.ts < 60000) {
+    return res.json({
+      staleAlbums: cache.stale,
+      globalScoresHash: cache.hash,
+    });
+  }
+  if (!(await fs.pathExists(albumsJsonPath))) {
+    return res.json({ staleAlbums: [], globalScoresHash: null });
+  }
+  const albums = await fs.readJson(albumsJsonPath);
+  cache.stale = albums.filter((a) => a.isStale).map((a) => a.uuid);
+  cache.hash = albums
+    .map((a) => a.scoreHash || "")
+    .join("")
+    .slice(0, 32);
+  cache.ts = now;
+
+  res.json({ staleAlbums: cache.stale, globalScoresHash: cache.hash });
+}
+```
+
 ### **./backend/controllers/get-photos-by-album.js**
 ```
 // ./controllers/get-photos-by-album.js
@@ -4104,6 +4157,81 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     {
         "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
         "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/DED2B591-F17C-4ADE-B902-38504CBB5740/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2025-03-31",
+            "2025-03-31 recently",
+            "2025-04-07 recently",
+            "2025-04-08 recently",
+            "2025-04-10 recently",
+            "2025-04-15 recently",
+            "2025-04-17 recently",
+            "2025-04-18 recently",
+            "2025-04-19 recently",
+            "2025-04-20 recently"
+        ],
+        "burst": false,
+        "cloud_guid": "AZ66T+MYpLLa2GzuSOh2QCG5VVre",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-03-31 18:23:52.768333-04:00",
+        "date_modified": null,
+...
+```
+
+### **./backend/data/albums/EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2025-03-31",
+            "2025-03-31 recently",
+            "2025-04-07 recently",
+            "2025-04-08 recently",
+            "2025-04-10 recently",
+            "2025-04-15 recently",
+            "2025-04-17 recently",
+            "2025-04-18 recently",
+            "2025-04-19 recently",
+            "2025-04-20 recently"
+        ],
+        "burst": false,
+        "cloud_guid": "AZ66T+MYpLLa2GzuSOh2QCG5VVre",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-03-31 18:23:52.768333-04:00",
+        "date_modified": null,
+...
+```
+
+### **./backend/data/albums/03F35C45-E2AC-47FA-8101-70D5B6B97BC0/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2025-04-19",
+            "2025-04-19 recently",
+            "2025-04-20 recently",
+            "FUJIFILM X100V-02"
+        ],
+        "burst": false,
+        "cloud_guid": "AVufyOT2SJnNfw6Qz9hZndsNV1PL",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-04-19 20:27:06.186850-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-04-19 17:29:41-04:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 160,
 ...
 ```
 
@@ -4337,102 +4465,29 @@ export default router;
 ### **./backend/routes/api.js**
 ```
 // backend/routes/api.js
-
 import express from "express";
-import path from "path";
-import fs from "fs-extra";
-import { fileURLToPath } from "url";
 import {
   getAlbumsData,
-  getAlbumById,
-  getPhotosByAlbumData,
-} from "../controllers/api/index.js";
-import {
-  getPeopleInAlbum,
-  getPhotosByPerson,
-} from "../controllers/api/people-controller.js";
-import { runPythonScript } from "../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../utils/export-images.js";
-
-// === Import our new time controller
+  refreshAlbum,
+} from "../controllers/api/albums-controller.js";
+import { getPhotosByAlbumData } from "../controllers/api/photos-controller.js";
+import { getLibraryStatus } from "../controllers/api/library-controller.js";
 import { getTimeIndex } from "../controllers/api/time-controller.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const router = express.Router();
 
-const apiRouter = express.Router();
+/* Albums */
+router.get("/albums", getAlbumsData);
+router.post("/albums/:albumUUID/refresh", refreshAlbum);
+router.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
-// ======================
-//   Existing Endpoints
-// ======================
+/* Time taxonomy */
+router.get("/time-index", getTimeIndex);
 
-// Albums
-apiRouter.get("/albums", getAlbumsData);
-apiRouter.get("/albums/:albumUUID", getAlbumById);
-apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
+/* Library‑wide status */
+router.get("/library/status", getLibraryStatus);
 
-// People
-apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
-apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
-
-// ======================
-//   TIME-INDEX ENDPOINT
-// ======================
-apiRouter.get("/time-index", getTimeIndex);
-
-// ======================
-//   REFRESH Endpoint
-// ======================
-apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
-  try {
-    const { albumUUID } = req.params;
-    const dataDir = path.join(
-      __dirname,
-      "..",
-      "..",
-      "data",
-      "albums",
-      albumUUID
-    );
-    const photosPath = path.join(dataDir, "photos.json");
-    const imagesDir = path.join(dataDir, "images");
-    const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "scripts",
-      "export_photos_in_album.py"
-    );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
-
-    if (await fs.pathExists(photosPath)) {
-      await fs.remove(photosPath);
-    }
-    if (await fs.pathExists(imagesDir)) {
-      await fs.remove(imagesDir);
-    }
-
-    // Re-run python script
-    await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-    await runOsxphotosExportImages(
-      osxphotosPath,
-      albumUUID,
-      imagesDir,
-      photosPath
-    );
-
-    return res.json({
-      message: `Album ${albumUUID} metadata and images have been refreshed.`,
-    });
-  } catch (error) {
-    console.error("Error in refresh endpoint:", error);
-    res.status(500).json({ errors: [{ detail: error.message }] });
-  }
-});
-
-export default apiRouter;
+export default router;
 ```
 
 ## Frontend Files
@@ -4650,6 +4705,26 @@ export default class PhotoAdapter extends ApplicationAdapter {
     </div>
   {{/each}}
 </div>```
+
+### **./frontend/photo-filter-frontend/app/components/progress-bar.js**
+```
+import Component from '@glimmer/component';
+import { action } from '@ember/object';
+
+export default class ProgressBarComponent extends Component {
+  @action
+  remove(el) {
+    // auto‑remove after animation ends
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/components/progress-bar.hbs**
+```
+<div
+  class="fixed top-16 left-0 right-0 h-1 bg-primary opacity-80 animate-progress-bar"
+></div>```
 
 ### **./frontend/photo-filter-frontend/app/components/time-nav.ts**
 ```
@@ -4967,8 +5042,32 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<h1 class="text-2xl font-bold mb-4">Albums Route</h1>
-{{outlet}}```
+<h1 class="text-2xl font-bold mb-4">Albums</h1>
+
+<ul>
+  {{#each this.model as |album|}}
+    <li class="flex items-center space-x-2 group py-1">
+      <LinkTo
+        @route="albums.album"
+        @model={{album.id}}
+        class="underline-offset-2 group-hover:underline"
+      >
+        {{album.title}}
+      </LinkTo>
+
+      {{#if (this.reload.staleAlbums.has album.id)}}
+        <button
+          type="button"
+          class="text-sm opacity-0 group-hover:opacity-100 transition"
+          {{on "click" (fn this.refreshAlbum album.id)}}
+          title="Refresh"
+        >
+          ↻
+        </button>
+      {{/if}}
+    </li>
+  {{/each}}
+</ul>```
 
 ### **./frontend/photo-filter-frontend/app/templates/index.hbs**
 ```
@@ -4979,10 +5078,14 @@ Router.map(function () {
 ```
 {{page-title "PhotoFilterFrontend"}}
 
+{{! Inject services so template can read reactive state }}
+{{this.currentAlbum}}
+{{this.reload}}
+
 <div
   class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
 >
-  <!-- Fixed top nav -->
+  <!-- ─── Top Navigation Bar ─────────────────────────────────────────────── -->
   <nav
     class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
   >
@@ -4990,10 +5093,12 @@ Router.map(function () {
 
     {{#if this.currentAlbum.isAlbumRoute}}
       <div class="flex items-center space-x-4">
-        <!-- Current album title (if any) -->
-        <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
+        <!-- Current album title -->
+        <h2 class="text-lg font-semibold">
+          {{this.currentAlbum.albumTitle}}
+        </h2>
 
-        <!-- Sorting Options -->
+        <!-- Sorting controls (unchanged) -->
         <div class="flex items-center space-x-2">
           <div class="form-control">
             <label class="label text-sm font-semibold">Sort by</label>
@@ -5002,15 +5107,15 @@ Router.map(function () {
               class="select select-xs select-bordered"
               {{on "change" (fn this.updateSortAttribute)}}
             >
-              {{#each this.currentAlbum.scoreAttributes as |attribute|}}
+              {{#each this.currentAlbum.scoreAttributes as |attr|}}
                 <option
-                  value="score.{{attribute}}"
+                  value="score.{{attr}}"
                   selected={{eq
                     this.currentAlbum.sortAttribute
-                    (concat "score." attribute)
+                    (concat "score." attr)
                   }}
                 >
-                  {{capitalize attribute}}
+                  {{capitalize attr}}
                 </option>
               {{/each}}
             </select>
@@ -5026,15 +5131,11 @@ Router.map(function () {
               <option
                 value="desc"
                 selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >
-                Descending
-              </option>
+              >Descending</option>
               <option
                 value="asc"
                 selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >
-                Ascending
-              </option>
+              >Ascending</option>
             </select>
           </div>
         </div>
@@ -5042,36 +5143,43 @@ Router.map(function () {
     {{/if}}
   </nav>
 
-  <!-- Main layout: side nav + main content -->
-  <div class="h-full w-full pt-16 flex">
-    <!-- Left nav area (always visible) -->
+  <!-- ─── Library‑Updated Pill (appears on any stale album) ──────────────── -->
+  {{#if (gt this.reload.staleAlbums.size 0)}}
     <div
+      class="fixed top-16 left-1/2 -translate-x-1/2 bg-info text-info-content px-3 py-1 rounded shadow"
+    >
+      Library updated — click ↻ next to an album to refresh
+    </div>
+  {{/if}}
+
+  <!-- ─── Main Layout: Side Nav + Outlet ─────────────────────────────────── -->
+  <div class="h-full w-full pt-16 flex">
+    <!-- Left Navigation Column -->
+    <aside
       class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
     >
-      {{! Time navigation }}
       <TimeNav />
 
-      {{! Albums list: from application route model }}
       <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
-      <ul class="menu p-0 w-full mb-4">
+      <ul class="space-y-1">
         {{#each this.model as |album|}}
-          <li class="mb-1">
+          <li>
             <LinkTo
               @route="albums.album"
               @model={{album.id}}
-              class="rounded hover:bg-gray-200 px-2 py-1"
+              class="hover:underline"
             >
               {{album.title}}
             </LinkTo>
           </li>
         {{/each}}
       </ul>
-    </div>
+    </aside>
 
-    <!-- Main content outlet -->
-    <div id="main-content-area" class="flex-1 overflow-auto p-4">
+    <!-- Routed Content -->
+    <main class="flex-1 overflow-auto p-4">
       {{outlet}}
-    </div>
+    </main>
   </div>
 </div>```
 
@@ -5102,6 +5210,26 @@ Router.map(function () {
     @sortAttribute={{this.sort}}
   />
 </div>```
+
+### **./frontend/photo-filter-frontend/app/controllers/albums.js**
+```
+import Controller from '@ember/controller';
+import { inject as service } from '@ember/service';
+import config from 'photo-filter-frontend/config/environment';
+
+export default class AlbumsController extends Controller {
+  @service reload;
+
+  async refreshAlbum(id) {
+    const r = await fetch(`${config.APP.apiHost}/api/albums/${id}/refresh`, {
+      method: 'POST',
+    });
+    if (r.ok) {
+      this.reload.clear(id);
+    }
+  }
+}
+```
 
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
 ```
@@ -5585,6 +5713,43 @@ export default class CurrentAlbumService extends Service {
 // app/services/store.js
 
 export { default } from 'ember-data/store';
+```
+
+### **./frontend/photo-filter-frontend/app/services/reload.js**
+```
+import Service from '@ember/service';
+import { tracked } from '@glimmer/tracking';
+import config from 'photo-filter-frontend/config/environment';
+
+export default class ReloadService extends Service {
+  @tracked staleAlbums = new Set();
+
+  constructor() {
+    super();
+    this.#poll();
+    this.timer = setInterval(() => this.#poll(), 60000);
+  }
+
+  willDestroy() {
+    clearInterval(this.timer);
+  }
+
+  async #poll() {
+    try {
+      const r = await fetch(`${config.APP.apiHost}/api/library/status`);
+      const j = await r.json();
+      this.staleAlbums = new Set(j.staleAlbums || []);
+    } catch (_e) {
+      /* network failure → keep previous state */
+    }
+  }
+
+  clear(id) {
+    if (this.staleAlbums.delete(id)) {
+      this.staleAlbums = new Set(this.staleAlbums);
+    }
+  }
+}
 ```
 
 ### **./frontend/photo-filter-frontend/config/targets.js**
@@ -6263,9 +6428,26 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"errors":[{"detail":"ENOENT: no such file or directory, scandir '/Users/jburkart/Documents/sites/photo-filter/backend/data/albums'"}]}
+{"years":[{"year":2024,"months":[{"month":12,"days":[17]}]},{"year":2025,"months":[{"month":1,"days":[11,12,18,26]},{"month":2,"days":[9,11,12,13,15,16,23,27]},{"month":3,"days":[6,7,8,10,13,14,16,17,19,20,21,22,23,24,26,27,28,29,30,31]},{"month":4,"days":[2,3,4,5,6,8,9,10,11,14,15,17,18,19]}]}]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
 
-No directory found at ./backend/data/albums
+### Album UUID: DED2B591-F17C-4ADE-B902-38504CBB5740
+Location: ./backend/data/albums/DED2B591-F17C-4ADE-B902-38504CBB5740/photos.json
+Photo Count: 11859
+Earliest Date: 2024-12-17 18:37:23-05:00
+Latest Date: 2025-04-19 19:24:44-04:00
+
+### Album UUID: EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3
+Location: ./backend/data/albums/EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3/photos.json
+Photo Count: 12091
+Earliest Date: 2024-12-17 18:37:23-05:00
+Latest Date: 2025-04-19 19:24:44-04:00
+
+### Album UUID: 03F35C45-E2AC-47FA-8101-70D5B6B97BC0
+Location: ./backend/data/albums/03F35C45-E2AC-47FA-8101-70D5B6B97BC0/photos.json
+Photo Count: 596
+Earliest Date: 2025-04-19 17:29:41-04:00
+Latest Date: 2025-04-19 19:24:44-04:00
+
