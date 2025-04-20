@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Sat Apr 19 23:28:24 EDT 2025
+Generated on: Sat Apr 19 23:29:31 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.3.2
 Node Version: v20.18.1
@@ -16,7 +16,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── .DS_Store
 ├── .gitignore
 ├── .nvmrc
-├── ADVISORY_TEAM.md
+├── ADVISORY-TEAM.md
 ├── ARTISTIC-NOTES.md
 ├── CINEMATIC-VISION.md
 ├── COMPASSION.md
@@ -26,16 +26,20 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── README.md
 ├── RELATIONAL-PRACTICES.md
 ├── TESTING_GUIDE.md
+├── TIMELINE_TAXONOMY.md
+├── TYPESCRIPT_GUIDE.md
 ├── backend
 │   ├── .DS_Store
 │   ├── .babelrc
 │   ├── .nvmrc
 │   ├── controllers
 │   │   ├── api
+│   │   │   ├── -photos-controller.js
 │   │   │   ├── albums-controller.js
 │   │   │   ├── index.js
 │   │   │   ├── people-controller.js
-│   │   │   └── photos-controller.js
+│   │   │   ├── photos-controller.js
+│   │   │   └── time-controller.js
 │   │   ├── api-controller.js
 │   │   ├── get-albums.js
 │   │   ├── get-photos-by-album.js
@@ -47,7 +51,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── models
 │   │   └── photoModel.js
 │   ├── osxphotos_crash.log
-│   ├── package-lock.json
 │   ├── package.json
 │   ├── public
 │   │   └── stylesheets
@@ -68,24 +71,23 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │       └── api
 │   │           ├── albums-controller.test.js
 │   │           └── photos-controller.test.js
+│   ├── tsconfig.json
 │   ├── utils
 │   │   ├── exec-command.js
 │   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
 │   │   ├── helpers.js
 │   │   └── run-python-script.js
-│   ├── views
-│   │   ├── albums.hbs
-│   │   ├── index.hbs
-│   │   ├── layouts
-│   │   │   └── main.hbs
-│   │   ├── person.hbs
-│   │   └── persons.hbs
-│   └── yarn.lock
+│   └── views
+│       ├── albums.hbs
+│       ├── index.hbs
+│       ├── layouts
+│       │   └── main.hbs
+│       ├── person.hbs
+│       └── persons.hbs
 ├── frontend
 │   ├── .DS_Store
 │   └── photo-filter-frontend
-│       ├── -package-lock.json
 │       ├── .DS_Store
 │       ├── .editorconfig
 │       ├── .ember-cli
@@ -110,7 +112,11 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── components
 │       │   │   ├── .gitkeep
 │       │   │   ├── photo-grid.hbs
-│       │   │   └── photo-grid.js
+│       │   │   ├── photo-grid.js
+│       │   │   ├── time-nav.hbs
+│       │   │   └── time-nav.ts
+│       │   ├── config
+│       │   │   └── environment.d.ts
 │       │   ├── controllers
 │       │   │   ├── .gitkeep
 │       │   │   ├── albums
@@ -124,7 +130,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   ├── contains.js
 │       │   │   ├── eq.js
 │       │   │   ├── get-nested-property.js
-│       │   │   └── replace.js
+│       │   │   ├── replace.js
+│       │   │   └── type-of.js
 │       │   ├── index.html
 │       │   ├── models
 │       │   │   ├── .gitkeep
@@ -139,6 +146,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   │   │   └── persons
 │       │   │   │   └── album.js
 │       │   │   ├── albums.js
+│       │   │   ├── application.js
 │       │   │   └── index.js
 │       │   ├── serializers
 │       │   ├── services
@@ -152,7 +160,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │       │   │   └── persons
 │       │       │   └── album.hbs
 │       │       ├── albums.hbs
-│       │       └── application.hbs
+│       │       ├── application.hbs
+│       │       └── index.hbs
 │       ├── config
 │       │   ├── ember-cli-update.json
 │       │   ├── environment.js
@@ -184,9 +193,18 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │       │   └── albums-test.js
 │       │       └── services
 │       │           └── store-test.js
-│       └── yarn.lock
+│       ├── tsconfig.json
+│       └── types
+│           ├── ember-data
+│           │   └── types
+│           │       └── registries
+│           │           └── model.d.ts
+│           ├── global.d.ts
+│           └── photo-filter-frontend
+│               └── index.d.ts
 ├── generate-overview.sh
 ├── osxphotos_crash.log
+├── package-lock.json
 ├── package.json
 ├── project-guidelines.md
 ├── project-overview.txt
@@ -194,34 +212,39 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   └── stylesheets
 │       └── css
 │           └── style.css
+├── rfcs
+│   └── 0007-incremental-library-sync.md
 ├── scripts
 │   ├── cleanup-duplicates.sh
 │   └── create-video.sh
+├── shared-types
+│   └── PhotoData.ts
 ├── test-images
 │   ├── .osxphotos_export.db
 │   ├── IMG_0743.HEIC
 │   └── uuids.txt
 ├── test-osxphotos.js
-└── top_photo_uuids.txt
+├── top_photo_uuids.txt
+└── tsconfig.json
 
-55 directories, 136 files
+63 directories, 151 files
 ```
 
 ---
 
 ## Root-Level Files
 
-### **./ADVISORY_TEAM.md**
+### **./ADVISORY-TEAM.md**
 ```
 # Advisory Team
 
-The following three individuals would form a dream advisory team for the Photo Filter Application. Their combined expertise spans Ember.js, Express.js, and the macOS Photos ecosystem, perfectly suiting the needs of this project.
+Below is our fully updated **ADVISORY_TEAM.md**. It now includes both the original descriptions of the advisors’ key strengths and their endorsements/testimonials from each other, reflecting how each member values the other’s contributions to the project.
 
 ---
 
 ## 1. Yehuda Katz
 
-**Key Strengths**
+**Key Strengths (Original)**
 
 - Co-creator of Ember.js and core contributor in the JavaScript ecosystem.
 - Deep knowledge of Ember conventions, router patterns, and performance optimizations.
@@ -232,11 +255,19 @@ The following three individuals would form a dream advisory team for the Photo F
 - Ember.js is your chosen frontend framework. Yehuda’s insider understanding of Ember can help you streamline routes, components, and data flows.
 - He can advise on advanced patterns for query param–based filtering, performance, and future-proofing the Ember app.
 
+**Team Endorsements**
+
+- **Douglas Wilson**: “Yehuda is our Ember.js guru, ensuring the frontend is well-structured and efficient. He champions best practices, so the experience remains smooth and maintainable.”
+- **Rhet Turnbull**: “Yehuda transforms complex Ember routes into intuitive user flows. He also helps me understand how my Python-based exports feed seamlessly into the Ember data layer.”
+- **Deborah Treisman**: “He gives us a user-friendly, well-structured Ember environment. With him, it’s easy to weave editorial features—like micro-narratives or story arcs—into the UI.”
+- **Margaret Morse**: “He’s the framework wizard who ensures every function of the Ember app can be expanded for inclusive user experiences. His architecture fosters mindful disclaimers and interactions.”
+- **Warren Sack**: “Yehuda fosters the Ember architecture that allows for interesting time-based sequences. He’s crucial when we experiment with query params, cinematic transitions, or timeline-based filters.”
+
 ---
 
 ## 2. Douglas Wilson
 
-**Key Strengths**
+**Key Strengths (Original)**
 
 - Longtime principal maintainer of Express.js.
 - Expert in Node.js, HTTP request lifecycles, server performance, and middleware design.
@@ -247,13 +278,21 @@ The following three individuals would form a dream advisory team for the Photo F
 - Your backend is built with Express.js. Douglas can help refine API endpoints, caching strategies, error handling, and security best practices.
 - With the monorepo approach (Ember + Express), he’d ensure a robust Node foundation.
 
+**Team Endorsements**
+
+- **Yehuda Katz**: “Douglas provides an incredibly stable foundation on the backend. Watching him optimize Express.js routes is a joy—he keeps everything fast, clear, and secure.”
+- **Rhet Turnbull**: “He gives me peace of mind by making the Express backend a model of reliability. If I have specialized Python scripts, I know his server logic will handle them gracefully.”
+- **Deborah Treisman**: “He ensures the server remains stable so that no user experiences hitches during curation. He’s also mindful of performance, which helps when we handle big photo libraries.”
+- **Margaret Morse**: “Douglas knows how to keep data flowing reliably across the Node/Express side. I count on him to integrate disclaimers or warnings gracefully at the API level.”
+- **Warren Sack**: “He lays the Node/Express foundation that can handle video or real-time transformations. We can rely on his routes to scale for more cinematic or data-intensive expansions.”
+
 ---
 
 ## 3. Rhet Turnbull
 
-**Key Strengths**
+**Key Strengths (Original)**
 
-- Creator and maintainer of [osxphotos](https://github.com/RhetTbull/osxphotos), the Python library for extracting and manipulating macOS Photos data.
+- Creator and maintainer of [osxphotos](https://github.com/RhetTbull/osxphotos).
 - Specializes in reverse-engineering Apple Photos database structures.
 - Active in responding to community needs around Apple Photos changes.
 
@@ -263,21 +302,71 @@ The following three individuals would form a dream advisory team for the Photo F
 - Having Rhet’s insights ensures that your macOS Photos integration remains stable when Apple updates Photos’ schema or metadata.
 - He can also recommend best practices for large-scale exports and metadata transformations.
 
+**Team Endorsements**
+
+- **Yehuda Katz**: “Rhet is our secret weapon for staying compatible with macOS Photos. His Python scripts and osxphotos integration let us tackle Apple’s schema changes without fear.”
+- **Douglas Wilson**: “Rhet lays the groundwork for everything related to Apple Photos integration. He’s saved us endless headaches by anticipating future Photos library updates.”
+- **Deborah Treisman**: “He grounds the entire system in real Apple Photos data. Without his thorough approach, we risk losing narrative threads each time Apple updates their schemas.”
+- **Margaret Morse**: “He singlehandedly keeps us Apple-proof, so to speak. Because of him, any deep changes in Photos remain manageable. He bridges that Python–Node gap seamlessly.”
+- **Warren Sack**: “Because of Rhet, we can harness Apple Photos data for potential short films or time-lapses. His synergy between Python exports and our final interface is key to bridging still images and motion.”
+
+---
+
 ## 4. Deborah Treisman
+
+**Note**  
+Deborah was added as part of the extended advisory team. She brings deep editorial and emotional intelligence to the project.
+
+**Team Endorsements**
+
+- **Yehuda Katz**: “Deborah elegantly reminds us that each photo is a small story and that our filtering tools must handle emotional complexity. She brings empathy to every design choice.”
+- **Douglas Wilson**: “She consistently checks our human-centric approach. She makes sure we handle user emotions with care and editorial sensitivity, which resonates well in the UI.”
+- **Rhet Turnbull**: “Deborah reframes our project goals to consider personal memory curation. She highlights that photos aren’t just files—they’re stories, and we’re supporting the editor in each user.”
+- **Margaret Morse**: “She ensures that we handle the emotional content of images carefully. She frames the editorial aspect, so we remain attentive to the resonances each photograph can hold.”
+- **Warren Sack**: “Deborah highlights narrative coherence. She sees every photo and sequence as a potential story, which is vital when we merge cinematic arcs with personal memories.”
+
+---
 
 ## 5. Margaret Morse
 
+**Note**  
+Margaret was added as part of the extended advisory team. She brings a media studies and cultural context perspective.
+
+**Team Endorsements**
+
+- **Yehuda Katz**: “Margaret broadens our perspective on cultural and historical contexts. It’s not just about code or UI; it’s about how real people experience these images.”
+- **Douglas Wilson**: “She prompts us to consider the social and cultural impact of our filters. She ensures that our disclaimers and mindful design reflect real-world complexities.”
+- **Rhet Turnbull**: “Margaret keeps the focus on broader cultural contexts. She reminds us that the application might handle sensitive, historically loaded images, pushing us to maintain respectful disclaimers.”
+- **Deborah Treisman**: “Margaret protects the project’s integrity by focusing on inclusive design and disclaimers. She helps us remember that photo collections can carry deep personal or historical significance.”
+- **Warren Sack**: “Margaret broadens the social context of these creative features. She helps us see how new media arcs can involve not just fun or utility but also deep cultural reflection.”
+
+---
+
 ## 6. Warren Sack
+
+**Note**  
+Warren was added as part of the extended advisory team. He contributes expertise in film aesthetics, narrative structure, and computational media.
+
+**Team Endorsements**
+
+- **Yehuda Katz**: “Warren shows us how the cinematic potential in photo sequences can be brought to life, bridging that creative space between code, film aesthetics, and new media thinking.”
+- **Douglas Wilson**: “He brings an eye for the cinematic and creative. He encourages us to see how code can serve narrative arcs and visual storytelling, deepening the user’s experience.”
+- **Rhet Turnbull**: “He envisions new ways to create dynamic, cinematic experiences from still images. His perspective on bridging code with conceptual artistry is invaluable.”
+- **Deborah Treisman**: “Warren inspires a more cinematic dimension to our editorial approach. His ideas about bridging digital media structures and film narratives keep us thinking about the ‘big picture.’”
+- **Margaret Morse**: “He encourages a fluid understanding of how photos might become narratives or cinematic experiences. Warren’s lens ensures we consider not just archiving but also creative expression.”
 
 ---
 
 ## Summary
 
-- **Yehuda Katz** → Ember.js guidance and future-proof front-end architecture.
-- **Douglas Wilson** → Express.js expertise, server performance, and stable APIs.
-- **Rhet Turnbull** → Deep Photos.app knowledge, ensuring your Python integration remains solid and up to date.
+- **Yehuda Katz** → Ember.js guidance, future-proof front-end architecture, user-centric data flows.
+- **Douglas Wilson** → Express.js expertise, robust server performance, stable APIs.
+- **Rhet Turnbull** → Deep Photos.app knowledge, python integration, data stability amid Apple updates.
+- **Deborah Treisman** → Editorial & emotional perspective, reminding us photos are stories with emotional resonance.
+- **Margaret Morse** → Cultural/historical context, mindful disclaimers, inclusive design.
+- **Warren Sack** → Cinematic/creative dimension, bridging film aesthetics, narrative arcs, and code.
 
-Collaborating with these three individuals would provide a near-ideal synergy across every major facet of your Photo Filter Application: front-end, backend, and macOS Photos integration.
+These six individuals provide a near-ideal synergy across every facet of the Photo Filter Application—front-end, backend, editorial curation, macOS Photos integration, cultural awareness, and cinematic transformation.
 ```
 
 ### **./ARTISTIC-NOTES.md**
@@ -630,6 +719,51 @@ With the emerging cinematic use cases (see `CINEMATIC-VISION.md` for deeper disc
   - Output an “XML timeline” or JSON for direct import into editing software.
 
 This alignment of photography with micro-cinema underscores our commitment to bridging the still and moving image realms. By continuing to refine filtering and selection tools, we enable both everyday photographers and fine-art practitioners to unearth new narrative possibilities.
+
+---
+
+## **Time Taxonomy Feature (Planned)**
+
+**Date:** January 12, 2025
+
+**Overview:**
+We will implement a **time-based hierarchy** in the left nav, similar to how we list people or albums. The system will only show Year → Month → Week → Day nodes if photos exist for those nodes. Clicking them filters the photo grid accordingly.
+
+**Key Steps:**
+
+1. **Metadata Aggregation**
+
+   - Parse each photo’s date/time.
+   - Populate a “time index” table or JSON structure, grouping by year, month, etc.
+
+2. **Backend Endpoint**
+
+   - A new route, e.g. `GET /api/time-index`, returns a hierarchical JSON of available years/months/weeks/days.
+
+3. **Frontend UI**
+
+   - In Ember, create a “Time” section in the left nav. Expand/collapse each year, month, etc.
+   - Multi-select logic, updating query params with the chosen date slices.
+
+4. **Querying**
+
+   - Combine date filters with existing person/album filters. For instance, `dates=2024-12-07,2024-12-08` plus `persons=Margaret,Douglas`.
+
+5. **Testing & Documentation**
+   - Acceptance tests for multi-date selection.
+   - Document in `TIMELINE_TAXONOMY.md`.
+
+**Potential Roadblocks:**
+
+- Large date range or scattered photos might complicate the UI. We’ll consider partial or lazy loading.
+- Weeks are tricky—defining them consistently and avoiding user confusion.
+
+**Schedule Estimate:**
+
+- Implementation to begin after finishing the multi-person filtering enhancements (by mid-January 2025).
+- Initial release by early February 2025, with refinements continuing.
+
+---
 ```
 
 ### **./ISSUES.md**
@@ -863,6 +997,32 @@ When an album contains a very large number of photos (hundreds or thousands), Ch
 
 - For truly large datasets, implement full pagination instead of a single “limit” slice.
 - Monitor memory usage when increasing `limit`.
+
+---
+
+## Issue 20: Time Taxonomy in Left Nav
+
+**Opened By:** [Your Name], Jan 12, 2025  
+**Status:** Open
+
+### Description
+
+We want to add a new time-based taxonomy (Years → Months → Weeks → Days) in the left nav. Only show nodes with existing photos. Let the user multi-select date ranges to form a combined album view on the right side, possibly also filtering by people.
+
+### Proposed Actions
+
+1. **Add a new `time-index` endpoint** returning a hierarchical JSON of years, months, weeks, days.
+2. **Implement a new Ember route and left nav section** for the time taxonomy.
+3. **Support multi-select** (like checkboxes).
+4. **Combine with existing person filters**.
+
+### Next Steps
+
+- Add documentation (`TIMELINE_TAXONOMY.md`) describing the data structure.
+- Add a proof of concept for generating a time index from our photo metadata.
+- Build or update acceptance tests to ensure multi-time-slice selection works.
+
+---
 ```
 
 ### **./MINDFUL-DISCLAIMERS.md**
@@ -1395,6 +1555,323 @@ Feel free to add, modify, or refine these sections to match your team’s specif
 ---
 
 _End of `TESTING_GUIDE.md`_
+```
+
+### **./TIMELINE_TAXONOMY.md**
+```
+# TIMELINE_TAXONOMY.md
+
+## Purpose
+
+This document describes our upcoming feature for a time-based navigation tree in the Photo Filter Application. We aim to let the user drill into Years → Months → Weeks → Days, but **only** for nodes that actually contain photos. This dynamic approach ensures we don’t clutter the UI with empty categories.
+
+## Scope of the Feature
+
+1. **Comprehensive Metadata Export**
+
+   - We will export all available date/time metadata for each photo.
+   - This may require a one-time or periodic “full scan” of the Apple Photos library to create an internal database/table for efficient lookups.
+
+2. **Hierarchical Time Tree**
+
+   - **Years**: Display each year that has at least one photo.
+   - **Months**: Nested under each year, only show months that have photos.
+   - **Weeks**: Potentially optional, but we’re considering an ISO week definition (e.g., week #1 is the week with Jan 4).
+   - **Days**: Nested under each month or week, only if photos exist.
+
+3. **UI/UX Goals**
+
+   - **Left Nav Tree**: The user sees a collapsible tree (like a folder structure).
+   - **Multi-Select**: The user can shift-click or ctrl/cmd-click multiple time nodes (e.g., 2024 + “December 12, 2024”).
+   - **Album-Like Grid**: All selected nodes are combined into a single photo feed on the right side, akin to how we handle multi-person filtering.
+
+4. **Backend/Database Changes**
+
+   - We’ll likely store a separate table or index keyed by date (year, month, day). Possibly more columns for week or combined date parts.
+   - Queries need to handle multiple disjoint sets of date criteria (like multiple days across multiple months).
+
+5. **Performance Considerations**
+
+   - We might have 100k+ photos. Building the entire tree on the fly could be slow.
+   - Precompute or incrementally update a time index so the UI can quickly load partial aggregates.
+
+6. **Multi-Level Selection**
+
+   - **Example**: The user clicks “2024” in the tree → sees 7,000 photos for 2024 in the main area.
+   - Then they expand “December 2024,” see each day. They select “December 7” and “December 8,” which refines the main area to 250 photos from just those days.
+   - They can also simultaneously keep “2024” selected to add all of 2024. Or they can uncheck “2024” if they only want the two days.
+
+7. **Integration with Person / Location Filters**
+
+   - This time-based approach will integrate with the existing query-param-based filtering. So the user can do `dates=2024-12-07,2024-12-08` plus `persons=Margaret,Douglas` plus `locations=Vienna,Cambridge`.
+   - In Ember, we might handle multiple query params or a combined param. This is still open for discussion.
+
+8. **Roadmap**
+   1. Build out the data structure for a “time index” in the backend.
+   2. Extend the existing Ember app to add a Time nav section (like we do for People).
+   3. Implement multi-select checkboxes or toggles for each date node.
+   4. Combine the logic so that the final photo grid merges all selected times with any selected people, location, or aesthetic filters.
+
+## Example JSON Snippet
+
+We might store or return data like:
+
+```json
+{
+  "years": [
+    {
+      "year": 2022,
+      "months": [
+        {
+          "month": 5,
+          "days": [12, 13, 18]
+        }
+      ]
+    },
+    {
+      "year": 2024,
+      "months": [
+        {
+          "month": 12,
+          "weeks": [49, 50],
+          "days": [7, 8, 9, 15, 30]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Note: **Whether** we nest weeks inside months or keep them separate is still under consideration.
+
+## Next Steps
+
+- Update `DEVELOPMENT_PLAN.md` to reference this approach.
+- Start building actual endpoints that return the “time index.”
+- Add a left nav UI in Ember that can request and display this index, with multi-select capability.
+
+---
+
+_Last updated: 2025-01-12_
+```
+
+### **./TYPESCRIPT_GUIDE.md**
+```
+# TypeScript Integration Guide
+
+Welcome to the Photo Filter Application’s TypeScript integration guide. This document explains how we are progressively introducing TypeScript into both our **backend** (Express.js) and **frontend** (Ember.js) projects, including linting, Prettier, and shared data interface practices.
+
+---
+
+## Table of Contents
+
+1. **Motivation**
+2. **Backend (Express) Setup**
+   - Installing Dependencies
+   - Creating `tsconfig.json`
+   - Updating `package.json` Scripts
+   - Renaming `.js` to `.ts`
+3. **Frontend (Ember) Setup**
+   - Installing Ember TypeScript
+   - Creating or Modifying `tsconfig.json`
+   - Typical File Renaming Strategy
+4. **Shared Data Interfaces**
+5. **Linting & Prettier**
+6. **Phased Migration Strategy**
+7. **References & Next Steps**
+
+---
+
+## 1. Motivation
+
+- **Consistency**: Make the codebase approachable across backend and frontend.
+- **Safety**: Catch type mismatches, especially around date values, route params, and Photos metadata.
+- **Collaboration**: Provide a single source of truth for shared data interfaces.
+
+We are doing a **phased** approach: not rewriting everything in TypeScript at once, but introducing `.ts` or `.d.ts` files as we modify or create new files.
+
+---
+
+## 2. Backend (Express) Setup
+
+### 2.1 Installing Dependencies
+
+At the **root** of your `backend/` folder, run:
+
+```bash
+cd backend
+npm install --save-dev typescript @types/node @types/express
+```
+
+If you also want to type-assert your tests (e.g., Jest), add:
+
+```bash
+npm install --save-dev @types/jest
+```
+
+### 2.2 Creating `tsconfig.json`
+
+In `backend/`, create a file called `tsconfig.json` (see example below).
+
+### 2.3 Updating `package.json` Scripts
+
+In the `backend/package.json`, add or update scripts like:
+
+```jsonc
+{
+  "scripts": {
+    // ...
+    "build:ts": "tsc --build",
+    "start:ts": "npm run build:ts && node dist/server.js"
+  }
+}
+```
+
+This way, you can compile your `.ts` files into a `dist/` folder, then run them.
+
+### 2.4 Renaming `.js` to `.ts`
+
+- Start small: pick a single file, e.g. `server.js`. Rename it to `server.ts` and fix the imports.
+- Update your imports to use TypeScript/ES modules style if needed, e.g.:
+  ```ts
+  import express from "express";
+  ```
+- Over time, continue converting controllers or utility files from `.js` → `.ts`.
+
+---
+
+## 3. Frontend (Ember) Setup
+
+### 3.1 Installing Ember TypeScript
+
+Inside your Ember app folder (`frontend/photo-filter-frontend`), run:
+
+```bash
+cd frontend/photo-filter-frontend
+ember install ember-cli-typescript
+```
+
+This will create or modify certain TypeScript configuration files (like `tsconfig.json`), add the TypeScript compiler, and wire up Ember to handle `.ts` files.
+
+### 3.2 Creating or Modifying `tsconfig.json`
+
+If `ember-cli-typescript` doesn’t create a `tsconfig.json`, you can add one. (We provide a sample below.) Typically, `ember-cli-typescript` does the heavy lifting. Just ensure it references your desired TypeScript settings.
+
+### 3.3 Typical File Renaming Strategy
+
+- Start by renaming one or two Ember files, e.g. a service or a component, from `.js` → `.ts`.
+- Fix the import statements and specify the class property types. For example:
+
+  ```ts
+  import Service from "@ember/service";
+
+  export default class CurrentAlbumService extends Service {
+    isAlbumRoute = false;
+    albumTitle: string | null = null;
+    // ...
+  }
+  ```
+
+- If you see errors about “Cannot find module ...”, try re-running `npm run start` or `npm run lint`. The Ember CLI often picks up the new `.ts` files automatically.
+
+---
+
+## 4. Shared Data Interfaces
+
+We frequently pass data between the Node backend and the Ember frontend in JSON. For instance, we have `Photo` or `Album` objects. We want a single source of truth, so we can do either:
+
+1. **A Shared Folder** (e.g. `shared-types/` at the top-level) with `.d.ts` or `.ts` files that define `interface PhotoData { ... }`.
+2. Then import them into `backend/` for Node usage, and also reference them in Ember.
+
+**Example**:
+
+```ts
+// shared-types/PhotoData.ts
+export interface PhotoData {
+  uuid: string;
+  originalFilename: string;
+  date: string; // or Date if we handle parsing
+  persons?: string[];
+  // ...
+}
+```
+
+**In backend**:
+
+```ts
+import { PhotoData } from "../../shared-types/PhotoData";
+
+function processPhoto(photo: PhotoData) {
+  // ...
+}
+```
+
+**In Ember**:
+
+```ts
+import PhotoData from "photo-filter-frontend/shared-types/PhotoData";
+
+// Then use PhotoData in a typed model or utility
+```
+
+This ensures the same shape is recognized across the stack.
+
+---
+
+## 5. Linting & Prettier
+
+We already use ESLint + Prettier. Add or verify in `.eslintrc.js` that TypeScript is recognized:
+
+```js
+// Example snippet
+module.exports = {
+  parser: "@typescript-eslint/parser",
+  extends: [
+    "eslint:recommended",
+    "plugin:ember/recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended",
+  ],
+  // ...
+};
+```
+
+**Prettier**: Make sure your `.prettierrc.js` also covers `.ts`:
+
+```js
+module.exports = {
+  overrides: [
+    {
+      files: "*.{ts,js,json}",
+      options: {
+        singleQuote: true,
+        // ...
+      },
+    },
+  ],
+};
+```
+
+---
+
+## 6. Phased Migration Strategy
+
+1. **Backend**: Convert `server.js` → `server.ts`, then your controllers, then your utilities.
+2. **Frontend**: After `ember-cli-typescript` is installed, rename a small but crucial file (like a service or a component).
+3. **Shared Types**: Start with a minimal `PhotoData` or `AlbumData` interface. Evolve it as you unify the codebase.
+
+We encourage the approach: **“Convert as you touch.”** Each time you need to fix a bug in a file, rename it to `.ts` or add types. Over time, your coverage increases organically.
+
+---
+
+## 7. References & Next Steps
+
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+- [ember-cli-typescript Docs](https://emberjs.github.io/ember-cli-typescript/)
+- [@typescript-eslint](https://typescript-eslint.io/) for linting
+- **WIP**: We may eventually compile a single “combined” type definitions library used by the Python layer too, ensuring Apple Photos metadata is typed end-to-end.
+
+_That’s it!_ If you have any issues or want clarifications, see the [ISSUES.md](./ISSUES.md) file or open a new discussion with your questions.
 ```
 
 ### **./project-guidelines.md**
@@ -2058,31 +2535,6 @@ form button {
 }
 ```
 
-### **./backend/package-lock.json**
-```json
-{
-  "name": "photo-filter-backend",
-  "version": "1.0.0",
-  "lockfileVersion": 3,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "photo-filter-backend",
-      "version": "1.0.0",
-      "hasInstallScript": true,
-      "license": "MIT",
-      "dependencies": {
-        "cors": "^2.8.5",
-        "express": "^4.21.1",
-        "fs-extra": "^11.2.0",
-        "jsonapi-serializer": "^3.6.7"
-      },
-      "devDependencies": {
-        "concurrently": "^9.0.1",
-        "jest": "^29.7.0",
-...
-```
-
 ### **./backend/package.json**
 ```
 {
@@ -2094,6 +2546,7 @@ form button {
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.1",
+    "express-handlebars": "^8.0.1",
     "fs-extra": "^11.2.0",
     "jsonapi-serializer": "^3.6.7",
     "osx-tag": "^0.4.9",
@@ -2109,6 +2562,7 @@ form button {
     "start": "node server.js",
     "dev": "nodemon --ignore 'data/*' server.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "generate-overview": "../generate-overview.sh",
     "postinstall": "node ./scripts/setup.js"
   }
@@ -2166,6 +2620,42 @@ const execAsync = promisify(exec);
     process.exit(1);
   }
 })();
+```
+
+### **./backend/tsconfig.json**
+```
+{
+  "compilerOptions": {
+    /* Language and Environment */
+    "target": "ES2021", // or "ES2022"
+    "lib": ["ES2021", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    /* CommonJS if you prefer older Node style:
+         "module": "CommonJS", 
+      */
+
+    /* Source Maps & Declarations */
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    /* Strictness */
+    "strict": true,
+    "skipLibCheck": true,
+
+    /* Additional Node.js Options */
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules"]
+}
 ```
 
 ### **./backend/controllers/api-controller.js**
@@ -2679,151 +3169,7 @@ export { getAlbumsData, getAlbumById } from "./albums-controller.js";
 export { getPhotosByAlbumData } from "./photos-controller.js";
 ```
 
-### **./backend/controllers/api/people-controller.js**
-```
-// backend/controllers/api/people-controller.js
-
-import path from "path";
-import fs from "fs-extra";
-import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
-import { execCommand } from "../../utils/exec-command.js";
-import { Serializer } from "jsonapi-serializer";
-import { getNestedProperty } from "../../utils/helpers.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const PhotoSerializer = new Serializer("photo", {
-  id: "uuid",
-  attributes: [
-    "originalName",
-    "originalFilename",
-    "filename",
-    "score",
-    "exifInfo",
-    "persons",
-  ],
-  keyForAttribute: "camelCase",
-  relationships: {
-    album: {
-      type: "album",
-    },
-  },
-  pluralizeType: false,
-});
-
-// List all people in an album
-export const getPeopleInAlbum = async (req, res) => {
-  try {
-    const albumUUID = req.params.albumUUID;
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const photosDir = path.join(dataDir, "albums", albumUUID);
-    const photosPath = path.join(photosDir, "photos.json");
-
-    if (!(await fs.pathExists(photosPath))) {
-      return res.status(404).json({
-        errors: [{ detail: "Album not found or no photos available" }],
-      });
-    }
-
-    const photosData = await fs.readJson(photosPath);
-
-    // Extract all persons from all photos
-    const allPersons = new Set();
-    for (const photo of photosData) {
-      if (Array.isArray(photo.persons)) {
-        photo.persons.forEach((p) => allPersons.add(p));
-      }
-    }
-
-    res.json({ data: Array.from(allPersons) });
-  } catch (error) {
-    console.error("Error fetching people in album:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
-  }
-};
-
-// Get photos of a specific person in the album
-export const getPhotosByPerson = async (req, res) => {
-  try {
-    const albumUUID = req.params.albumUUID;
-    const personName = req.params.personName;
-    const sortAttribute = req.query.sort || "score.overall";
-    const sortOrder = req.query.order || "desc";
-
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const photosDir = path.join(dataDir, "albums", albumUUID);
-    const photosPath = path.join(photosDir, "photos.json");
-
-    if (!(await fs.pathExists(photosPath))) {
-      return res.status(404).json({
-        errors: [{ detail: "Album not found or no photos available" }],
-      });
-    }
-
-    const photosData = await fs.readJson(photosPath);
-
-    // Filter photos by personName
-    const filteredPhotos = photosData.filter((photo) => {
-      if (!Array.isArray(photo.persons)) return false;
-      return photo.persons.includes(personName);
-    });
-
-    if (filteredPhotos.length === 0) {
-      return res.json({
-        data: [],
-        meta: {
-          albumUUID,
-          personName,
-          sortAttribute,
-          sortOrder,
-          scoreAttributes: [],
-        },
-      });
-    }
-
-    // Add originalName property
-    filteredPhotos.forEach((photo) => {
-      photo.originalName = path.parse(photo.original_filename).name;
-    });
-
-    const scoreAttributes = Object.keys(filteredPhotos[0].score);
-
-    filteredPhotos.sort((a, b) => {
-      const aValue = getNestedProperty(a, sortAttribute);
-      const bValue = getNestedProperty(b, sortAttribute);
-
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    });
-
-    filteredPhotos.forEach((photo) => {
-      photo.album = albumUUID;
-    });
-
-    const jsonApiData = PhotoSerializer.serialize(filteredPhotos);
-
-    res.json({
-      ...jsonApiData,
-      meta: {
-        albumUUID,
-        personName,
-        sortAttribute,
-        sortOrder,
-        scoreAttributes,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching photos for person:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
-  }
-};
-```
-
-### **./backend/controllers/api/photos-controller.js**
+### **./backend/controllers/api/-photos-controller.js**
 ```
 // backend/controllers/api/photos-controller.js
 import path from "path";
@@ -3023,6 +3369,504 @@ export const getPhotosByAlbumData = async (req, res) => {
   }
 };
 
+function deduplicatePhotos(photos) {
+  const map = new Map();
+  for (const photo of photos) {
+    const key = `${photo.original_filename}-${photo.date}`;
+    if (!map.has(key)) {
+      map.set(key, { ...photo });
+    } else {
+      // Merge persons if there's a duplicate
+      const existing = map.get(key);
+      if (Array.isArray(photo.persons)) {
+        const existingPersons = new Set(existing.persons || []);
+        photo.persons.forEach((p) => existingPersons.add(p));
+        existing.persons = Array.from(existingPersons);
+      }
+      map.set(key, existing);
+    }
+  }
+  return Array.from(map.values());
+}
+
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+```
+
+### **./backend/controllers/api/time-controller.js**
+```
+// backend/controllers/api/time-controller.js
+
+import fs from "fs-extra";
+import path from "path";
+import { fileURLToPath } from "url";
+
+/**
+ * getTimeIndex
+ *
+ * Returns a hierarchical time-based index of all photos known to the system:
+ *   {
+ *     "years": [
+ *       {
+ *         "year": 2024,
+ *         "months": [
+ *           {
+ *             "month": 12,
+ *             "days": [5, 6, 7]
+ *           }
+ *         ]
+ *       }
+ *     ]
+ *   }
+ *
+ * Only includes years/months/days that actually have photos. Does not currently handle weeks.
+ */
+export async function getTimeIndex(req, res) {
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+
+    const dataDir = path.join(__dirname, "..", "..", "data", "albums");
+    // We'll iterate through all album folders, parse each photos.json,
+    // and accumulate date info in a structured way.
+
+    const yearMap = new Map();
+    // yearMap[year] = {
+    //   <monthNumber>: Set([dayNumbers]),
+    //   ...
+    // }
+
+    const albumDirs = await fs.readdir(dataDir, { withFileTypes: true });
+
+    for (const dirEnt of albumDirs) {
+      if (!dirEnt.isDirectory()) continue;
+      const albumUUID = dirEnt.name;
+      const photosJsonPath = path.join(dataDir, albumUUID, "photos.json");
+
+      if (!(await fs.pathExists(photosJsonPath))) {
+        continue;
+      }
+
+      const photosData = await fs.readJson(photosJsonPath);
+      for (const photo of photosData) {
+        // Date parse
+        const dateObj = new Date(photo.date);
+        if (isNaN(dateObj.getTime())) {
+          continue; // skip if invalid date
+        }
+
+        const y = dateObj.getFullYear();
+        const m = dateObj.getMonth() + 1; // 1-based
+        const d = dateObj.getDate();
+
+        if (!yearMap.has(y)) {
+          yearMap.set(y, new Map());
+        }
+        const monthMap = yearMap.get(y);
+
+        if (!monthMap.has(m)) {
+          monthMap.set(m, new Set());
+        }
+        const daySet = monthMap.get(m);
+        daySet.add(d);
+      }
+    }
+
+    // Now convert that Map-of-Maps-of-Sets into a JSON-friendly object
+    const yearsArray = [];
+    // Sort the years ascending, e.g., 2019, 2020, etc.
+    const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
+
+    for (const year of sortedYears) {
+      const monthsArray = [];
+      const monthMap = yearMap.get(year);
+
+      // Sort months ascending
+      const sortedMonths = Array.from(monthMap.keys()).sort((a, b) => a - b);
+      for (const month of sortedMonths) {
+        const daysArray = Array.from(monthMap.get(month)).sort((a, b) => a - b);
+        monthsArray.push({
+          month,
+          days: daysArray,
+        });
+      }
+
+      yearsArray.push({
+        year,
+        months: monthsArray,
+      });
+    }
+
+    const finalIndex = { years: yearsArray };
+
+    return res.json(finalIndex);
+  } catch (error) {
+    console.error("Error building time index:", error);
+    return res.status(500).json({ errors: [{ detail: error.message }] });
+  }
+}
+```
+
+### **./backend/controllers/api/people-controller.js**
+```
+// backend/controllers/api/people-controller.js
+
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+import { runPythonScript } from "../../utils/run-python-script.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
+import { getNestedProperty } from "../../utils/helpers.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PhotoSerializer = new Serializer("photo", {
+  id: "uuid",
+  attributes: [
+    "originalName",
+    "originalFilename",
+    "filename",
+    "score",
+    "exifInfo",
+    "persons",
+  ],
+  keyForAttribute: "camelCase",
+  relationships: {
+    album: {
+      type: "album",
+    },
+  },
+  pluralizeType: false,
+});
+
+// List all people in an album
+export const getPeopleInAlbum = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+
+    if (!(await fs.pathExists(photosPath))) {
+      return res.status(404).json({
+        errors: [{ detail: "Album not found or no photos available" }],
+      });
+    }
+
+    const photosData = await fs.readJson(photosPath);
+
+    // Extract all persons from all photos
+    const allPersons = new Set();
+    for (const photo of photosData) {
+      if (Array.isArray(photo.persons)) {
+        photo.persons.forEach((p) => allPersons.add(p));
+      }
+    }
+
+    res.json({ data: Array.from(allPersons) });
+  } catch (error) {
+    console.error("Error fetching people in album:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+// Get photos of a specific person in the album
+export const getPhotosByPerson = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const personName = req.params.personName;
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
+
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+
+    if (!(await fs.pathExists(photosPath))) {
+      return res.status(404).json({
+        errors: [{ detail: "Album not found or no photos available" }],
+      });
+    }
+
+    const photosData = await fs.readJson(photosPath);
+
+    // Filter photos by personName
+    const filteredPhotos = photosData.filter((photo) => {
+      if (!Array.isArray(photo.persons)) return false;
+      return photo.persons.includes(personName);
+    });
+
+    if (filteredPhotos.length === 0) {
+      return res.json({
+        data: [],
+        meta: {
+          albumUUID,
+          personName,
+          sortAttribute,
+          sortOrder,
+          scoreAttributes: [],
+        },
+      });
+    }
+
+    // Add originalName property
+    filteredPhotos.forEach((photo) => {
+      photo.originalName = path.parse(photo.original_filename).name;
+    });
+
+    const scoreAttributes = Object.keys(filteredPhotos[0].score);
+
+    filteredPhotos.sort((a, b) => {
+      const aValue = getNestedProperty(a, sortAttribute);
+      const bValue = getNestedProperty(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    });
+
+    filteredPhotos.forEach((photo) => {
+      photo.album = albumUUID;
+    });
+
+    const jsonApiData = PhotoSerializer.serialize(filteredPhotos);
+
+    res.json({
+      ...jsonApiData,
+      meta: {
+        albumUUID,
+        personName,
+        sortAttribute,
+        sortOrder,
+        scoreAttributes,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching photos for person:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+```
+
+### **./backend/controllers/api/photos-controller.js**
+```
+// backend/controllers/api/photos-controller.js
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+import { runPythonScript } from "../../utils/run-python-script.js";
+import { runOsxphotosExportImages } from "../../utils/export-images.js";
+import { getNestedProperty } from "../../utils/helpers.js";
+import { execCommand } from "../../utils/exec-command.js";
+import { Serializer } from "jsonapi-serializer";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: ["name"],
+  keyForAttribute: "camelCase",
+  pluralizeType: false,
+});
+
+const PhotoSerializer = new Serializer("photo", {
+  id: "uuid",
+  attributes: [
+    "originalName",
+    "originalFilename",
+    "exportedFilename", // <= We will use this in the frontend
+    "filename",
+    "score",
+    "exifInfo",
+  ],
+  keyForAttribute: "camelCase",
+  relationships: {
+    album: { type: "album" },
+    persons: { type: "person" },
+  },
+  pluralizeType: false,
+  meta: {},
+});
+
+function formatPhotoDateWithOffset(dateString) {
+  // ...same as your existing code...
+  const match = dateString.match(
+    /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
+  );
+  if (!match) {
+    return fallbackFormat(new Date(dateString));
+  }
+
+  const datePart = match[1];
+  const timePart = match[2];
+
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute, secondRaw] = timePart.split(":");
+  const hourNum = Number(hour);
+  const minuteNum = Number(minute);
+  const secondNum = Math.floor(Number(secondRaw));
+
+  const YYYY = String(year);
+  const MM = String(month).padStart(2, "0");
+  const DD = String(day).padStart(2, "0");
+  const HH = String(hourNum).padStart(2, "0");
+  const mm = String(minuteNum).padStart(2, "0");
+  const ss = String(secondNum).padStart(2, "0");
+
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
+}
+
+function fallbackFormat(dateObj) {
+  // ...same as your existing code...
+  const YYYY = dateObj.getFullYear();
+  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const DD = String(dateObj.getDate()).padStart(2, "0");
+  const HH = String(dateObj.getHours()).padStart(2, "0");
+  const mm = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
+}
+
+export const getPhotosByAlbumData = async (req, res) => {
+  try {
+    const albumUUID = req.params.albumUUID;
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
+
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const photosDir = path.join(dataDir, "albums", albumUUID);
+    const photosPath = path.join(photosDir, "photos.json");
+    const imagesDir = path.join(photosDir, "images");
+    const venvDir = path.join(__dirname, "..", "..", "venv");
+    const pythonPath = path.join(venvDir, "bin", "python3");
+    const scriptPath = path.join(
+      __dirname,
+      "..",
+      "..",
+      "scripts",
+      "export_photos_in_album.py"
+    );
+    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+
+    await fs.ensureDir(photosDir);
+    await fs.ensureDir(imagesDir);
+
+    // If we haven't exported yet, do so
+    if (!(await fs.pathExists(photosPath))) {
+      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      await runOsxphotosExportImages(
+        osxphotosPath,
+        albumUUID,
+        imagesDir,
+        photosPath
+      );
+    }
+
+    let photosData = await fs.readJson(photosPath);
+
+    // 1) Deduplicate if needed
+    photosData = deduplicatePhotos(photosData);
+
+    // 2) For each photo, build the final 'exportedFilename'
+    //    so that the frontend can use that exact string in <img src>.
+    const uniquePersons = new Map();
+    photosData.forEach((photo) => {
+      photo.originalName = path.parse(photo.original_filename).name;
+
+      // We compute a date-based prefix
+      const prefix = formatPhotoDateWithOffset(photo.date);
+      // Then the final on-disk name
+      photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+
+      // If no persons, default to empty array
+      if (!Array.isArray(photo.persons)) {
+        photo.persons = [];
+      }
+
+      // We'll collect persons as well for JSON:API
+      photo.personsData = photo.persons.map((name) => {
+        const slug = slugifyName(name);
+        if (!uniquePersons.has(slug)) {
+          uniquePersons.set(slug, { id: slug, name });
+        }
+        return { type: "person", id: slug };
+      });
+
+      // Set the album relationship
+      photo.album = albumUUID;
+    });
+
+    // If at least one photo has a 'score', we can get its attributes
+    let scoreAttributes = [];
+    if (photosData.length > 0 && photosData[0].score) {
+      scoreAttributes = Object.keys(photosData[0].score);
+    }
+
+    // 3) Sort photos
+    photosData.sort((a, b) => {
+      const aValue = getNestedProperty(a, sortAttribute);
+      const bValue = getNestedProperty(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    });
+
+    // 4) Serialize the photos
+    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
+
+    // 5) Serialize the persons
+    const personsArray = Array.from(uniquePersons.values());
+    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
+
+    // 6) Merge them
+    const merged = {
+      data: jsonApiPhotoData.data,
+      included: jsonApiPersonData.data,
+      meta: {
+        albumUUID,
+        sortAttribute,
+        sortOrder,
+        scoreAttributes,
+      },
+    };
+
+    // For each photo in `merged.data`, attach the "persons" relationship
+    merged.data.forEach((photo) => {
+      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
+      if (
+        originalPhoto &&
+        originalPhoto.personsData &&
+        originalPhoto.personsData.length > 0
+      ) {
+        photo.relationships = photo.relationships || {};
+        photo.relationships.persons = {
+          data: originalPhoto.personsData,
+        };
+      } else {
+        photo.relationships = photo.relationships || {};
+        photo.relationships.persons = { data: [] };
+      }
+    });
+
+    // Finally, respond with JSON:API
+    res.json(merged);
+  } catch (error) {
+    console.error("Error fetching photos for album:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+// Helper function to unify duplicates if needed
 function deduplicatePhotos(photos) {
   const map = new Map();
   for (const photo of photos) {
@@ -3510,39 +4354,38 @@ import {
 import { runPythonScript } from "../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../utils/export-images.js";
 
-// If needed for resolving paths in a Node ES Module:
+// === Import our new time controller
+import { getTimeIndex } from "../controllers/api/time-controller.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const apiRouter = express.Router();
 
-// =====================================
+// ======================
 //   Existing Endpoints
-// =====================================
+// ======================
 
-// Fetch all albums
+// Albums
 apiRouter.get("/albums", getAlbumsData);
-
-// Fetch a single album by UUID
 apiRouter.get("/albums/:albumUUID", getAlbumById);
-
-// Fetch photos for a given album
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
-// People in an album
+// People
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
-
-// Photos of a specific person in an album
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 
-// =====================================
-//   New REFRESH Endpoint
-// =====================================
+// ======================
+//   TIME-INDEX ENDPOINT
+// ======================
+apiRouter.get("/time-index", getTimeIndex);
+
+// ======================
+//   REFRESH Endpoint
+// ======================
 apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
   try {
     const { albumUUID } = req.params;
-
-    // Paths
     const dataDir = path.join(
       __dirname,
       "..",
@@ -3564,7 +4407,6 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Remove existing data to force a re-export
     if (await fs.pathExists(photosPath)) {
       await fs.remove(photosPath);
     }
@@ -3572,9 +4414,8 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       await fs.remove(imagesDir);
     }
 
-    // Re-run Python script to get fresh metadata
+    // Re-run python script
     await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-    // Then export images again
     await runOsxphotosExportImages(
       osxphotosPath,
       albumUUID,
@@ -3628,6 +4469,38 @@ module.exports = {
 };
 ```
 
+### **./frontend/photo-filter-frontend/types/global.d.ts**
+```
+// Types for compiled templates
+declare module 'photo-filter-frontend/templates/*' {
+  import { TemplateFactory } from 'htmlbars-inline-precompile';
+  const tmpl: TemplateFactory;
+  export default tmpl;
+}
+```
+
+### **./frontend/photo-filter-frontend/types/ember-data/types/registries/model.d.ts**
+```
+/**
+ * Catch-all for ember-data.
+ */
+export default interface ModelRegistry {
+  [key: string]: any;
+}
+```
+
+### **./frontend/photo-filter-frontend/types/photo-filter-frontend/index.d.ts**
+```
+import Ember from 'ember';
+
+declare global {
+  interface Array<T> extends Ember.ArrayPrototypeExtensions<T> {}
+  // interface Function extends Ember.FunctionPrototypeExtensions {}
+}
+
+export {};
+```
+
 ### **./frontend/photo-filter-frontend/tailwind.config.js**
 ```
 /** @type {import('tailwindcss').Config} */
@@ -3643,6 +4516,24 @@ module.exports = {
     extend: {},
   },
   plugins: [require('daisyui')],
+};
+```
+
+### **./frontend/photo-filter-frontend/app/config/environment.d.ts**
+```
+export default config;
+
+/**
+ * Type declarations for
+ *    import config from 'my-app/config/environment'
+ */
+declare const config: {
+  environment: string;
+  modulePrefix: string;
+  podModulePrefix: string;
+  locationType: string;
+  rootURL: string;
+  APP: Record<string, unknown>;
 };
 ```
 
@@ -3760,6 +4651,159 @@ export default class PhotoAdapter extends ApplicationAdapter {
   {{/each}}
 </div>```
 
+### **./frontend/photo-filter-frontend/app/components/time-nav.ts**
+```
+// frontend/photo-filter-frontend/app/components/time-nav.ts
+
+import Component from '@glimmer/component';
+import { tracked } from '@glimmer/tracking';
+import { action } from '@ember/object';
+import { inject as service } from '@ember/service';
+import config from 'photo-filter-frontend/config/environment';
+import type RouterService from '@ember/routing/router-service';
+import { isArray as emberIsArray } from '@ember/array';
+
+/**
+ * Data structure for the time index. Because it’s dynamic JSON,
+ * we define an interface that roughly matches: { years: YearObject[] }.
+ */
+interface TimeIndexData {
+  years: YearObject[];
+}
+
+interface YearObject {
+  year: number;
+  months: MonthObject[];
+}
+
+interface MonthObject {
+  month: number;
+  days?: number[];
+}
+
+/**
+ * This component fetches the time-based index (Year->Month->Day)
+ * from /api/time-index, stores it in `this.timeIndex`, and
+ * manages a list of `selectedDates` keys.
+ */
+export default class TimeNavComponent extends Component {
+  @service declare router: RouterService;
+
+  /** Raw time index data from the server. We default to null until loaded. */
+  @tracked timeIndex: TimeIndexData | null = null;
+
+  /** Flag to show “Loading…” while fetching data. */
+  @tracked isLoading = true;
+
+  /** The array of date-keys (like "2024", "2024-12", "2024-12-07") the user has selected. */
+  @tracked selectedDates: string[] = [];
+
+  constructor(owner: unknown, args: Record<string, unknown>) {
+    super(owner, args);
+    this.loadTimeIndex();
+  }
+
+  /**
+   * Template calls this to see if a certain dateKey is in our selectedDates list.
+   * Marked with @action so that Ember properly binds `this`.
+   */
+  @action
+  selectedDatesIncludes(key: string): boolean {
+    return this.selectedDates.includes(key);
+  }
+
+  /**
+   * The main fetch for our /api/time-index resource.
+   */
+  async loadTimeIndex(): Promise<void> {
+    try {
+      const response = await fetch(`${config.APP.apiHost}/api/time-index`);
+      const data: unknown = await response.json();
+
+      if (!data || typeof data !== 'object') {
+        console.warn('Time index response was invalid:', data);
+        this.timeIndex = { years: [] };
+      } else {
+        const typed = data as Partial<TimeIndexData>;
+        if (!emberIsArray(typed.years)) {
+          console.warn('timeIndex missing "years" array:', data);
+          this.timeIndex = { years: [] };
+        } else {
+          this.timeIndex = { years: typed.years };
+        }
+      }
+    } catch (err) {
+      console.error('Error loading time index:', err);
+      this.timeIndex = { years: [] };
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  /**
+   * Called by checkboxes in the template to toggle a dateKey in `selectedDates`.
+   * Also marked with @action for correct context binding.
+   */
+  @action
+  toggleSelection(dateKey: string): void {
+    let updated = [...this.selectedDates];
+    if (updated.includes(dateKey)) {
+      updated = updated.filter((d) => d !== dateKey);
+    } else {
+      updated.push(dateKey);
+    }
+    updated.sort();
+    this.selectedDates = updated;
+
+    this.updateQueryParams();
+  }
+
+  /**
+   * Update the current route's query params to reflect the selected dates.
+   */
+  updateQueryParams(): void {
+    const currentRouteName = this.router.currentRouteName;
+    const albumId = this.router.currentRoute.params?.album_id as
+      | string
+      | undefined;
+    const currentQp = this.router.currentRoute.queryParams || {};
+    const datesJson = JSON.stringify(this.selectedDates);
+
+    if (albumId) {
+      this.router.transitionTo(currentRouteName, albumId, {
+        queryParams: {
+          ...currentQp,
+          dates: datesJson,
+        },
+      });
+    } else {
+      this.router.transitionTo(currentRouteName, {
+        queryParams: {
+          ...currentQp,
+          dates: datesJson,
+        },
+      });
+    }
+  }
+
+  /**
+   * Helper for building date keys: "YYYY", "YYYY-MM", or "YYYY-MM-DD".
+   */
+  buildDateKey(year: number, month?: number, day?: number): string {
+    if (day !== undefined) {
+      // e.g. "2025-12-31"
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    } else if (month !== undefined) {
+      // e.g. "2025-12"
+      return `${year}-${String(month).padStart(2, '0')}`;
+    } else {
+      // e.g. "2025"
+      return String(year);
+    }
+  }
+}
+```
+
 ### **./frontend/photo-filter-frontend/app/components/photo-grid.js**
 ```
 import Component from '@glimmer/component';
@@ -3780,6 +4824,130 @@ export default class PhotoGridComponent extends Component {
 }
 ```
 
+### **./frontend/photo-filter-frontend/app/components/time-nav.hbs**
+```
+{{! frontend/photo-filter-frontend/app/components/time-nav.hbs }}
+<div class="time-nav p-2 border border-gray-200 rounded">
+  <h2 class="font-bold mb-2">Time</h2>
+
+  {{#if this.isLoading}}
+    <p>Loading time index...</p>
+  {{else if this.timeIndex}}
+    {{#if (and (eq (type-of this.timeIndex) "object") this.timeIndex.years)}}
+      {{#if (is-array this.timeIndex.years)}}
+        {{#if (gt this.timeIndex.years.length 0)}}
+          {{! Loop over all years }}
+          {{#each this.timeIndex.years as |yearObj|}}
+            {{#if (and (eq (type-of yearObj) "object") yearObj.year)}}
+              {{#let (this.buildDateKey yearObj.year) as |yearKey|}}
+                <div class="mb-2">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={{this.selectedDatesIncludes yearKey}}
+                      {{on "change" (fn this.toggleSelection yearKey)}}
+                    />
+                    <strong>{{yearObj.year}}</strong>
+                  </label>
+
+                  {{#if
+                    (and
+                      (eq (type-of yearObj.months) "array")
+                      (gt yearObj.months.length 0)
+                    )
+                  }}
+                    <div class="ml-4 mt-1">
+                      {{#each yearObj.months as |monthObj|}}
+                        {{#if
+                          (and (eq (type-of monthObj) "object") monthObj.month)
+                        }}
+                          {{#let
+                            (this.buildDateKey yearObj.year monthObj.month)
+                            as |monthKey|
+                          }}
+                            <div class="mb-1">
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={{this.selectedDatesIncludes
+                                    monthKey
+                                  }}
+                                  {{on
+                                    "change"
+                                    (fn this.toggleSelection monthKey)
+                                  }}
+                                />
+                                Month
+                                {{monthObj.month}}
+                              </label>
+
+                              {{#if
+                                (and
+                                  (eq (type-of monthObj.days) "array")
+                                  (gt monthObj.days.length 0)
+                                )
+                              }}
+                                <div class="ml-5 mt-1">
+                                  {{#each monthObj.days as |dayNumber|}}
+                                    {{#let
+                                      (this.buildDateKey
+                                        yearObj.year monthObj.month dayNumber
+                                      )
+                                      as |dayKey|
+                                    }}
+                                      <label class="mr-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={{this.selectedDatesIncludes
+                                            dayKey
+                                          }}
+                                          {{on
+                                            "change"
+                                            (fn this.toggleSelection dayKey)
+                                          }}
+                                        />
+                                        {{dayNumber}}
+                                      </label>
+                                    {{/let}}
+                                  {{/each}}
+                                </div>
+                              {{else}}
+                                <p class="text-sm opacity-50 ml-5">
+                                  No valid day array for month
+                                  {{monthObj.month}}
+                                </p>
+                              {{/if}}
+                            </div>
+                          {{/let}}
+                        {{/if}}
+                      {{/each}}
+                    </div>
+                  {{else}}
+                    <p class="text-sm opacity-50 ml-4">
+                      No months found for year
+                      {{yearObj.year}}
+                    </p>
+                  {{/if}}
+                </div>
+              {{/let}}
+            {{/if}}
+          {{/each}}
+        {{else}}
+          <p>No items: <code>timeIndex.years</code> array is empty.</p>
+        {{/if}}
+      {{else}}
+        <p><code>timeIndex.years</code> is not an array.</p>
+      {{/if}}
+    {{else}}
+      <p>timeIndex is missing a
+        <code>years</code>
+        array or is not an object.</p>
+    {{/if}}
+  {{else}}
+    <p>No time data found.</p>
+  {{/if}}
+</div>```
+
 ### **./frontend/photo-filter-frontend/app/router.js**
 ```
 import EmberRouter from '@ember/routing/router';
@@ -3799,35 +4967,13 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/albums.hbs**
 ```
-<!-- We are inside the main flex container defined in application.hbs -->
-<!-- Here we split the space into a left nav and a main content area side by side. -->
-<!-- Each gets overflow-auto so they scroll independently. -->
+<h1 class="text-2xl font-bold mb-4">Albums Route</h1>
+{{outlet}}```
 
-<div class="h-full w-full flex">
-  <!-- Left nav: fixed width, scrollable -->
-  <div
-    class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
-  >
-    <ul class="menu p-0 w-full">
-      {{#each this.model as |album|}}
-        <li class="mb-1">
-          <LinkTo
-            @route="albums.album"
-            @model={{album.id}}
-            class="rounded hover:bg-gray-200 px-2 py-1"
-          >
-            {{album.title}}
-          </LinkTo>
-        </li>
-      {{/each}}
-    </ul>
-  </div>
-
-  <!-- Main content area: add id here so ember-router-scroll can find it -->
-  <div id="main-content-area" class="flex-1 overflow-auto p-4">
-    {{outlet}}
-  </div>
-</div>```
+### **./frontend/photo-filter-frontend/app/templates/index.hbs**
+```
+<h2>Welcome to Photo Filter!</h2>
+<p>Use the left nav to explore by Time or Albums.</p>```
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
 ```
@@ -3844,7 +4990,7 @@ Router.map(function () {
 
     {{#if this.currentAlbum.isAlbumRoute}}
       <div class="flex items-center space-x-4">
-        <!-- Album Title -->
+        <!-- Current album title (if any) -->
         <h2 class="text-lg font-semibold">{{this.currentAlbum.albumTitle}}</h2>
 
         <!-- Sorting Options -->
@@ -3880,11 +5026,15 @@ Router.map(function () {
               <option
                 value="desc"
                 selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
+              >
+                Descending
+              </option>
               <option
                 value="asc"
                 selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
+              >
+                Ascending
+              </option>
             </select>
           </div>
         </div>
@@ -3892,8 +5042,36 @@ Router.map(function () {
     {{/if}}
   </nav>
 
+  <!-- Main layout: side nav + main content -->
   <div class="h-full w-full pt-16 flex">
-    {{outlet}}
+    <!-- Left nav area (always visible) -->
+    <div
+      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
+    >
+      {{! Time navigation }}
+      <TimeNav />
+
+      {{! Albums list: from application route model }}
+      <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
+      <ul class="menu p-0 w-full mb-4">
+        {{#each this.model as |album|}}
+          <li class="mb-1">
+            <LinkTo
+              @route="albums.album"
+              @model={{album.id}}
+              class="rounded hover:bg-gray-200 px-2 py-1"
+            >
+              {{album.title}}
+            </LinkTo>
+          </li>
+        {{/each}}
+      </ul>
+    </div>
+
+    <!-- Main content outlet -->
+    <div id="main-content-area" class="flex-1 overflow-auto p-4">
+      {{outlet}}
+    </div>
   </div>
 </div>```
 
@@ -3982,6 +5160,7 @@ export default class ApplicationController extends Controller {
 ### **./frontend/photo-filter-frontend/app/controllers/albums/album.js**
 ```
 // frontend/photo-filter-frontend/app/controllers/albums/album.js
+
 import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
@@ -3994,14 +5173,13 @@ export default class AlbumsAlbumController extends Controller {
   @tracked sort = 'score.overall';
   @tracked order = 'desc';
   @tracked persons = [];
+  @tracked dates = [];
 
   // Pagination
   @tracked page = 1;
-  pageSize = 50; // number of photos to show per page
+  pageSize = 50;
 
-  // The route model returns: { album, photos, ... }
   get allPhotos() {
-    // If the model hasn’t fully loaded, return an empty array
     if (!this.model.isDataReady || !Array.isArray(this.model.photos)) {
       return [];
     }
@@ -4009,26 +5187,28 @@ export default class AlbumsAlbumController extends Controller {
   }
 
   /**
-   * Return *all* photos after applying filtering and sorting,
+   * Return *all* photos after applying date filtering, person filtering, and sorting,
    * but before pagination.
    */
   get filteredSortedPhotos() {
     let photos = this.allPhotos.slice();
 
-    // 1. Filter by selected persons (if any)
+    // 1. Date-based filtering if `dates` is non-empty
+    if (this.dates.length > 0) {
+      photos = photos.filter((photo) => this.matchesAnySelectedDate(photo));
+    }
+
+    // 2. Person-based filtering
     if (this.persons.length > 0) {
       photos = photos.filter((photo) => {
-        // Each photo has an array of person model instances
-        // with a `name` attribute
-        const photoPersonNames = photo.persons.map((p) => p.name);
-        // We want the photo to have *all* selected persons
+        let photoPersonNames = photo.persons.map((p) => p.name);
         return this.persons.every((personName) =>
           photoPersonNames.includes(personName),
         );
       });
     }
 
-    // 2. Sort by the current attribute and order
+    // 3. Sort by attribute
     photos.sort((a, b) => {
       const aValue = this.getNested(a, this.sort);
       const bValue = this.getNested(b, this.sort);
@@ -4042,28 +5222,54 @@ export default class AlbumsAlbumController extends Controller {
     return photos;
   }
 
-  /**
-   * Return only the photos that should appear
-   * in the DOM on the current page.
-   */
   get visiblePhotos() {
-    // slice out the portion for current page
     const startIndex = (this.page - 1) * this.pageSize;
     const endIndex = this.page * this.pageSize;
     return this.filteredSortedPhotos.slice(startIndex, endIndex);
   }
 
   /**
-   * Utility to handle nested paths like "score.overall".
+   * Parse the photo's date to see if it matches any of the selected date-keys:
+   *   - "YYYY"
+   *   - "YYYY-MM"
+   *   - "YYYY-MM-DD"
    */
+  matchesAnySelectedDate(photo) {
+    if (!photo.exifInfo && !photo.score) {
+      return false; // minimal fallback
+    }
+    let dateStr = photo.date; // e.g. "2024-12-07 15:30:00-05:00"
+    let dObj = new Date(dateStr);
+    if (isNaN(dObj.getTime())) {
+      return false;
+    }
+    const y = dObj.getFullYear();
+    const m = String(dObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dObj.getDate()).padStart(2, '0');
+
+    // e.g. "2024", "2024-12", "2024-12-07"
+    const yearKey = `${y}`;
+    const yearMonthKey = `${y}-${m}`;
+    const fullDayKey = `${y}-${m}-${d}`;
+
+    // If ANY of these matches is in this.dates, we pass
+    if (this.dates.includes(yearKey)) {
+      return true;
+    }
+    if (this.dates.includes(yearMonthKey)) {
+      return true;
+    }
+    if (this.dates.includes(fullDayKey)) {
+      return true;
+    }
+    return false;
+  }
+
   getNested(obj, path) {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
   }
 
-  /**
-   * Called when the user toggles a person’s name in the UI,
-   * to either add or remove that person from the filter.
-   */
+  // Person toggles, etc. remain the same
   @action
   togglePerson(personName) {
     let selected = [...this.persons];
@@ -4073,101 +5279,49 @@ export default class AlbumsAlbumController extends Controller {
       selected.push(personName);
     }
     this.persons = selected;
-
-    // Also reset pagination to page 1 whenever we change filters
     this.page = 1;
 
-    // Update query params in the URL
-    this.router.transitionTo(
-      'albums.album',
-      this.router.currentRoute.params.album_id,
-      {
-        queryParams: {
-          sort: this.sort,
-          order: this.order,
-          persons: this.persons,
-        },
-      },
-    );
+    this.updateQueryParams();
   }
 
-  /**
-   * Load the next page (increment `page`).
-   * If we’re at the last page, this does nothing.
-   */
-  @action
-  loadMore() {
-    // The total number of filtered photos (before pagination)
-    const total = this.filteredSortedPhotos.length;
-
-    // The index of the last item currently shown
-    const lastShown = this.page * this.pageSize;
-
-    if (lastShown < total) {
-      // Another page still exists
-      this.page++;
-    }
-  }
-
-  /**
-   * If the user changes the sort attribute in the UI,
-   * reset page to 1 and update query params.
-   */
   @action
   updateSortAttribute(event) {
-    const newSort = event.target.value;
-    this.sort = newSort;
-    this.page = 1; // reset to first page
-    this.router.transitionTo(
-      'albums.album',
-      this.router.currentRoute.params.album_id,
-      {
-        queryParams: {
-          sort: newSort,
-          order: this.order,
-          persons: this.persons,
-        },
-      },
-    );
+    this.sort = event.target.value;
+    this.page = 1;
+    this.updateQueryParams();
   }
 
-  /**
-   * If the user changes the sort order in the UI,
-   * reset page to 1 and update query params.
-   */
   @action
   updateSortOrder(event) {
-    const newOrder = event.target.value;
-    this.order = newOrder;
-    this.page = 1; // reset to first page
-    this.router.transitionTo(
-      'albums.album',
-      this.router.currentRoute.params.album_id,
-      {
-        queryParams: {
-          sort: this.sort,
-          order: newOrder,
-          persons: this.persons,
-        },
-      },
-    );
+    this.order = event.target.value;
+    this.page = 1;
+    this.updateQueryParams();
+  }
+
+  updateQueryParams() {
+    let currentRoute = this.router.currentRouteName;
+    let albumId = this.router.currentRoute.params.album_id;
+    let queryParams = {
+      sort: this.sort,
+      order: this.order,
+      persons: this.persons,
+      dates: this.dates,
+    };
+
+    this.router.transitionTo(currentRoute, albumId, { queryParams });
   }
 }
 ```
 
 ### **./frontend/photo-filter-frontend/app/routes/index.js**
 ```
-// app/routes/index.js
+// frontend/photo-filter-frontend/app/routes/index.js
 
 import Route from '@ember/routing/route';
-import { inject as service } from '@ember/service';
 
 export default class IndexRoute extends Route {
-  @service router;
-
-  beforeModel() {
-    this.router.replaceWith('albums');
-  }
+  // No redirect now, so the user stays at '/'
+  // (Add a template if you want a custom landing page.)
 }
 ```
 
@@ -4185,9 +5339,25 @@ export default class AlbumsRoute extends Route {
 }
 ```
 
+### **./frontend/photo-filter-frontend/app/routes/application.js**
+```
+import Route from '@ember/routing/route';
+import { inject as service } from '@ember/service';
+
+export default class ApplicationRoute extends Route {
+  @service store;
+
+  async model() {
+    // Fetch all albums so we can display them in the universal sidebar
+    return this.store.findAll('album');
+  }
+}
+```
+
 ### **./frontend/photo-filter-frontend/app/routes/albums/album.js**
 ```
 // frontend/photo-filter-frontend/app/routes/albums/album.js
+
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
 
@@ -4195,20 +5365,34 @@ export default class AlbumsAlbumRoute extends Route {
   @service store;
   @service currentAlbum;
 
+  // We add `dates` to the recognized queryParams
   queryParams = {
     sort: {},
     order: {},
     persons: {
-      // Custom serialize/deserialize so persons is always an array
       serialize(value) {
         return JSON.stringify(value);
       },
       deserialize(value) {
         if (typeof value === 'string') {
           try {
-            const arr = JSON.parse(value);
-            return arr;
-          } catch (e) {
+            return JSON.parse(value);
+          } catch {
+            return [];
+          }
+        }
+        return value || [];
+      },
+    },
+    dates: {
+      serialize(value) {
+        return JSON.stringify(value);
+      },
+      deserialize(value) {
+        if (typeof value === 'string') {
+          try {
+            return JSON.parse(value);
+          } catch {
             return [];
           }
         }
@@ -4223,42 +5407,33 @@ export default class AlbumsAlbumRoute extends Route {
       sort = 'score.overall',
       order = 'desc',
       persons = [],
+      dates = [],
     } = params;
 
-    // Fetch the album record and persons in one go (async: false means all included data is ready)
     const album = await this.store.findRecord('album', album_id, {
-      include: 'persons', // This ensures persons are included in the album payload
+      include: 'persons',
       reload: true,
     });
 
     const loadedPersons = album.persons;
-    const allPersons = loadedPersons.map((person) => person.name);
+    const allPersons = loadedPersons.map((p) => p.name);
 
-    // Fetch all photos once, including included persons
-    const allPhotos = await this.store.query('photo', {
-      album_id,
-    });
+    const allPhotos = await this.store.query('photo', { album_id });
 
-    // Since async: false is set on photo.persons and album.persons, we have all data now.
-    // No need to reload anything. The included payload gave us all persons upfront.
-
-    // Determine score attributes
     let scoreAttributes = [];
-    if (allPhotos.meta && allPhotos.meta.scoreAttributes) {
+    if (allPhotos.meta?.scoreAttributes) {
       scoreAttributes = allPhotos.meta.scoreAttributes;
     } else if (allPhotos.length > 0 && allPhotos.firstObject.score) {
       scoreAttributes = Object.keys(allPhotos.firstObject.score);
     }
 
-    // Sort persons by how many times they appear in the photos
+    // Sort persons by frequency
     const personCountMap = {};
     allPhotos.forEach((photo) => {
-      // photo.persons is already resolved since async: false
       photo.persons.forEach((p) => {
         personCountMap[p.name] = (personCountMap[p.name] || 0) + 1;
       });
     });
-
     const sortedAllPersons = allPersons.sort((a, b) => {
       const countA = personCountMap[a] || 0;
       const countB = personCountMap[b] || 0;
@@ -4266,16 +5441,13 @@ export default class AlbumsAlbumRoute extends Route {
       return a.localeCompare(b);
     });
 
-    // Update currentAlbum service
     this.currentAlbum.isAlbumRoute = true;
     this.currentAlbum.albumTitle = album.title;
     this.currentAlbum.scoreAttributes = scoreAttributes;
     this.currentAlbum.sortAttribute = sort;
     this.currentAlbum.sortOrder = order;
 
-    // Data is fully ready, no reload needed
     const isDataReady = true;
-
     return {
       album,
       photos: allPhotos,
@@ -4285,6 +5457,7 @@ export default class AlbumsAlbumRoute extends Route {
       scoreAttributes,
       persons: sortedAllPersons,
       selectedPersons: persons,
+      selectedDates: dates,
       isDataReady,
     };
   }
@@ -4292,7 +5465,6 @@ export default class AlbumsAlbumRoute extends Route {
   resetController(controller, isExiting) {
     super.resetController(...arguments);
     if (isExiting) {
-      // Reset currentAlbum service when leaving the album route
       this.currentAlbum.isAlbumRoute = false;
       this.currentAlbum.albumTitle = null;
       this.currentAlbum.scoreAttributes = [];
@@ -4311,6 +5483,24 @@ import { helper } from '@ember/component/helper';
 
 export default helper(function eq([a, b]) {
   return a === b;
+});
+```
+
+### **./frontend/photo-filter-frontend/app/helpers/type-of.js**
+```
+import { helper } from '@ember/component/helper';
+
+/**
+ * A helper function that returns the JavaScript type
+ * (as given by the built-in `typeof`) of the provided value.
+ *
+ * Usage in a template:
+ *   {{#if (eq (type-of this.someValue) "object")}}
+ *     <!-- do something if it's an object -->
+ *   {{/if}}
+ */
+export default helper(function typeOf([value]) {
+  return typeof value;
 });
 ```
 
@@ -4487,31 +5677,6 @@ module.exports = function (environment) {
     }
   ]
 }
-```
-
-### **./frontend/photo-filter-frontend/-package-lock.json**
-```json
-{
-  "name": "photo-filter-frontend",
-  "version": "0.0.0",
-  "lockfileVersion": 3,
-  "requires": true,
-  "packages": {
-    "": {
-      "name": "photo-filter-frontend",
-      "version": "0.0.0",
-      "dependencies": {
-        "postcss": "^8.4.49"
-      },
-      "devDependencies": {
-        "@babel/core": "^7.25.2",
-        "@babel/eslint-parser": "^7.25.1",
-        "@babel/plugin-proposal-decorators": "^7.24.7",
-        "@ember/optional-features": "^2.1.0",
-        "@ember/string": "^4.0.0",
-        "@ember/test-helpers": "^3.3.1",
-        "@glimmer/component": "^1.1.2",
-...
 ```
 
 ### **./frontend/photo-filter-frontend/tests/unit/models/photo-test.js**
@@ -4904,7 +6069,7 @@ Specify what it takes to deploy your app.
 ```
 
 ### **./frontend/photo-filter-frontend/package.json**
-```
+```json
 {
   "name": "photo-filter-frontend",
   "version": "0.0.0",
@@ -4925,70 +6090,7 @@ Specify what it takes to deploy your app.
     "test:ember": "ember test"
   },
   "dependencies": {
-    "postcss": "^8.4.49"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@babel/eslint-parser": "^7.25.1",
-    "@babel/plugin-proposal-decorators": "^7.24.7",
-    "@ember/optional-features": "^2.1.0",
-    "@ember/render-modifiers": "^2.1.0",
-    "@ember/string": "^4.0.0",
-    "@ember/test-helpers": "^3.3.1",
-    "@glimmer/component": "^1.1.2",
-    "@glimmer/tracking": "^1.1.2",
-    "@html-next/vertical-collection": "^4.0.2",
-    "autoprefixer": "^10.4.20",
-    "broccoli-asset-rev": "^3.0.0",
-    "concurrently": "^8.2.2",
-    "daisyui": "^4.12.22",
-    "ember-auto-import": "^2.8.1",
-    "ember-cli": "~5.12.0",
-    "ember-cli-app-version": "^7.0.0",
-    "ember-cli-babel": "^8.2.0",
-    "ember-cli-clean-css": "^3.0.0",
-    "ember-cli-dependency-checker": "^3.3.2",
-    "ember-cli-htmlbars": "^6.3.0",
-    "ember-cli-inject-live-reload": "^2.1.0",
-    "ember-cli-postcss": "^8.2.0",
-    "ember-cli-sri": "^2.1.1",
-    "ember-cli-terser": "^4.0.2",
-    "ember-data": "~5.3.8",
-    "ember-fetch": "^8.1.2",
-    "ember-load-initializers": "^2.1.2",
-    "ember-modifier": "^4.2.0",
-    "ember-page-title": "^8.2.3",
-    "ember-qunit": "^8.1.0",
-    "ember-resolver": "^12.0.1",
-    "ember-router-scroll": "^4.1.2",
-    "ember-source": "~5.12.0",
-    "ember-template-lint": "^6.0.0",
-    "ember-welcome-page": "^7.0.2",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-ember": "^12.2.1",
-    "eslint-plugin-n": "^16.6.2",
-    "eslint-plugin-prettier": "^5.2.1",
-    "eslint-plugin-qunit": "^8.1.2",
-    "loader.js": "^4.7.0",
-    "prettier": "^3.3.3",
-    "qunit": "^2.22.0",
-    "qunit-dom": "^3.2.1",
-    "sass": "^1.83.0",
-    "stylelint": "^15.11.0",
-    "stylelint-config-standard": "^34.0.0",
-    "stylelint-prettier": "^4.1.0",
-    "tailwindcss": "^3.4.16",
-    "tracked-built-ins": "^3.3.0",
-    "webpack": "^5.95.0"
-  },
-  "engines": {
-    "node": ">= 18"
-  },
-  "ember": {
-    "edition": "octane"
-  }
-}
+...
 ```
 
 ### **./frontend/photo-filter-frontend/.prettierrc.js**
@@ -5094,6 +6196,50 @@ module.exports = {
 };
 ```
 
+### **./frontend/photo-filter-frontend/tsconfig.json**
+```
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "allowJs": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noEmitOnError": true,
+    "noEmit": true,
+    "inlineSourceMap": true,
+    "inlineSources": true,
+    "baseUrl": ".",
+    "module": "es6",
+    "experimentalDecorators": true,
+    "paths": {
+      "photo-filter-frontend/tests/*": [
+        "tests/*"
+      ],
+      "photo-filter-frontend/*": [
+        "app/*"
+      ],
+      "*": [
+        "types/*"
+      ]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "tests/**/*",
+    "types/**/*"
+  ]
+}
+```
+
 ### **./frontend/photo-filter-frontend/.template-lintrc.js**
 ```
 'use strict';
@@ -5113,3 +6259,13 @@ module.exports = {
 };
 ```
 
+## Time Index from /api/time-index
+
+Fetching http://localhost:3000/api/time-index ...
+
+{"errors":[{"detail":"ENOENT: no such file or directory, scandir '/Users/jburkart/Documents/sites/photo-filter/backend/data/albums'"}]}
+---
+
+## Photos.json Summaries in ./backend/data/albums
+
+No directory found at ./backend/data/albums

@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    // reference the backend and frontend configs
+    {
+      "path": "./backend/tsconfig.json"
+    }
+    // If you want to reference the Ember TS config, note that ember-cli-typescript
+    // usually has its own approach. You can add it if you'd like:
+    // { "path": "./frontend/photo-filter-frontend/tsconfig.json" }
+  ]
+}

@@ -16,39 +16,38 @@ import {
 import { runPythonScript } from "../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../utils/export-images.js";
 
-// If needed for resolving paths in a Node ES Module:
+// === Import our new time controller
+import { getTimeIndex } from "../controllers/api/time-controller.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const apiRouter = express.Router();
 
-// =====================================
+// ======================
 //   Existing Endpoints
-// =====================================
+// ======================
 
-// Fetch all albums
+// Albums
 apiRouter.get("/albums", getAlbumsData);
-
-// Fetch a single album by UUID
 apiRouter.get("/albums/:albumUUID", getAlbumById);
-
-// Fetch photos for a given album
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
-// People in an album
+// People
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
-
-// Photos of a specific person in an album
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 
-// =====================================
-//   New REFRESH Endpoint
-// =====================================
+// ======================
+//   TIME-INDEX ENDPOINT
+// ======================
+apiRouter.get("/time-index", getTimeIndex);
+
+// ======================
+//   REFRESH Endpoint
+// ======================
 apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
   try {
     const { albumUUID } = req.params;
-
-    // Paths
     const dataDir = path.join(
       __dirname,
       "..",
@@ -70,7 +69,6 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
-    // Remove existing data to force a re-export
     if (await fs.pathExists(photosPath)) {
       await fs.remove(photosPath);
     }
@@ -78,9 +76,8 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       await fs.remove(imagesDir);
     }
 
-    // Re-run Python script to get fresh metadata
+    // Re-run python script
     await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-    // Then export images again
     await runOsxphotosExportImages(
       osxphotosPath,
       albumUUID,

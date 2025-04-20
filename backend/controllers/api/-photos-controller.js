@@ -23,7 +23,7 @@ const PhotoSerializer = new Serializer("photo", {
   attributes: [
     "originalName",
     "originalFilename",
-    "exportedFilename", // <= We will use this in the frontend
+    "exportedFilename",
     "filename",
     "score",
     "exifInfo",
@@ -38,7 +38,6 @@ const PhotoSerializer = new Serializer("photo", {
 });
 
 function formatPhotoDateWithOffset(dateString) {
-  // ...same as your existing code...
   const match = dateString.match(
     /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
   );
@@ -66,7 +65,6 @@ function formatPhotoDateWithOffset(dateString) {
 }
 
 function fallbackFormat(dateObj) {
-  // ...same as your existing code...
   const YYYY = dateObj.getFullYear();
   const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
   const DD = String(dateObj.getDate()).padStart(2, "0");
@@ -100,7 +98,6 @@ export const getPhotosByAlbumData = async (req, res) => {
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // If we haven't exported yet, do so
     if (!(await fs.pathExists(photosPath))) {
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
       await runOsxphotosExportImages(
@@ -113,26 +110,22 @@ export const getPhotosByAlbumData = async (req, res) => {
 
     let photosData = await fs.readJson(photosPath);
 
-    // 1) Deduplicate if needed
+    // Deduplicate photos by (original_filename, date) if needed
     photosData = deduplicatePhotos(photosData);
 
-    // 2) For each photo, build the final 'exportedFilename'
-    //    so that the frontend can use that exact string in <img src>.
+    // Prepare each photo
     const uniquePersons = new Map();
     photosData.forEach((photo) => {
       photo.originalName = path.parse(photo.original_filename).name;
-
-      // We compute a date-based prefix
       const prefix = formatPhotoDateWithOffset(photo.date);
-      // Then the final on-disk name
       photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
 
-      // If no persons, default to empty array
+      // Ensure persons is an array; if empty or undefined, make it empty array
       if (!Array.isArray(photo.persons)) {
         photo.persons = [];
       }
 
-      // We'll collect persons as well for JSON:API
+      // Collect person slugs
       photo.personsData = photo.persons.map((name) => {
         const slug = slugifyName(name);
         if (!uniquePersons.has(slug)) {
@@ -145,13 +138,9 @@ export const getPhotosByAlbumData = async (req, res) => {
       photo.album = albumUUID;
     });
 
-    // If at least one photo has a 'score', we can get its attributes
-    let scoreAttributes = [];
-    if (photosData.length > 0 && photosData[0].score) {
-      scoreAttributes = Object.keys(photosData[0].score);
-    }
+    const scoreAttributes = Object.keys(photosData[0].score);
 
-    // 3) Sort photos
+    // Sort photos
     photosData.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
@@ -162,14 +151,14 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // 4) Serialize the photos
+    // Serialize photos
     const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
 
-    // 5) Serialize the persons
+    // Serialize persons
     const personsArray = Array.from(uniquePersons.values());
     const jsonApiPersonData = PersonSerializer.serialize(personsArray);
 
-    // 6) Merge them
+    // Merge included resources
     const merged = {
       data: jsonApiPhotoData.data,
       included: jsonApiPersonData.data,
@@ -181,7 +170,8 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     };
 
-    // For each photo in `merged.data`, attach the "persons" relationship
+    // Assign relationships.persons to each photo in `merged.data`
+    // This ensures each photo has a proper JSON:API relationship
     merged.data.forEach((photo) => {
       const originalPhoto = photosData.find((p) => p.uuid === photo.id);
       if (
@@ -199,7 +189,6 @@ export const getPhotosByAlbumData = async (req, res) => {
       }
     });
 
-    // Finally, respond with JSON:API
     res.json(merged);
   } catch (error) {
     console.error("Error fetching photos for album:", error);
@@ -207,7 +196,6 @@ export const getPhotosByAlbumData = async (req, res) => {
   }
 };
 
-// Helper function to unify duplicates if needed
 function deduplicatePhotos(photos) {
   const map = new Map();
   for (const photo of photos) {
