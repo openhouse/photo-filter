@@ -2,7 +2,8 @@
 import express from "express";
 import {
   getAlbumsData,
-  refreshAlbum, // original handler
+  getAlbumById, // ← NEW import
+  refreshAlbum,
 } from "../controllers/api/albums-controller.js";
 import { getPhotosByAlbumData } from "../controllers/api/photos-controller.js";
 import { getLibraryStatus } from "../controllers/api/library-controller.js";
@@ -12,17 +13,17 @@ const router = express.Router();
 
 /* Albums */
 router.get("/albums", getAlbumsData);
+router.get("/albums/:albumUUID", getAlbumById); // ← NEW route
 
-/* 🔄  Incremental sync endpoints  */
-router.post("/albums/:albumUUID/refresh", refreshAlbum); // legacy
-router.post("/albums/:albumUUID/sync", refreshAlbum); // new alias
+/* 🔄  Incremental sync */
+router.post("/albums/:albumUUID/refresh", refreshAlbum);
+router.post("/albums/:albumUUID/sync", refreshAlbum); // alias
 
+/* Photos within an album */
 router.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
-/* Time taxonomy */
+/* Time taxonomy & library status */
 router.get("/time-index", getTimeIndex);
-
-/* Library‑wide status */
 router.get("/library/status", getLibraryStatus);
 
 export default router;
