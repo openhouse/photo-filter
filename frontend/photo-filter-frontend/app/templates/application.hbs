@@ -1,105 +1,61 @@
-{{page-title "PhotoFilterFrontend"}}
+{{! frontend/photo-filter-frontend/app/templates/application.hbs }}
+{{page-title "Photo Filter"}}
 
-{{! Inject services so template can read reactive state }}
+{{! Bind to services so the template updates reactively }}
 {{this.currentAlbum}}
 {{this.reload}}
 
-<div
-  class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
->
-  <!-- ─── Top Navigation Bar ─────────────────────────────────────────────── -->
+<div class="flex flex-col h-screen">
+  {{! ╭────────────────── Top Nav Bar ──────────────────╮ }}
   <nav
-    class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
+    class="flex items-center justify-between h-16 px-4 bg-base-300 shadow-md"
   >
-    <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+    <h1 class="text-lg font-semibold">
+      <LinkTo @route="index" class="hover:underline">Photo&nbsp;Filter</LinkTo>
+    </h1>
 
-    {{#if this.currentAlbum.isAlbumRoute}}
-      <div class="flex items-center space-x-4">
-        <!-- Current album title -->
-        <h2 class="text-lg font-semibold">
-          {{this.currentAlbum.albumTitle}}
-        </h2>
-
-        <!-- Sorting controls (unchanged) -->
-        <div class="flex items-center space-x-2">
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Sort by</label>
-            <select
-              id="sortAttribute"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortAttribute)}}
-            >
-              {{#each this.currentAlbum.scoreAttributes as |attr|}}
-                <option
-                  value="score.{{attr}}"
-                  selected={{eq
-                    this.currentAlbum.sortAttribute
-                    (concat "score." attr)
-                  }}
-                >
-                  {{capitalize attr}}
-                </option>
-              {{/each}}
-            </select>
-          </div>
-
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Order</label>
-            <select
-              id="sortOrder"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortOrder)}}
-            >
-              <option
-                value="desc"
-                selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
-              <option
-                value="asc"
-                selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
-            </select>
-          </div>
-        </div>
-      </div>
+    {{#if this.reload.hasStale}}
+      <button
+        type="button"
+        class="badge badge-primary cursor-pointer select-none"
+        {{on "click" this.reload.refreshAll}}
+      >
+        Library&nbsp;updated
+      </button>
     {{/if}}
   </nav>
+  {{! ╰───────────────────────────────────────────────╯ }}
 
-  <!-- ─── Library‑Updated Pill (appears on any stale album) ──────────────── -->
-  {{#if (gt this.reload.staleAlbums.size 0)}}
-    <div
-      class="fixed top-16 left-1/2 -translate-x-1/2 bg-info text-info-content px-3 py-1 rounded shadow"
-    >
-      Library updated — click ↻ next to an album to refresh
-    </div>
-  {{/if}}
+  <div class="flex flex-1 overflow-hidden">
+    {{! ╭──────── Sidebar: Albums (+ future nav) ───────╮ }}
+    <aside class="w-64 overflow-y-auto bg-base-200 border-r border-base-300">
 
-  <!-- ─── Main Layout: Side Nav + Outlet ─────────────────────────────────── -->
-  <div class="h-full w-full pt-16 flex">
-    <!-- Left Navigation Column -->
-    <aside
-      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
-    >
-      <TimeNav />
+      {{! Albums list }}
+      <section class="p-4">
+        <h2 class="mb-2 text-sm font-semibold uppercase opacity-70">Albums</h2>
 
-      <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
-      <ul class="space-y-1">
-        {{#each this.model as |album|}}
-          <li>
-            <LinkTo
-              @route="albums.album"
-              @model={{album.id}}
-              class="hover:underline"
-            >
-              {{album.title}}
-            </LinkTo>
-          </li>
-        {{/each}}
-      </ul>
+        <ul class="space-y-1">
+          {{#each this.albums as |album|}}
+            <li>
+              <LinkTo
+                @route="albums.album"
+                @model={{album}}
+                class="block px-2 py-1 rounded hover:bg-base-100
+                  {{if (eq this.currentAlbum album) 'font-semibold'}}"
+              >
+                {{album.title}}
+              </LinkTo>
+            </li>
+          {{/each}}
+        </ul>
+      </section>
+
+      {{! (Time taxonomy / people filters will render here in the future) }}
     </aside>
+    {{! ╰──────────────────────────────────────────────╯ }}
 
-    <!-- Routed Content -->
-    <main class="flex-1 overflow-auto p-4">
+    {{! Main outlet }}
+    <main class="flex-1 overflow-auto">
       {{outlet}}
     </main>
   </div>

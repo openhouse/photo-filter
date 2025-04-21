@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Sun Apr 20 09:38:49 EDT 2025
+Generated on: Mon Apr 21 16:01:23 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.3.2
 Node Version: v20.18.1
@@ -34,7 +34,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── .nvmrc
 │   ├── controllers
 │   │   ├── api
-│   │   │   ├── -photos-controller.js
 │   │   │   ├── albums-controller.js
 │   │   │   ├── index.js
 │   │   │   ├── library-controller.js
@@ -47,14 +46,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   ├── .DS_Store
-│   │   ├── albums
-│   │   │   ├── 03F35C45-E2AC-47FA-8101-70D5B6B97BC0
-│   │   │   │   └── photos.json
-│   │   │   ├── DED2B591-F17C-4ADE-B902-38504CBB5740
-│   │   │   │   └── photos.json
-│   │   │   └── EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3
-│   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -69,6 +60,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── api.js
 │   │   └── index.js
 │   ├── scripts
+│   │   ├── bootstrap-data.js
 │   │   ├── export_albums.py
 │   │   ├── export_photos_in_album.py
 │   │   ├── setup.js
@@ -241,7 +233,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── top_photo_uuids.txt
 └── tsconfig.json
 
-67 directories, 161 files
+63 directories, 157 files
 ```
 
 ---
@@ -2255,6 +2247,10 @@ describe("getAlbumsData", () => {
 ### **./backend/utils/refresh-album.js**
 ```
 // backend/utils/refresh-album.js
+//
+// Incrementally refresh a single album.
+// Creates *all* needed folders/files on the fly so first‑run never fails.
+
 import path from "path";
 import fs from "fs-extra";
 import crypto from "crypto";
@@ -2274,7 +2270,25 @@ export async function refreshAlbumIncremental(albumUUID) {
   const albumDir = path.join(dataDir, "albums", albumUUID);
   const photosPath = path.join(albumDir, "photos.json");
   const imagesDir = path.join(albumDir, "images");
+  const lastSyncFile = path.join(albumDir, "last_sync.txt");
 
+  /* ---------- guarantee folder structure ---------- */
+  await fs.ensureDir(albumDir);
+  await fs.ensureDir(imagesDir);
+
+  /* ---------- read last‑sync timestamp ---------- */
+  let lastSyncIso = null;
+  if (await fs.pathExists(lastSyncFile)) {
+    lastSyncIso = (await fs.readFile(lastSyncFile, "utf-8")).trim() || null;
+  }
+
+  let lastSyncEpoch = 0;
+  if (lastSyncIso) {
+    const parsed = Date.parse(lastSyncIso);
+    if (!Number.isNaN(parsed)) lastSyncEpoch = Math.floor(parsed / 1000);
+  }
+
+  /* ---------- Python metadata export ---------- */
   const venvDir = path.join(__dirname, "..", "venv");
   const pythonPath = path.join(venvDir, "bin", "python3");
   const exportScript = path.join(
@@ -2283,26 +2297,12 @@ export async function refreshAlbumIncremental(albumUUID) {
     "scripts",
     "export_photos_in_album.py"
   );
+
+  const args = lastSyncIso ? [albumUUID, lastSyncIso] : [albumUUID];
+  await runPythonScript(pythonPath, exportScript, args, photosPath);
+
+  /* ---------- images export (incremental) ---------- */
   const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
-
-  await fs.ensureDir(albumDir);
-  await fs.ensureDir(imagesDir);
-
-  // ---------- previous sync metadata ----------
-  let lastSyncEpoch = 0;
-  let prevScoreHash = null;
-  if (await fs.pathExists(photosPath)) {
-    const prev = await fs.readJson(photosPath);
-    if (Array.isArray(prev) && prev.length) {
-      lastSyncEpoch = Math.max(...prev.map((p) => Date.parse(p.date) / 1000));
-      prevScoreHash = calcScoreHash(prev);
-    }
-  }
-
-  // ---------- metadata export ----------
-  await runPythonScript(pythonPath, exportScript, [albumUUID], photosPath);
-
-  // ---------- image export (incremental) ----------
   await runOsxphotosExportImages(
     osxphotosPath,
     albumUUID,
@@ -2311,17 +2311,21 @@ export async function refreshAlbumIncremental(albumUUID) {
     lastSyncEpoch
   );
 
+  /* ---------- diff & bookkeeping ---------- */
   const current = await fs.readJson(photosPath);
   const currentScoreHash = calcScoreHash(current);
 
-  // Determine updated photo UUIDs
   const updatedPhotoUUIDs = current
     .filter((p) => Date.parse(p.date) / 1000 > lastSyncEpoch)
     .map((p) => p.uuid);
 
+  // bump last_sync.txt for the next run
+  await fs.ensureFile(lastSyncFile);
+  await fs.writeFile(lastSyncFile, new Date().toISOString(), "utf-8");
+
   return {
     updatedPhotoUUIDs,
-    staleScores: prevScoreHash !== currentScoreHash,
+    staleScores: Boolean(currentScoreHash), // caller decides what to do
   };
 }
 
@@ -2472,13 +2476,21 @@ export function capitalizeAttributeName(attributeName) {
 ### **./backend/utils/export-images.js**
 ```
 // backend/utils/export-images.js
+//
+// Uses osxphotos CLI to copy only *new or modified* images
+// since the last sync.  Pictures already present & unchanged are skipped.
+
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
 /**
  * Incremental osxphotos export.
- * If lastSyncEpoch > 0, we add --modified-since to copy only deltas.
+ * @param {string} osxphotosPath  – path to osxphotos CLI inside venv
+ * @param {string} albumUUID
+ * @param {string} imagesDir
+ * @param {string} photosPath     – path to photos.json (already refreshed)
+ * @param {number} lastSyncEpoch  – UNIX seconds of previous sync (0 = full)
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -2487,24 +2499,30 @@ export async function runOsxphotosExportImages(
   photosPath,
   lastSyncEpoch = 0
 ) {
-  // Collect UUIDs
+  /* ---------- prep ---------- */
+  await fs.ensureDir(imagesDir);
+
+  // uuid list for osxphotos --uuid-from-file
   const photosData = await fs.readJson(photosPath);
   const uuidsFile = path.join(imagesDir, "uuids.txt");
-  await fs.ensureDir(imagesDir);
   await fs.writeFile(
     uuidsFile,
     photosData.map((p) => p.uuid).join("\n"),
     "utf-8"
   );
 
-  const modifiedFlag =
-    lastSyncEpoch > 0 ? `--modified-since ${Math.floor(lastSyncEpoch)}` : "";
+  /* ---------- flags ---------- */
+  const sinceIso =
+    lastSyncEpoch > 0 ? new Date(lastSyncEpoch * 1000).toISOString() : null;
 
-  // Template keeps stable filenames; --update copies only new/changed files
+  const modifiedFlag = sinceIso ? `--modified-since "${sinceIso}"` : "";
+  const updateFlag = "--update";
+
+  /* ---------- command ---------- */
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
 --uuid-from-file "${uuidsFile}" \
 --filename "{created.strftime,%Y%m%d-%H%M%S}-{original_name}" \
---convert-to-jpeg --jpeg-ext jpg --update ${modifiedFlag}`;
+--convert-to-jpeg --jpeg-ext jpg ${updateFlag} ${modifiedFlag}`;
 
   await execCommand(cmd, "Error exporting images:");
 }
@@ -2638,12 +2656,13 @@ form button {
   },
   "scripts": {
     "setup": "node ./scripts/setup.js",
+    "bootstrap": "node ./scripts/bootstrap-data.js",
     "start": "node server.js",
-    "dev": "nodemon --ignore 'data/*' server.js",
+    "dev": "npm run bootstrap && nodemon --ignore 'data/*' server.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "generate-overview": "../generate-overview.sh",
-    "postinstall": "node ./scripts/setup.js"
+    "postinstall": "npm run setup && npm run bootstrap"
   }
 }
 ```
@@ -2651,6 +2670,60 @@ form button {
 ### **./backend/.nvmrc**
 ```
 20
+```
+
+### **./backend/scripts/bootstrap-data.js**
+```
+// backend/scripts/bootstrap-data.js
+//
+// First‑run helper: guarantees data/albums.json exists so the
+// API and time‑index routes don't explode on an empty repo.
+
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+import { runPythonScript } from "../utils/run-python-script.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+(async () => {
+  try {
+    const dataDir = path.join(__dirname, "..", "data");
+    const albumsJsonPath = path.join(dataDir, "albums.json");
+
+    // Make sure ./data exists
+    await fs.ensureDir(dataDir);
+
+    // If albums.json already present we’re done.
+    if (await fs.pathExists(albumsJsonPath)) {
+      console.log("[bootstrap] Library already initialised ✔︎");
+      return;
+    }
+
+    console.log(
+      "[bootstrap] albums.json missing – exporting albums via osxphotos…"
+    );
+
+    const venvDir = path.join(__dirname, "..", "venv");
+    const pythonPath = path.join(venvDir, "bin", "python3");
+    const scriptPath = path.join(
+      __dirname,
+      "..",
+      "scripts",
+      "export_albums.py"
+    );
+
+    await runPythonScript(pythonPath, scriptPath, [], albumsJsonPath);
+
+    console.log(`[bootstrap] ✅  albums.json written to ${albumsJsonPath}`);
+  } catch (err) {
+    console.error("[bootstrap] ⚠️  bootstrap failed:", err);
+    // Write an empty file so later code can proceed without crashing.
+    const fallback = path.join(__dirname, "..", "data", "albums.json");
+    await fs.writeJson(fallback, []);
+  }
+})();
 ```
 
 ### **./backend/scripts/setup.js**
@@ -3115,6 +3188,11 @@ export { getAlbums, getPhotosByAlbum };
 ### **./backend/controllers/api/albums-controller.js**
 ```
 // backend/controllers/api/albums-controller.js
+//
+// Handles album‑level metadata and incremental “refresh / sync”.
+// Fully resilient on first‑run: if data/albums.json does not exist
+// we return an empty list and create the file on first write.
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
@@ -3123,9 +3201,11 @@ import { refreshAlbumIncremental } from "../../utils/refresh-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dataDir = path.join(__dirname, "..", "..", "data");
-const albumsJsonPath = path.join(dataDir, "albums.json");
 
+/* Where we persist high‑level album info */
+const albumsJsonPath = path.join(__dirname, "..", "..", "data", "albums.json");
+
+/* ---------- JSON:API serialiser ---------- */
 const AlbumSerializer = new Serializer("album", {
   id: "uuid",
   attributes: ["title", "dataVersion", "scoreHash", "isStale"],
@@ -3133,49 +3213,71 @@ const AlbumSerializer = new Serializer("album", {
   pluralizeType: false,
 });
 
-/* ------ helpers ------ */
+/* ---------- helpers ---------- */
 async function loadAlbums() {
+  if (!(await fs.pathExists(albumsJsonPath))) {
+    return []; // first run → empty list
+  }
+  // Ensure booleans stay booleans
   return (await fs.readJson(albumsJsonPath)).map((a) => ({
     ...a,
-    isStale: !!a.isStale,
+    isStale: Boolean(a.isStale),
   }));
 }
+
 async function saveAlbums(albums) {
+  await fs.ensureFile(albumsJsonPath);
   await fs.writeJson(albumsJsonPath, albums, { spaces: 2 });
 }
 
-/* ------ routes ------ */
+/* ---------- route handlers ---------- */
 
-// GET /api/albums
+/**
+ * GET /api/albums
+ * Returns an array of all albums in JSON:API format.
+ */
 export async function getAlbumsData(_req, res) {
   const albums = await loadAlbums();
   res.json(AlbumSerializer.serialize(albums));
 }
 
-// POST /api/albums/:albumUUID/refresh
+/**
+ * POST /api/albums/:albumUUID/refresh
+ * POST /api/albums/:albumUUID/sync  (alias – see routes/api.js)
+ *
+ * Triggers a per‑album incremental sync and updates bookkeeping.
+ */
 export async function refreshAlbum(req, res) {
   try {
     const { albumUUID } = req.params;
+
+    /* ---------- incremental refresh ---------- */
     const result = await refreshAlbumIncremental(albumUUID);
 
-    // mark album fresh
+    /* ---------- update album metadata ---------- */
     const albums = await loadAlbums();
-    const i = albums.findIndex((a) => a.uuid === albumUUID);
-    if (i !== -1) {
-      albums[i].dataVersion = new Date().toISOString();
-      albums[i].scoreHash = result.staleScores
-        ? Date.now().toString(36)
-        : albums[i].scoreHash;
-      albums[i].isStale = false;
+    const idx = albums.findIndex((a) => a.uuid === albumUUID);
+
+    if (idx !== -1) {
+      albums[idx].dataVersion = new Date().toISOString();
+      if (result.staleScores) {
+        // use something cheap for “changed” – the exact value is irrelevant
+        albums[idx].scoreHash = Date.now().toString(36);
+      }
+      albums[idx].isStale = false;
       await saveAlbums(albums);
     }
 
     res.json(result);
-  } catch (e) {
-    console.error("refresh album error:", e);
-    res.status(500).json({ errors: [{ detail: e.message }] });
+  } catch (err) {
+    console.error("refresh album error:", err);
+    res.status(500).json({ errors: [{ detail: err.message }] });
   }
 }
+
+/* ---------- named export alias ---------- */
+/** identical to refreshAlbum – kept for semantic clarity in callers */
+export { refreshAlbum as syncAlbum };
 ```
 
 ### **./backend/controllers/api/index.js**
@@ -3186,344 +3288,72 @@ export { getAlbumsData, getAlbumById } from "./albums-controller.js";
 export { getPhotosByAlbumData } from "./photos-controller.js";
 ```
 
-### **./backend/controllers/api/-photos-controller.js**
-```
-// backend/controllers/api/photos-controller.js
-import path from "path";
-import fs from "fs-extra";
-import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../../utils/export-images.js";
-import { getNestedProperty } from "../../utils/helpers.js";
-import { execCommand } from "../../utils/exec-command.js";
-import { Serializer } from "jsonapi-serializer";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const PersonSerializer = new Serializer("person", {
-  id: "id",
-  attributes: ["name"],
-  keyForAttribute: "camelCase",
-  pluralizeType: false,
-});
-
-const PhotoSerializer = new Serializer("photo", {
-  id: "uuid",
-  attributes: [
-    "originalName",
-    "originalFilename",
-    "exportedFilename",
-    "filename",
-    "score",
-    "exifInfo",
-  ],
-  keyForAttribute: "camelCase",
-  relationships: {
-    album: { type: "album" },
-    persons: { type: "person" },
-  },
-  pluralizeType: false,
-  meta: {},
-});
-
-function formatPhotoDateWithOffset(dateString) {
-  const match = dateString.match(
-    /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
-  );
-  if (!match) {
-    return fallbackFormat(new Date(dateString));
-  }
-
-  const datePart = match[1];
-  const timePart = match[2];
-
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, secondRaw] = timePart.split(":");
-  const hourNum = Number(hour);
-  const minuteNum = Number(minute);
-  const secondNum = Math.floor(Number(secondRaw));
-
-  const YYYY = String(year);
-  const MM = String(month).padStart(2, "0");
-  const DD = String(day).padStart(2, "0");
-  const HH = String(hourNum).padStart(2, "0");
-  const mm = String(minuteNum).padStart(2, "0");
-  const ss = String(secondNum).padStart(2, "0");
-
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
-function fallbackFormat(dateObj) {
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
-export const getPhotosByAlbumData = async (req, res) => {
-  try {
-    const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall";
-    const sortOrder = req.query.order || "desc";
-
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const photosDir = path.join(dataDir, "albums", albumUUID);
-    const photosPath = path.join(photosDir, "photos.json");
-    const imagesDir = path.join(photosDir, "images");
-    const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "scripts",
-      "export_photos_in_album.py"
-    );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
-
-    await fs.ensureDir(photosDir);
-    await fs.ensureDir(imagesDir);
-
-    if (!(await fs.pathExists(photosPath))) {
-      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-      await runOsxphotosExportImages(
-        osxphotosPath,
-        albumUUID,
-        imagesDir,
-        photosPath
-      );
-    }
-
-    let photosData = await fs.readJson(photosPath);
-
-    // Deduplicate photos by (original_filename, date) if needed
-    photosData = deduplicatePhotos(photosData);
-
-    // Prepare each photo
-    const uniquePersons = new Map();
-    photosData.forEach((photo) => {
-      photo.originalName = path.parse(photo.original_filename).name;
-      const prefix = formatPhotoDateWithOffset(photo.date);
-      photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
-
-      // Ensure persons is an array; if empty or undefined, make it empty array
-      if (!Array.isArray(photo.persons)) {
-        photo.persons = [];
-      }
-
-      // Collect person slugs
-      photo.personsData = photo.persons.map((name) => {
-        const slug = slugifyName(name);
-        if (!uniquePersons.has(slug)) {
-          uniquePersons.set(slug, { id: slug, name });
-        }
-        return { type: "person", id: slug };
-      });
-
-      // Set the album relationship
-      photo.album = albumUUID;
-    });
-
-    const scoreAttributes = Object.keys(photosData[0].score);
-
-    // Sort photos
-    photosData.sort((a, b) => {
-      const aValue = getNestedProperty(a, sortAttribute);
-      const bValue = getNestedProperty(b, sortAttribute);
-
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-    });
-
-    // Serialize photos
-    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
-
-    // Serialize persons
-    const personsArray = Array.from(uniquePersons.values());
-    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
-
-    // Merge included resources
-    const merged = {
-      data: jsonApiPhotoData.data,
-      included: jsonApiPersonData.data,
-      meta: {
-        albumUUID,
-        sortAttribute,
-        sortOrder,
-        scoreAttributes,
-      },
-    };
-
-    // Assign relationships.persons to each photo in `merged.data`
-    // This ensures each photo has a proper JSON:API relationship
-    merged.data.forEach((photo) => {
-      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
-      if (
-        originalPhoto &&
-        originalPhoto.personsData &&
-        originalPhoto.personsData.length > 0
-      ) {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = {
-          data: originalPhoto.personsData,
-        };
-      } else {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = { data: [] };
-      }
-    });
-
-    res.json(merged);
-  } catch (error) {
-    console.error("Error fetching photos for album:", error);
-    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
-  }
-};
-
-function deduplicatePhotos(photos) {
-  const map = new Map();
-  for (const photo of photos) {
-    const key = `${photo.original_filename}-${photo.date}`;
-    if (!map.has(key)) {
-      map.set(key, { ...photo });
-    } else {
-      // Merge persons if there's a duplicate
-      const existing = map.get(key);
-      if (Array.isArray(photo.persons)) {
-        const existingPersons = new Set(existing.persons || []);
-        photo.persons.forEach((p) => existingPersons.add(p));
-        existing.persons = Array.from(existingPersons);
-      }
-      map.set(key, existing);
-    }
-  }
-  return Array.from(map.values());
-}
-
-function slugifyName(name) {
-  return name
-    .toLowerCase()
-    .replace(/[\s+]/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}
-```
-
 ### **./backend/controllers/api/time-controller.js**
 ```
 // backend/controllers/api/time-controller.js
+//
+// Builds a Year ➝ Month ➝ Day index of all photos.
+// Now safe on a totally empty data directory.
 
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
 
-/**
- * getTimeIndex
- *
- * Returns a hierarchical time-based index of all photos known to the system:
- *   {
- *     "years": [
- *       {
- *         "year": 2024,
- *         "months": [
- *           {
- *             "month": 12,
- *             "days": [5, 6, 7]
- *           }
- *         ]
- *       }
- *     ]
- *   }
- *
- * Only includes years/months/days that actually have photos. Does not currently handle weeks.
- */
-export async function getTimeIndex(req, res) {
+export async function getTimeIndex(_req, res) {
   try {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
-    const dataDir = path.join(__dirname, "..", "..", "data", "albums");
-    // We'll iterate through all album folders, parse each photos.json,
-    // and accumulate date info in a structured way.
+    const albumsRoot = path.join(__dirname, "..", "..", "data", "albums");
 
-    const yearMap = new Map();
-    // yearMap[year] = {
-    //   <monthNumber>: Set([dayNumbers]),
-    //   ...
-    // }
+    /* ---------- first‑run guard ---------- */
+    if (!(await fs.pathExists(albumsRoot))) {
+      return res.json({ years: [] }); // nothing to index yet
+    }
 
-    const albumDirs = await fs.readdir(dataDir, { withFileTypes: true });
+    /* ---------- walk all albums ---------- */
+    const yearMap = new Map(); // {year → Map(month → Set(days))}
+    const albumDirs = await fs.readdir(albumsRoot, { withFileTypes: true });
 
     for (const dirEnt of albumDirs) {
       if (!dirEnt.isDirectory()) continue;
-      const albumUUID = dirEnt.name;
-      const photosJsonPath = path.join(dataDir, albumUUID, "photos.json");
 
-      if (!(await fs.pathExists(photosJsonPath))) {
-        continue;
-      }
+      const photosJson = path.join(albumsRoot, dirEnt.name, "photos.json");
+      if (!(await fs.pathExists(photosJson))) continue;
 
-      const photosData = await fs.readJson(photosJsonPath);
-      for (const photo of photosData) {
-        // Date parse
-        const dateObj = new Date(photo.date);
-        if (isNaN(dateObj.getTime())) {
-          continue; // skip if invalid date
-        }
+      const photos = await fs.readJson(photosJson);
+      for (const p of photos) {
+        const d = new Date(p.date);
+        if (Number.isNaN(d.getTime())) continue;
 
-        const y = dateObj.getFullYear();
-        const m = dateObj.getMonth() + 1; // 1-based
-        const d = dateObj.getDate();
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1; // 1‑based
+        const day = d.getDate();
 
-        if (!yearMap.has(y)) {
-          yearMap.set(y, new Map());
-        }
+        if (!yearMap.has(y)) yearMap.set(y, new Map());
         const monthMap = yearMap.get(y);
-
-        if (!monthMap.has(m)) {
-          monthMap.set(m, new Set());
-        }
-        const daySet = monthMap.get(m);
-        daySet.add(d);
+        if (!monthMap.has(m)) monthMap.set(m, new Set());
+        monthMap.get(m).add(day);
       }
     }
 
-    // Now convert that Map-of-Maps-of-Sets into a JSON-friendly object
-    const yearsArray = [];
-    // Sort the years ascending, e.g., 2019, 2020, etc.
-    const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
-
-    for (const year of sortedYears) {
-      const monthsArray = [];
-      const monthMap = yearMap.get(year);
-
-      // Sort months ascending
-      const sortedMonths = Array.from(monthMap.keys()).sort((a, b) => a - b);
-      for (const month of sortedMonths) {
-        const daysArray = Array.from(monthMap.get(month)).sort((a, b) => a - b);
-        monthsArray.push({
-          month,
-          days: daysArray,
-        });
-      }
-
-      yearsArray.push({
-        year,
-        months: monthsArray,
+    /* ---------- serialise ---------- */
+    const years = [...yearMap.keys()]
+      .sort((a, b) => a - b)
+      .map((y) => {
+        const months = [...yearMap.get(y).keys()]
+          .sort((a, b) => a - b)
+          .map((m) => ({
+            month: m,
+            days: [...yearMap.get(y).get(m)].sort((a, b) => a - b),
+          }));
+        return { year: y, months };
       });
-    }
 
-    const finalIndex = { years: yearsArray };
-
-    return res.json(finalIndex);
-  } catch (error) {
-    console.error("Error building time index:", error);
-    return res.status(500).json({ errors: [{ detail: error.message }] });
+    res.json({ years });
+  } catch (err) {
+    console.error("Error building time index:", err);
+    res.status(500).json({ errors: [{ detail: err.message }] });
   }
 }
 ```
@@ -4160,81 +3990,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
-### **./backend/data/albums/DED2B591-F17C-4ADE-B902-38504CBB5740/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-03-31",
-            "2025-03-31 recently",
-            "2025-04-07 recently",
-            "2025-04-08 recently",
-            "2025-04-10 recently",
-            "2025-04-15 recently",
-            "2025-04-17 recently",
-            "2025-04-18 recently",
-            "2025-04-19 recently",
-            "2025-04-20 recently"
-        ],
-        "burst": false,
-        "cloud_guid": "AZ66T+MYpLLa2GzuSOh2QCG5VVre",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-03-31 18:23:52.768333-04:00",
-        "date_modified": null,
-...
-```
-
-### **./backend/data/albums/EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-03-31",
-            "2025-03-31 recently",
-            "2025-04-07 recently",
-            "2025-04-08 recently",
-            "2025-04-10 recently",
-            "2025-04-15 recently",
-            "2025-04-17 recently",
-            "2025-04-18 recently",
-            "2025-04-19 recently",
-            "2025-04-20 recently"
-        ],
-        "burst": false,
-        "cloud_guid": "AZ66T+MYpLLa2GzuSOh2QCG5VVre",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-03-31 18:23:52.768333-04:00",
-        "date_modified": null,
-...
-```
-
-### **./backend/data/albums/03F35C45-E2AC-47FA-8101-70D5B6B97BC0/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-04-19",
-            "2025-04-19 recently",
-            "2025-04-20 recently",
-            "FUJIFILM X100V-02"
-        ],
-        "burst": false,
-        "cloud_guid": "AVufyOT2SJnNfw6Qz9hZndsNV1PL",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-04-19 20:27:06.186850-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-04-19 17:29:41-04:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 160,
-...
-```
-
 ### **./backend/views/albums.hbs**
 ```
 <h1 class="text-3xl font-bold mb-4">Select an Album</h1>
@@ -4468,7 +4223,7 @@ export default router;
 import express from "express";
 import {
   getAlbumsData,
-  refreshAlbum,
+  refreshAlbum, // original handler
 } from "../controllers/api/albums-controller.js";
 import { getPhotosByAlbumData } from "../controllers/api/photos-controller.js";
 import { getLibraryStatus } from "../controllers/api/library-controller.js";
@@ -4478,7 +4233,11 @@ const router = express.Router();
 
 /* Albums */
 router.get("/albums", getAlbumsData);
-router.post("/albums/:albumUUID/refresh", refreshAlbum);
+
+/* 🔄  Incremental sync endpoints  */
+router.post("/albums/:albumUUID/refresh", refreshAlbum); // legacy
+router.post("/albums/:albumUUID/sync", refreshAlbum); // new alias
+
 router.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
 /* Time taxonomy */
@@ -5076,108 +4835,64 @@ Router.map(function () {
 
 ### **./frontend/photo-filter-frontend/app/templates/application.hbs**
 ```
-{{page-title "PhotoFilterFrontend"}}
+{{! frontend/photo-filter-frontend/app/templates/application.hbs }}
+{{page-title "Photo Filter"}}
 
-{{! Inject services so template can read reactive state }}
+{{! Bind to services so the template updates reactively }}
 {{this.currentAlbum}}
 {{this.reload}}
 
-<div
-  class="h-screen w-screen overflow-hidden bg-base-200 text-base-content relative"
->
-  <!-- ─── Top Navigation Bar ─────────────────────────────────────────────── -->
+<div class="flex flex-col h-screen">
+  {{! ╭────────────────── Top Nav Bar ──────────────────╮ }}
   <nav
-    class="fixed top-0 left-0 right-0 h-16 z-50 bg-base-100 shadow flex items-center px-4 justify-between"
+    class="flex items-center justify-between h-16 px-4 bg-base-300 shadow-md"
   >
-    <a class="btn btn-ghost normal-case text-xl" href="/">Photo Filter</a>
+    <h1 class="text-lg font-semibold">
+      <LinkTo @route="index" class="hover:underline">Photo&nbsp;Filter</LinkTo>
+    </h1>
 
-    {{#if this.currentAlbum.isAlbumRoute}}
-      <div class="flex items-center space-x-4">
-        <!-- Current album title -->
-        <h2 class="text-lg font-semibold">
-          {{this.currentAlbum.albumTitle}}
-        </h2>
-
-        <!-- Sorting controls (unchanged) -->
-        <div class="flex items-center space-x-2">
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Sort by</label>
-            <select
-              id="sortAttribute"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortAttribute)}}
-            >
-              {{#each this.currentAlbum.scoreAttributes as |attr|}}
-                <option
-                  value="score.{{attr}}"
-                  selected={{eq
-                    this.currentAlbum.sortAttribute
-                    (concat "score." attr)
-                  }}
-                >
-                  {{capitalize attr}}
-                </option>
-              {{/each}}
-            </select>
-          </div>
-
-          <div class="form-control">
-            <label class="label text-sm font-semibold">Order</label>
-            <select
-              id="sortOrder"
-              class="select select-xs select-bordered"
-              {{on "change" (fn this.updateSortOrder)}}
-            >
-              <option
-                value="desc"
-                selected={{eq this.currentAlbum.sortOrder "desc"}}
-              >Descending</option>
-              <option
-                value="asc"
-                selected={{eq this.currentAlbum.sortOrder "asc"}}
-              >Ascending</option>
-            </select>
-          </div>
-        </div>
-      </div>
+    {{#if this.reload.hasStale}}
+      <button
+        type="button"
+        class="badge badge-primary cursor-pointer select-none"
+        {{on "click" this.reload.refreshAll}}
+      >
+        Library&nbsp;updated
+      </button>
     {{/if}}
   </nav>
+  {{! ╰───────────────────────────────────────────────╯ }}
 
-  <!-- ─── Library‑Updated Pill (appears on any stale album) ──────────────── -->
-  {{#if (gt this.reload.staleAlbums.size 0)}}
-    <div
-      class="fixed top-16 left-1/2 -translate-x-1/2 bg-info text-info-content px-3 py-1 rounded shadow"
-    >
-      Library updated — click ↻ next to an album to refresh
-    </div>
-  {{/if}}
+  <div class="flex flex-1 overflow-hidden">
+    {{! ╭──────── Sidebar: Albums (+ future nav) ───────╮ }}
+    <aside class="w-64 overflow-y-auto bg-base-200 border-r border-base-300">
 
-  <!-- ─── Main Layout: Side Nav + Outlet ─────────────────────────────────── -->
-  <div class="h-full w-full pt-16 flex">
-    <!-- Left Navigation Column -->
-    <aside
-      class="w-64 bg-gray-100 border-r border-gray-300 h-full overflow-auto p-4"
-    >
-      <TimeNav />
+      {{! Albums list }}
+      <section class="p-4">
+        <h2 class="mb-2 text-sm font-semibold uppercase opacity-70">Albums</h2>
 
-      <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
-      <ul class="space-y-1">
-        {{#each this.model as |album|}}
-          <li>
-            <LinkTo
-              @route="albums.album"
-              @model={{album.id}}
-              class="hover:underline"
-            >
-              {{album.title}}
-            </LinkTo>
-          </li>
-        {{/each}}
-      </ul>
+        <ul class="space-y-1">
+          {{#each this.albums as |album|}}
+            <li>
+              <LinkTo
+                @route="albums.album"
+                @model={{album}}
+                class="block px-2 py-1 rounded hover:bg-base-100
+                  {{if (eq this.currentAlbum album) 'font-semibold'}}"
+              >
+                {{album.title}}
+              </LinkTo>
+            </li>
+          {{/each}}
+        </ul>
+      </section>
+
+      {{! (Time taxonomy / people filters will render here in the future) }}
     </aside>
+    {{! ╰──────────────────────────────────────────────╯ }}
 
-    <!-- Routed Content -->
-    <main class="flex-1 overflow-auto p-4">
+    {{! Main outlet }}
+    <main class="flex-1 overflow-auto">
       {{outlet}}
     </main>
   </div>
@@ -5233,54 +4948,27 @@ export default class AlbumsController extends Controller {
 
 ### **./frontend/photo-filter-frontend/app/controllers/application.js**
 ```
+// frontend/photo-filter-frontend/app/controllers/application.js
 import Controller from '@ember/controller';
 import { inject as service } from '@ember/service';
-import { action } from '@ember/object';
 
+/**
+ * Top‑level controller used by app/templates/application.hbs.
+ *
+ *  • Exposes a reactive `albums` getter so the template can iterate over it
+ *    with {{#each this.albums as |album|}} …
+ *  • Keeps the previously‑used `currentAlbum` and `reload` services
+ *    available for reactive bindings already present in the template.
+ */
 export default class ApplicationController extends Controller {
-  @service router;
-  @service currentAlbum;
+  @service store; // Ember‑Data
+  @service currentAlbum; // custom service – already exists in the project
+  @service reload; // custom service – already exists in the project
 
-  @action
-  updateSortAttribute(event) {
-    const newSort = event.target.value;
-    if (this.currentAlbum.isAlbumRoute) {
-      const routeName = 'albums.album';
-      const currentRoute = this.router.currentRouteName;
-      if (currentRoute.startsWith('albums.album')) {
-        this.router.transitionTo(
-          routeName,
-          this.router.currentRoute.params.album_id,
-          {
-            queryParams: {
-              sort: newSort,
-              order: this.currentAlbum.sortOrder,
-            },
-          },
-        );
-      }
-    }
-  }
-
-  @action
-  updateSortOrder(event) {
-    const newOrder = event.target.value;
-    if (this.currentAlbum.isAlbumRoute) {
-      const routeName = 'albums.album';
-      const currentRoute = this.router.currentRouteName;
-      if (currentRoute.startsWith('albums.album')) {
-        this.router.transitionTo(
-          routeName,
-          this.router.currentRoute.params.album_id,
-          {
-            queryParams: {
-              sort: this.currentAlbum.sortAttribute,
-              order: newOrder,
-            },
-          },
-        );
-      }
-    }
+  /** All albums currently loaded in the Ember‑Data store. */
+  get albums() {
+    // peekAll returns a live RecordArray – no async/await needed here
+    return this.store.peekAll('album');
   }
 }
 ```
@@ -6428,26 +6116,9 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[{"year":2024,"months":[{"month":12,"days":[17]}]},{"year":2025,"months":[{"month":1,"days":[11,12,18,26]},{"month":2,"days":[9,11,12,13,15,16,23,27]},{"month":3,"days":[6,7,8,10,13,14,16,17,19,20,21,22,23,24,26,27,28,29,30,31]},{"month":4,"days":[2,3,4,5,6,8,9,10,11,14,15,17,18,19]}]}]}
+{"years":[]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
 
-### Album UUID: DED2B591-F17C-4ADE-B902-38504CBB5740
-Location: ./backend/data/albums/DED2B591-F17C-4ADE-B902-38504CBB5740/photos.json
-Photo Count: 11859
-Earliest Date: 2024-12-17 18:37:23-05:00
-Latest Date: 2025-04-19 19:24:44-04:00
-
-### Album UUID: EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3
-Location: ./backend/data/albums/EA6477B3-2BFD-43FE-8F8A-3080EA6E7FF3/photos.json
-Photo Count: 12091
-Earliest Date: 2024-12-17 18:37:23-05:00
-Latest Date: 2025-04-19 19:24:44-04:00
-
-### Album UUID: 03F35C45-E2AC-47FA-8101-70D5B6B97BC0
-Location: ./backend/data/albums/03F35C45-E2AC-47FA-8101-70D5B6B97BC0/photos.json
-Photo Count: 596
-Earliest Date: 2025-04-19 17:29:41-04:00
-Latest Date: 2025-04-19 19:24:44-04:00
-
+No directory found at ./backend/data/albums

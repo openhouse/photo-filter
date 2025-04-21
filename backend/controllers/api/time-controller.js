@@ -1,110 +1,66 @@
 // backend/controllers/api/time-controller.js
+//
+// Builds a Year ➝ Month ➝ Day index of all photos.
+// Now safe on a totally empty data directory.
 
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
 
-/**
- * getTimeIndex
- *
- * Returns a hierarchical time-based index of all photos known to the system:
- *   {
- *     "years": [
- *       {
- *         "year": 2024,
- *         "months": [
- *           {
- *             "month": 12,
- *             "days": [5, 6, 7]
- *           }
- *         ]
- *       }
- *     ]
- *   }
- *
- * Only includes years/months/days that actually have photos. Does not currently handle weeks.
- */
-export async function getTimeIndex(req, res) {
+export async function getTimeIndex(_req, res) {
   try {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
 
-    const dataDir = path.join(__dirname, "..", "..", "data", "albums");
-    // We'll iterate through all album folders, parse each photos.json,
-    // and accumulate date info in a structured way.
+    const albumsRoot = path.join(__dirname, "..", "..", "data", "albums");
 
-    const yearMap = new Map();
-    // yearMap[year] = {
-    //   <monthNumber>: Set([dayNumbers]),
-    //   ...
-    // }
+    /* ---------- first‑run guard ---------- */
+    if (!(await fs.pathExists(albumsRoot))) {
+      return res.json({ years: [] }); // nothing to index yet
+    }
 
-    const albumDirs = await fs.readdir(dataDir, { withFileTypes: true });
+    /* ---------- walk all albums ---------- */
+    const yearMap = new Map(); // {year → Map(month → Set(days))}
+    const albumDirs = await fs.readdir(albumsRoot, { withFileTypes: true });
 
     for (const dirEnt of albumDirs) {
       if (!dirEnt.isDirectory()) continue;
-      const albumUUID = dirEnt.name;
-      const photosJsonPath = path.join(dataDir, albumUUID, "photos.json");
 
-      if (!(await fs.pathExists(photosJsonPath))) {
-        continue;
-      }
+      const photosJson = path.join(albumsRoot, dirEnt.name, "photos.json");
+      if (!(await fs.pathExists(photosJson))) continue;
 
-      const photosData = await fs.readJson(photosJsonPath);
-      for (const photo of photosData) {
-        // Date parse
-        const dateObj = new Date(photo.date);
-        if (isNaN(dateObj.getTime())) {
-          continue; // skip if invalid date
-        }
+      const photos = await fs.readJson(photosJson);
+      for (const p of photos) {
+        const d = new Date(p.date);
+        if (Number.isNaN(d.getTime())) continue;
 
-        const y = dateObj.getFullYear();
-        const m = dateObj.getMonth() + 1; // 1-based
-        const d = dateObj.getDate();
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1; // 1‑based
+        const day = d.getDate();
 
-        if (!yearMap.has(y)) {
-          yearMap.set(y, new Map());
-        }
+        if (!yearMap.has(y)) yearMap.set(y, new Map());
         const monthMap = yearMap.get(y);
-
-        if (!monthMap.has(m)) {
-          monthMap.set(m, new Set());
-        }
-        const daySet = monthMap.get(m);
-        daySet.add(d);
+        if (!monthMap.has(m)) monthMap.set(m, new Set());
+        monthMap.get(m).add(day);
       }
     }
 
-    // Now convert that Map-of-Maps-of-Sets into a JSON-friendly object
-    const yearsArray = [];
-    // Sort the years ascending, e.g., 2019, 2020, etc.
-    const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
-
-    for (const year of sortedYears) {
-      const monthsArray = [];
-      const monthMap = yearMap.get(year);
-
-      // Sort months ascending
-      const sortedMonths = Array.from(monthMap.keys()).sort((a, b) => a - b);
-      for (const month of sortedMonths) {
-        const daysArray = Array.from(monthMap.get(month)).sort((a, b) => a - b);
-        monthsArray.push({
-          month,
-          days: daysArray,
-        });
-      }
-
-      yearsArray.push({
-        year,
-        months: monthsArray,
+    /* ---------- serialise ---------- */
+    const years = [...yearMap.keys()]
+      .sort((a, b) => a - b)
+      .map((y) => {
+        const months = [...yearMap.get(y).keys()]
+          .sort((a, b) => a - b)
+          .map((m) => ({
+            month: m,
+            days: [...yearMap.get(y).get(m)].sort((a, b) => a - b),
+          }));
+        return { year: y, months };
       });
-    }
 
-    const finalIndex = { years: yearsArray };
-
-    return res.json(finalIndex);
-  } catch (error) {
-    console.error("Error building time index:", error);
-    return res.status(500).json({ errors: [{ detail: error.message }] });
+    res.json({ years });
+  } catch (err) {
+    console.error("Error building time index:", err);
+    res.status(500).json({ errors: [{ detail: err.message }] });
   }
 }

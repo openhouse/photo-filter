@@ -2,7 +2,7 @@
 import express from "express";
 import {
   getAlbumsData,
-  refreshAlbum,
+  refreshAlbum, // original handler
 } from "../controllers/api/albums-controller.js";
 import { getPhotosByAlbumData } from "../controllers/api/photos-controller.js";
 import { getLibraryStatus } from "../controllers/api/library-controller.js";
@@ -12,7 +12,11 @@ const router = express.Router();
 
 /* Albums */
 router.get("/albums", getAlbumsData);
-router.post("/albums/:albumUUID/refresh", refreshAlbum);
+
+/* 🔄  Incremental sync endpoints  */
+router.post("/albums/:albumUUID/refresh", refreshAlbum); // legacy
+router.post("/albums/:albumUUID/sync", refreshAlbum); // new alias
+
 router.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 
 /* Time taxonomy */

@@ -1,4 +1,8 @@
 // backend/utils/refresh-album.js
+//
+// Incrementally refresh a single album.
+// Creates *all* needed folders/files on the fly so first‑run never fails.
+
 import path from "path";
 import fs from "fs-extra";
 import crypto from "crypto";
@@ -18,7 +22,25 @@ export async function refreshAlbumIncremental(albumUUID) {
   const albumDir = path.join(dataDir, "albums", albumUUID);
   const photosPath = path.join(albumDir, "photos.json");
   const imagesDir = path.join(albumDir, "images");
+  const lastSyncFile = path.join(albumDir, "last_sync.txt");
 
+  /* ---------- guarantee folder structure ---------- */
+  await fs.ensureDir(albumDir);
+  await fs.ensureDir(imagesDir);
+
+  /* ---------- read last‑sync timestamp ---------- */
+  let lastSyncIso = null;
+  if (await fs.pathExists(lastSyncFile)) {
+    lastSyncIso = (await fs.readFile(lastSyncFile, "utf-8")).trim() || null;
+  }
+
+  let lastSyncEpoch = 0;
+  if (lastSyncIso) {
+    const parsed = Date.parse(lastSyncIso);
+    if (!Number.isNaN(parsed)) lastSyncEpoch = Math.floor(parsed / 1000);
+  }
+
+  /* ---------- Python metadata export ---------- */
   const venvDir = path.join(__dirname, "..", "venv");
   const pythonPath = path.join(venvDir, "bin", "python3");
   const exportScript = path.join(
@@ -27,26 +49,12 @@ export async function refreshAlbumIncremental(albumUUID) {
     "scripts",
     "export_photos_in_album.py"
   );
+
+  const args = lastSyncIso ? [albumUUID, lastSyncIso] : [albumUUID];
+  await runPythonScript(pythonPath, exportScript, args, photosPath);
+
+  /* ---------- images export (incremental) ---------- */
   const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
-
-  await fs.ensureDir(albumDir);
-  await fs.ensureDir(imagesDir);
-
-  // ---------- previous sync metadata ----------
-  let lastSyncEpoch = 0;
-  let prevScoreHash = null;
-  if (await fs.pathExists(photosPath)) {
-    const prev = await fs.readJson(photosPath);
-    if (Array.isArray(prev) && prev.length) {
-      lastSyncEpoch = Math.max(...prev.map((p) => Date.parse(p.date) / 1000));
-      prevScoreHash = calcScoreHash(prev);
-    }
-  }
-
-  // ---------- metadata export ----------
-  await runPythonScript(pythonPath, exportScript, [albumUUID], photosPath);
-
-  // ---------- image export (incremental) ----------
   await runOsxphotosExportImages(
     osxphotosPath,
     albumUUID,
@@ -55,17 +63,21 @@ export async function refreshAlbumIncremental(albumUUID) {
     lastSyncEpoch
   );
 
+  /* ---------- diff & bookkeeping ---------- */
   const current = await fs.readJson(photosPath);
   const currentScoreHash = calcScoreHash(current);
 
-  // Determine updated photo UUIDs
   const updatedPhotoUUIDs = current
     .filter((p) => Date.parse(p.date) / 1000 > lastSyncEpoch)
     .map((p) => p.uuid);
 
+  // bump last_sync.txt for the next run
+  await fs.ensureFile(lastSyncFile);
+  await fs.writeFile(lastSyncFile, new Date().toISOString(), "utf-8");
+
   return {
     updatedPhotoUUIDs,
-    staleScores: prevScoreHash !== currentScoreHash,
+    staleScores: Boolean(currentScoreHash), // caller decides what to do
   };
 }
 

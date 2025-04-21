@@ -20,11 +20,12 @@
   },
   "scripts": {
     "setup": "node ./scripts/setup.js",
+    "bootstrap": "node ./scripts/bootstrap-data.js",
     "start": "node server.js",
-    "dev": "nodemon --ignore 'data/*' server.js",
+    "dev": "npm run bootstrap && nodemon --ignore 'data/*' server.js",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
     "generate-overview": "../generate-overview.sh",
-    "postinstall": "node ./scripts/setup.js"
+    "postinstall": "npm run setup && npm run bootstrap"
   }
 }

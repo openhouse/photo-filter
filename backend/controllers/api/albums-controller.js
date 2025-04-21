@@ -1,4 +1,9 @@
 // backend/controllers/api/albums-controller.js
+//
+// Handles album‑level metadata and incremental “refresh / sync”.
+// Fully resilient on first‑run: if data/albums.json does not exist
+// we return an empty list and create the file on first write.
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
@@ -7,9 +12,11 @@ import { refreshAlbumIncremental } from "../../utils/refresh-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dataDir = path.join(__dirname, "..", "..", "data");
-const albumsJsonPath = path.join(dataDir, "albums.json");
 
+/* Where we persist high‑level album info */
+const albumsJsonPath = path.join(__dirname, "..", "..", "data", "albums.json");
+
+/* ---------- JSON:API serialiser ---------- */
 const AlbumSerializer = new Serializer("album", {
   id: "uuid",
   attributes: ["title", "dataVersion", "scoreHash", "isStale"],
@@ -17,46 +24,68 @@ const AlbumSerializer = new Serializer("album", {
   pluralizeType: false,
 });
 
-/* ------ helpers ------ */
+/* ---------- helpers ---------- */
 async function loadAlbums() {
+  if (!(await fs.pathExists(albumsJsonPath))) {
+    return []; // first run → empty list
+  }
+  // Ensure booleans stay booleans
   return (await fs.readJson(albumsJsonPath)).map((a) => ({
     ...a,
-    isStale: !!a.isStale,
+    isStale: Boolean(a.isStale),
   }));
 }
+
 async function saveAlbums(albums) {
+  await fs.ensureFile(albumsJsonPath);
   await fs.writeJson(albumsJsonPath, albums, { spaces: 2 });
 }
 
-/* ------ routes ------ */
+/* ---------- route handlers ---------- */
 
-// GET /api/albums
+/**
+ * GET /api/albums
+ * Returns an array of all albums in JSON:API format.
+ */
 export async function getAlbumsData(_req, res) {
   const albums = await loadAlbums();
   res.json(AlbumSerializer.serialize(albums));
 }
 
-// POST /api/albums/:albumUUID/refresh
+/**
+ * POST /api/albums/:albumUUID/refresh
+ * POST /api/albums/:albumUUID/sync  (alias – see routes/api.js)
+ *
+ * Triggers a per‑album incremental sync and updates bookkeeping.
+ */
 export async function refreshAlbum(req, res) {
   try {
     const { albumUUID } = req.params;
+
+    /* ---------- incremental refresh ---------- */
     const result = await refreshAlbumIncremental(albumUUID);
 
-    // mark album fresh
+    /* ---------- update album metadata ---------- */
     const albums = await loadAlbums();
-    const i = albums.findIndex((a) => a.uuid === albumUUID);
-    if (i !== -1) {
-      albums[i].dataVersion = new Date().toISOString();
-      albums[i].scoreHash = result.staleScores
-        ? Date.now().toString(36)
-        : albums[i].scoreHash;
-      albums[i].isStale = false;
+    const idx = albums.findIndex((a) => a.uuid === albumUUID);
+
+    if (idx !== -1) {
+      albums[idx].dataVersion = new Date().toISOString();
+      if (result.staleScores) {
+        // use something cheap for “changed” – the exact value is irrelevant
+        albums[idx].scoreHash = Date.now().toString(36);
+      }
+      albums[idx].isStale = false;
       await saveAlbums(albums);
     }
 
     res.json(result);
-  } catch (e) {
-    console.error("refresh album error:", e);
-    res.status(500).json({ errors: [{ detail: e.message }] });
+  } catch (err) {
+    console.error("refresh album error:", err);
+    res.status(500).json({ errors: [{ detail: err.message }] });
   }
 }
+
+/* ---------- named export alias ---------- */
+/** identical to refreshAlbum – kept for semantic clarity in callers */
+export { refreshAlbum as syncAlbum };
