@@ -1,4 +1,5 @@
 // backend/controllers/api/photos-controller.js
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
@@ -63,27 +64,60 @@ export async function getPhotosByAlbumData(req, res) {
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
-    // ===== 1) Handle "missing photos.json" gracefully =====
+    // If photos.json doesn't exist, create it by running the Python export
     const exists = await fs.pathExists(photosPath);
     if (!exists) {
       console.warn(
-        `Warning: photos.json not found for album ${albumUUID}. Returning empty results.`
+        `photos.json not found for album ${albumUUID}. Attempting export...`
       );
-
-      // Optionally, you could attempt to re-run the Python export here:
-      // await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-      // await runOsxphotosExportImages(osxphotosPath, albumUUID, imagesDir, photosPath);
-
-      // If re-running is undesired, we'll just create an empty file, so subsequent calls won't 500:
-      await fs.writeJson(photosPath, []); // empty array
+      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      await runOsxphotosExportImages(
+        osxphotosPath,
+        albumUUID,
+        imagesDir,
+        photosPath
+      );
     }
 
-    // Read the array from photos.json (which might now be `[]`)
+    // Read the array from photos.json
     let photosData = await fs.readJson(photosPath);
 
-    // Guard: If there's truly no photos, respond with an empty JSON:API set
+    // If the file is present but empty, attempt export again
+    if (Array.isArray(photosData) && photosData.length === 0) {
+      console.warn(
+        `photos.json is empty for album ${albumUUID}. Re-running python export...`
+      );
+      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      await runOsxphotosExportImages(
+        osxphotosPath,
+        albumUUID,
+        imagesDir,
+        photosPath
+      );
+
+      // re-read the photos
+      photosData = await fs.readJson(photosPath);
+
+      if (!Array.isArray(photosData) || photosData.length === 0) {
+        console.warn(
+          `Even after re-export, album ${albumUUID} has 0 photos. Returning empty JSON:API response.`
+        );
+        return res.json({
+          data: [],
+          included: [],
+          meta: {
+            albumUUID,
+            sortAttribute,
+            sortOrder,
+            scoreAttributes: [],
+          },
+        });
+      }
+    }
+
+    // If still not an array, or still empty, bail out
     if (!Array.isArray(photosData) || photosData.length === 0) {
-      const emptyResponse = {
+      return res.json({
         data: [],
         included: [],
         meta: {
@@ -92,29 +126,25 @@ export async function getPhotosByAlbumData(req, res) {
           sortOrder,
           scoreAttributes: [],
         },
-      };
-      return res.json(emptyResponse);
+      });
     }
 
-    // ===== 2) Deduplicate if needed =====
+    // Deduplicate if needed
     photosData = deduplicatePhotos(photosData);
 
-    // ===== 3) Build a final 'exportedFilename' field per photo. =====
+    // Build a final 'exportedFilename' field
     const uniquePersons = new Map();
     photosData.forEach((photo) => {
-      // For display in the UI
       photo.originalName = path.parse(photo.original_filename).name;
 
-      // Provide an exportedFilename: "YYYYMMDD-HHMMSS-<originalName>.jpg"
       const prefix = formatPhotoDateWithOffset(photo.date);
       photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
 
-      // If photo.persons is missing or not an array, treat it as empty
+      // Ensure we have an array of persons
       if (!Array.isArray(photo.persons)) {
         photo.persons = [];
       }
-
-      // Collect persons so they appear in JSON:API "included"
+      // Build a "personsData" array for JSON:API relationships
       photo.personsData = photo.persons.map((personName) => {
         const slug = slugifyName(personName);
         if (!uniquePersons.has(slug)) {
@@ -127,13 +157,13 @@ export async function getPhotosByAlbumData(req, res) {
       photo.album = albumUUID;
     });
 
-    // If at least one photo has a 'score' object, let's gather them
+    // Gather scoreAttributes from the first photo’s 'score' object
     let scoreAttributes = [];
     if (photosData.length > 0 && photosData[0].score) {
       scoreAttributes = Object.keys(photosData[0].score);
     }
 
-    // ===== 4) Sort according to sortAttribute & sortOrder =====
+    // Sort by sortAttribute
     photosData.sort((a, b) => {
       const aValue = getNestedProperty(a, sortAttribute);
       const bValue = getNestedProperty(b, sortAttribute);
@@ -144,14 +174,14 @@ export async function getPhotosByAlbumData(req, res) {
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
 
-    // ===== 5) Serialize the photos into JSON:API format =====
+    // Serialize photos
     const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
 
-    // ===== 6) Serialize the persons too =====
+    // Serialize unique persons
     const personsArray = Array.from(uniquePersons.values());
     const jsonApiPersonData = PersonSerializer.serialize(personsArray);
 
-    // ===== 7) Combine data + included in one payload =====
+    // Build final merged structure
     const merged = {
       data: jsonApiPhotoData.data,
       included: jsonApiPersonData.data,
@@ -163,7 +193,7 @@ export async function getPhotosByAlbumData(req, res) {
       },
     };
 
-    // Also wire up the "persons" relationship for each photo
+    // Wire up "persons" relationship for each photo
     merged.data.forEach((photo) => {
       const original = photosData.find((p) => p.uuid === photo.id);
       if (original && original.personsData?.length) {
@@ -192,7 +222,6 @@ function deduplicatePhotos(photos) {
     if (!map.has(key)) {
       map.set(key, { ...photo });
     } else {
-      // Merge persons
       const existing = map.get(key);
       if (Array.isArray(photo.persons)) {
         const oldSet = new Set(existing.persons || []);
@@ -211,10 +240,8 @@ function formatPhotoDateWithOffset(dateString) {
     /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+\-]\d{2}:\d{2})$/
   );
   if (!match) {
-    // fallback if it doesn't match the pattern
     return fallbackFormat(new Date(dateString));
   }
-
   const [_, datePart, timePart] = match;
   const [year, month, day] = datePart.split("-").map(Number);
   const [hour, minute, secondRaw] = timePart.split(":");

@@ -11,7 +11,8 @@
         {{album.title}}
       </LinkTo>
 
-      {{#if (this.reload.staleAlbums.has album.id)}}
+      {{! Replace direct staleAlbums.has(...) call with our isStale helper }}
+      {{#if (this.isStale album.id)}}
         <button
           type="button"
           class="text-sm opacity-0 group-hover:opacity-100 transition"

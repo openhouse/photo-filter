@@ -13,4 +13,13 @@ export default class AlbumsController extends Controller {
       this.reload.clear(id);
     }
   }
+
+  /**
+   * Check if album is stale, to safely avoid
+   * calling staleAlbums.has(...) in the template.
+   */
+  isStale(albumId) {
+    // Optional chaining ensures we won't crash if reload or staleAlbums is undefined
+    return this.reload?.staleAlbums?.has?.(albumId) ?? false;
+  }
 }

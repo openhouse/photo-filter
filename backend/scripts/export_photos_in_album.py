@@ -1,75 +1,90 @@
 #!/usr/bin/env python3
 """
-export_photos_in_album.py  ALBUM_UUID  OUTPUT_JSON  [SINCE_ISO]
-
-Export metadata for all photos in a given Photos.app album to
-`OUTPUT_JSON` (JSON list).  When SINCE_ISO is supplied the script
-writes **only** photos whose *date_modified* is later than that time,
-enabling truly incremental syncs.
-
-The script is intentionally self‑contained so it can run inside the
-backend's venv without any extra CLI flags from Node.
+Example: export photos from a specific album by UUID
+Requires osxphotos >= 0.63
 """
 
-from __future__ import annotations
-
-import json
+import os
 import sys
-import datetime as _dt
-from pathlib import Path
+import argparse
+import pathlib
 
-try:
-    from osxphotos import PhotosDB  # type: ignore
-except ImportError as exc:  # pragma: no cover
-    sys.stderr.write(
-        "❌  osxphotos is not installed inside the virtualenv:"
-        "  run  npm --workspace backend run setup\n"
+import osxphotos
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Export photos from a Photos album by UUID using osxphotos."
     )
-    raise
+    parser.add_argument(
+        "--album-uuid",
+        required=True,
+        help="UUID of the Photos album to export",
+    )
+    parser.add_argument(
+        "--dest",
+        required=True,
+        help="Destination folder for exported photos",
+    )
+    parser.add_argument(
+        "--download-missing",
+        action="store_true",
+        help="Attempt to download missing photos from iCloud",
+    )
+    args = parser.parse_args()
 
-ISO8601_FMT = "%Y-%m-%dT%H:%M:%S.%fZ"
+    album_uuid = args.album_uuid
+    dest = pathlib.Path(args.dest)
+    dest.mkdir(parents=True, exist_ok=True)
 
+    # Load the Photos library
+    db = osxphotos.PhotosDB()
 
-def _parse_args() -> tuple[str, Path, _dt.datetime | None]:
-    if len(sys.argv) < 3:
-        sys.stderr.write(
-            "usage: export_photos_in_album.py ALBUM_UUID OUTPUT_JSON [SINCE_ISO]\n"
-        )
+    # Attempt to find the album matching album_uuid
+    # This enumerates all albums then picks the one matching album_uuid.
+    try:
+        matching_albums = [a for a in db.albums if a.uuid == album_uuid]
+    except AttributeError:
+        print("Error: 'albums' property is missing or changed in this osxphotos version.")
         sys.exit(1)
 
-    album_uuid = sys.argv[1]
-    dst = Path(sys.argv[2]).expanduser().resolve()
-    since = None
-    if len(sys.argv) >= 4 and sys.argv[3] not in ("", "null", "None"):
-        try:
-            since = _dt.datetime.fromisoformat(sys.argv[3].replace("Z", "+00:00"))
-        except ValueError:
-            sys.stderr.write(f"⚠️  ignoring invalid ISO timestamp: {sys.argv[3]!r}\n")
-            since = None
+    if not matching_albums:
+        print(f"No album found with UUID {album_uuid}. Exiting.")
+        sys.exit(0)
 
-    return album_uuid, dst, since
-
-
-def main() -> None:
-    album_uuid, out_path, since = _parse_args()
-
-    db = PhotosDB()
-    album = db.get_album(album_uuid)
-    if album is None:
-        sys.stderr.write(f"⚠️  album {album_uuid} not found – writing empty list.\n")
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text("[]", encoding="utf-8")
-        return
-
+    album = matching_albums[0]
     photos = album.photos
-    if since:
-        photos = [p for p in photos if p.date_modified and p.date_modified > since]
 
-    payload = [p.json() for p in photos]
+    print(f"Found album '{album.title}' with {len(photos)} photos.")
+    print(f"Exporting to {dest}...")
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    for idx, photo in enumerate(photos, start=1):
+        # The export2 function returns a list of exported files or raises exceptions on error
+        # The new "download_missing" param is True if your library is iCloud-based
+        # and you want to force local download of missing images
+        print(f"Exporting photo {idx}/{len(photos)}: {photo.original_filename}")
+        try:
+            exported = photo.export2(
+                str(dest),
+                download_missing=args.download_missing,
+                # Additional params, for example:
+                # original_name=True,
+                # overwrite=False,
+                # sidecar=["xmp"],
+            )
+            if exported.exported:
+                print(f"Exported: {exported.exported}")
+            if exported.new:
+                print(f"Newly exported: {exported.new}")
+            if exported.updated:
+                print(f"Updated: {exported.updated}")
+            if exported.skipped:
+                print(f"Skipped: {exported.skipped}")
+        except Exception as e:
+            print(f"Error exporting {photo.original_filename}: {e}")
+
+    print("Export complete.")
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     main()
