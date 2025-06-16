@@ -1,21 +1,19 @@
 // backend/utils/export-images.js
 //
-// Responsible only for *running osxphotos* — no more post-rename.
-// The filename template now embeds micro-seconds directly, so we
-// never collide and never lose chronological order.
-//
+// Responsibility: run osxphotos to render JPEGs — nothing more.
+// The filename template embeds micro-second precision, guaranteeing
+// uniqueness and strictly chronological lexicographic order.
 
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
 /**
- * Export JPEGs with a deterministic, micro-second timestamp prefix:
+ * Export JPEGs from an album:
  *
  *   YYYYMMDD-HHMMSSffffff-original_name.jpg
  *
- * …where “ffffff” is the six-digit micro-seconds field provided by
- * Python’s %f in strftime.
+ * …where “ffffff” is the six-digit micro-second field (%f).
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -23,13 +21,13 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // Gather UUIDs into a temp file for osxphotos
+  // 1 collect UUIDs (one per line) for osxphotos’ --uuid-from-file
   const photos = await fs.readJson(photosPath);
   const uuidsFile = path.join(imagesDir, "uuids.txt");
   await fs.ensureDir(imagesDir);
-  await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf-8");
+  await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
 
-  // %f  → micro-seconds  (Python ≥3.6)  – always 6 digits
+  // 2 run osxphotos
   const filenameTemplate = "{created.strftime,%Y%m%d-%H%M%S%f}-{original_name}";
 
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
@@ -40,9 +38,7 @@ export async function runOsxphotosExportImages(
   await execCommand(cmd, "osxphotos image export failed:");
 }
 
-/**
- * Utility surfaced elsewhere
- */
+/* ---------- small util re-exported elsewhere ----------- */
 export function getNestedProperty(obj, pathStr) {
   return pathStr
     .split(".")

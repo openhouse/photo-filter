@@ -1,8 +1,7 @@
 // backend/utils/helpers.js
 //
-// Small shared utils; re-exports the precise timestamp helper
-// to keep older imports working should they be updated later.
-//
+// Shared one-liners.  We re-export `formatPreciseTimestamp` so callers
+// can keep a single import path for most utilities.
 
 import { formatPreciseTimestamp } from "./precise-timestamp.js";
 
@@ -19,9 +18,9 @@ export function getNestedProperty(obj, propertyPath) {
 }
 
 export function capitalizeAttributeName(attributeName) {
-  const nameParts = attributeName.split(".");
-  const lastPart = nameParts[nameParts.length - 1];
-  return lastPart
+  const bits = attributeName.split(".");
+  const last = bits[bits.length - 1];
+  return last
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");

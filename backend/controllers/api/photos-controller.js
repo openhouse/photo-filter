@@ -1,24 +1,27 @@
 // backend/controllers/api/photos-controller.js
 //
-// Now uses the shared `formatPreciseTimestamp` helper and never
-// performs a post-export rename.  The export routine already wrote
-// filenames with 6-digit micro-second precision, guaranteeing
-// uniqueness and correct lexicographic sort.
+// Builds `exportedFilename` from the *same* micro-second timestamp that
+// osxphotos embedded, so the frontend can construct <img src> without
+// touching the filesystem.
 //
+// NB: any older duplicate controller (e.g. “-photos-controller.js”)
+//     should be deleted to prevent route-loader ambiguity.
 
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
-import { getNestedProperty } from "../../utils/helpers.js";
-import { formatPreciseTimestamp } from "../../utils/precise-timestamp.js";
+import {
+  formatPreciseTimestamp,
+  getNestedProperty,
+} from "../../utils/helpers.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ---------------- Serializers ---------------- */
+/* ---------- JSON:API serializers ---------- */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -44,19 +47,19 @@ const PhotoSerializer = new Serializer("photo", {
   pluralizeType: false,
 });
 
-/* ---------------- Controller ---------------- */
+/* ---------- main controller ---------- */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
-    /* ── params, paths ───────────────────────── */
+    /* paths & params */
     const albumUUID = req.params.albumUUID;
     const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
-    const photosDir = path.join(dataDir, "albums", albumUUID);
-    const photosPath = path.join(photosDir, "photos.json");
-    const imagesDir = path.join(photosDir, "images");
+    const albumDir = path.join(dataDir, "albums", albumUUID);
+    const photosJSON = path.join(albumDir, "photos.json");
+    const imagesDir = path.join(albumDir, "images");
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const python = path.join(venvDir, "bin", "python3");
@@ -69,47 +72,42 @@ export const getPhotosByAlbumData = async (req, res) => {
     );
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    /* ── ensure exports exist ────────────────── */
+    /* (1) Ensure exports exist */
     await fs.ensureDir(imagesDir);
-
-    if (!(await fs.pathExists(photosPath))) {
-      // ❶ export metadata
-      await runPythonScript(python, pyExport, [albumUUID], photosPath);
-      // ❷ export jpegs with new filename template
+    if (!(await fs.pathExists(photosJSON))) {
+      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
       await runOsxphotosExportImages(
         osxphotos,
         albumUUID,
         imagesDir,
-        photosPath
+        photosJSON
       );
     }
 
-    /* ── load & enrich data ──────────────────── */
-    let photos = await fs.readJson(photosPath);
+    /* (2) Load data & enrich */
+    let photos = await fs.readJson(photosJSON);
 
-    const personsSet = new Map(); // slug → {id,name}
+    const personsMap = new Map(); // slug -> {id,name}
 
     photos.forEach((p) => {
+      /* derive names & filenames */
       p.originalName = path.parse(p.original_filename).name;
-
-      // Build the filename we know osxphotos wrote
-      const tsSegment = formatPreciseTimestamp(p.date); // returns YYYYMMDD-…ffffff
+      const tsSegment = formatPreciseTimestamp(p.date);
       p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
 
-      // persons → array assur’d
+      /* normalise persons */
       p.persons = Array.isArray(p.persons) ? p.persons : [];
 
-      // Collect persons across set
       p.personsData = p.persons.map((name) => {
         const slug = slugify(name);
-        if (!personsSet.has(slug)) personsSet.set(slug, { id: slug, name });
+        if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
 
       p.album = albumUUID;
     });
 
-    /* ── sorting ─────────────────────────────── */
+    /* (3) sort */
     photos.sort((a, b) => {
       const va = getNestedProperty(a, sortAttr);
       const vb = getNestedProperty(b, sortAttr);
@@ -118,17 +116,15 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    /* ── JSON:API serialise ──────────────────── */
+    /* (4) serialise */
     const jsonPhotos = PhotoSerializer.serialize(photos);
-    const jsonPersons = PersonSerializer.serialize([...personsSet.values()]);
+    const jsonPersons = PersonSerializer.serialize([...personsMap.values()]);
 
     // attach person relationships
-    jsonPhotos.data.forEach((photoDatum) => {
-      const origin = photos.find((p) => p.uuid === photoDatum.id);
-      photoDatum.relationships = photoDatum.relationships || {};
-      photoDatum.relationships.persons = {
-        data: origin.personsData,
-      };
+    jsonPhotos.data.forEach((d) => {
+      const src = photos.find((p) => p.uuid === d.id);
+      d.relationships = d.relationships || {};
+      d.relationships.persons = { data: src.personsData };
     });
 
     res.json({
@@ -139,9 +135,7 @@ export const getPhotosByAlbumData = async (req, res) => {
         sortAttribute: sortAttr,
         sortOrder,
         scoreAttributes:
-          photos.length > 0 && photos[0].score
-            ? Object.keys(photos[0].score)
-            : [],
+          photos.length && photos[0].score ? Object.keys(photos[0].score) : [],
       },
     });
   } catch (err) {
@@ -150,8 +144,7 @@ export const getPhotosByAlbumData = async (req, res) => {
   }
 };
 
-/* ────────────────────────────────────────────── */
-
+/* ---------- util ---------- */
 function slugify(str) {
   return str
     .toLowerCase()

@@ -1,38 +1,34 @@
 // backend/utils/precise-timestamp.js
 //
-// Helper for formatting Apple-Photos / osxphotos date strings
-// into a strictly-ordered, collision-proof timestamp segment.
+// Convert a Photos / osxphotos date string (or a JS Date) into an
+// always-20-character, micro-second-precise timestamp suitable for
+// lexicographic sorting and collision-proof filenames.
 //
-//  ────────────────────────────────────────────────────────────
-//  INPUT  examples
-//    "2025-03-14 16:09:26.123456-04:00"
-//    "2022-11-05 08:17:09-05:00"           (no subseconds)
-//    new Date()                            (fallback path)
+//   INPUT EXAMPLES
+//     "2025-03-14 16:09:26.123456-04:00"
+//     "2022-11-05 08:17:09-05:00"         (no subseconds)
+//     new Date()
 //
-//  OUTPUT  (string)  "20250314-160926123456"   ← always 20 chars
-//                    "20221105-081709000000"
-//  ────────────────────────────────────────────────────────────
+//   OUTPUT
+//     "20250314-160926123456"
+//     "20221105-081709000000"
 //
-// *  Micro-seconds (6 digits) are included even when the source
-//    lacks them → we pad with "000000", ensuring filenames sort
-//    lexicographically identically to chronological order.
-// *  We do **not** include timezone; the moment-in-time is
-//    unambiguous once micro-second precision is present and the
-//    sequence counter (below) is removed.
-//
+// * Time-zone is intentionally dropped — once micro-seconds are
+//   present the sequence is unambiguous within a single library/export.
+// * Sub-seconds are padded/truncated to exactly 6 digits.
 
 export function formatPreciseTimestamp(dateInput) {
-  let str =
+  // Normalise to string first
+  const str =
     typeof dateInput === "string"
       ? dateInput
-      : new Date(dateInput).toISOString();
+      : new Date(dateInput).toISOString(); // fallback for Date objects
 
   const m = str.match(
     /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/
   );
-
   if (!m) {
-    // Fallback — ISO without sub-seconds
+    // Very unlikely, but defensive fallback for weird input
     const d = new Date(str);
     const YYYY = d.getFullYear();
     const MM = String(d.getMonth() + 1).padStart(2, "0");
@@ -43,18 +39,9 @@ export function formatPreciseTimestamp(dateInput) {
     return `${YYYY}${MM}${DD}-${HH}${mm}${ss}000000`;
   }
 
-  const [
-    ,
-    YYYY,
-    MM,
-    DD,
-    HH,
-    mm,
-    ss,
-    subsec = "0", // undefined → "0"
-  ] = m;
+  const [, YYYY, MM, DD, HH, mm, ss, subsec = ""] = m;
 
-  // micro-seconds, always 6 digits
+  // exactly 6 micro-second digits
   const usec = subsec.padEnd(6, "0").slice(0, 6);
 
   return `${YYYY}${MM}${DD}-${HH}${mm}${ss}${usec}`;
