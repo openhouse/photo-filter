@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Mon Jun 16 17:45:27 EDT 2025
+Generated on: Mon Jun 16 19:48:12 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -34,13 +34,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── get-photos-by-album.js
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
-│   ├── data
-│   │   ├── .DS_Store
-│   │   ├── albums
-│   │   │   └── 0EB23188-CA33-4FDA-BA27-A3B290466224
-│   │   │       ├── .DS_Store
-│   │   │       └── photos.json
-│   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
@@ -92,6 +85,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── COMPASSION.md
 ├── DEVELOPMENT_PLAN.md
 ├── docs
+│   ├── FILE‑NAMING.md
 │   └── microsecond-filenames.md
 ├── frontend
 │   ├── .DS_Store
@@ -244,7 +238,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-69 directories, 162 files
+66 directories, 159 files
 ```
 
 ---
@@ -1412,6 +1406,12 @@ Testing
 License
 
 This project is licensed under the MIT License.
+
+### 2025‑06‑16 — UTC filename upgrade
+
+> **Breaking change:** After clearing `backend/data/albums`, all newly exported
+> images will have a UTC timestamp prefix (see `docs/FILE‑NAMING.md`).
+> Old caches can safely be deleted; no user‑visible paths changed.
 ```
 
 ### **./RELATIONAL-PRACTICES.md**
@@ -2153,24 +2153,42 @@ export default {
 
 ### **./backend/tests/utils/precise-timestamp.test.js**
 ```
-// backend/tests/utils/precise-timestamp.test.js
+import { utcTimestampForFile } from "../../backend/utils/precise-timestamp.js";
+import { exiftool } from "exiftool-vendored";
 
-import { formatPreciseTimestamp } from "../../../utils/precise-timestamp.js";
+// Mock exiftool.read so we don’t hit the binary during CI
+jest.mock("exiftool-vendored", () => {
+  return {
+    exiftool: {
+      read: jest.fn(),
+    },
+  };
+});
 
-describe("formatPreciseTimestamp", () => {
-  it("keeps existing micro-seconds", () => {
-    const src = "2025-03-14 16:09:26.123456-04:00";
-    expect(formatPreciseTimestamp(src)).toBe("20250314-160926123456");
+describe("utcTimestampForFile", () => {
+  it("handles OffsetTimeOriginal with sub‑seconds", async () => {
+    exiftool.read.mockResolvedValue({
+      DateTimeOriginal: "2025:05:31 13:45:41",
+      SubSecTimeOriginal: "540000",
+      OffsetTimeOriginal: "-06:00",
+    });
+
+    const ts = await utcTimestampForFile("/dummy.jpg");
+    expect(ts).toBe("20250531T194541540000Z"); // 13:45‑06 → 19:45Z
   });
 
-  it("pads when subseconds missing", () => {
-    const src = "2022-11-05 08:17:09-05:00";
-    expect(formatPreciseTimestamp(src)).toBe("20221105-081709000000");
-  });
+  it("falls back to CreateDate & local zone when no offset", async () => {
+    // pretend local tz is UTC‑4
+    process.env.TZ = "America/New_York";
 
-  it("handles Date instances", () => {
-    const d = new Date("1999-12-31T23:59:59.999Z");
-    expect(formatPreciseTimestamp(d)).toBe("19991231-235959999000");
+    exiftool.read.mockResolvedValue({
+      CreateDate: "2025:01:02 03:04:05",
+      SubSecTime: "1",
+    });
+
+    const ts = await utcTimestampForFile("/dummy.jpg");
+    expect(ts.startsWith("20250102T070405")).toBe(true); // 03:04 EDT + 4 h
+    expect(ts.endsWith("000001Z")).toBe(true);
   });
 });
 ```
@@ -2382,53 +2400,57 @@ export async function getPhotosLibraryLastModified() {
 
 ### **./backend/utils/precise-timestamp.js**
 ```
-// backend/utils/precise-timestamp.js
-//
-// Convert a Photos / osxphotos date string (or a JS Date) into an
-// always-20-character, micro-second-precise timestamp suitable for
-// lexicographic sorting and collision-proof filenames.
-//
-//   INPUT EXAMPLES
-//     "2025-03-14 16:09:26.123456-04:00"
-//     "2022-11-05 08:17:09-05:00"         (no subseconds)
-//     new Date()
-//
-//   OUTPUT
-//     "20250314-160926123456"
-//     "20221105-081709000000"
-//
-// * Time-zone is intentionally dropped — once micro-seconds are
-//   present the sequence is unambiguous within a single library/export.
-// * Sub-seconds are padded/truncated to exactly 6 digits.
+/**
+ * Build a micro‑second‑precise, **UTC** timestamp string for an image file.
+ *
+ * Result format:  YYYYMMDDTHHMMSSffffffZ   (always 20 chars + ‘Z’)
+ * Example:        20250531T174503000123Z
+ *
+ * Logic
+ *  1. Read EXIF with exiftool‑vendored (native binary, 100× faster than spawning CLI).
+ *  2. Start with DateTimeOriginal (fallback: CreateDate, ModifyDate).
+ *  3. Determine sub‑seconds, padding to 6 digits.
+ *  4. Determine zone:
+ *       • OffsetTimeOriginal, else OffsetTime, else default to local().
+ *  5. Convert to UTC and format.
+ */
 
-export function formatPreciseTimestamp(dateInput) {
-  // Normalise to string first
-  const str =
-    typeof dateInput === "string"
-      ? dateInput
-      : new Date(dateInput).toISOString(); // fallback for Date objects
+import { exiftool } from "exiftool-vendored";
+import { DateTime } from "luxon";
 
-  const m = str.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/
-  );
-  if (!m) {
-    // Very unlikely, but defensive fallback for weird input
-    const d = new Date(str);
-    const YYYY = d.getFullYear();
-    const MM = String(d.getMonth() + 1).padStart(2, "0");
-    const DD = String(d.getDate()).padStart(2, "0");
-    const HH = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-    return `${YYYY}${MM}${DD}-${HH}${mm}${ss}000000`;
+/**
+ * @param {string} filePath – absolute path to an image
+ * @returns {Promise<string>} UTC timestamp suitable for a filename prefix
+ * @throws if DateTimeOriginal is missing / unparsable
+ */
+export async function utcTimestampForFile(filePath) {
+  const tags = await exiftool.read(filePath);
+
+  const base = tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate;
+
+  if (!base) {
+    throw new Error(`No date field in EXIF for ${filePath}`);
   }
 
-  const [, YYYY, MM, DD, HH, mm, ss, subsec = ""] = m;
+  // Sub‑second – pad right then slice to exactly 6 chars
+  const subsec = (
+    (tags.SubSecTimeOriginal || tags.SubSecTime || "0").toString() + "000000"
+  ).slice(0, 6);
 
-  // exactly 6 micro-second digits
-  const usec = subsec.padEnd(6, "0").slice(0, 6);
+  // EXIF stores offsets like "+01:00" or "-06:00"
+  const offset = tags.OffsetTimeOriginal || tags.OffsetTime || null; // luxon 'null' == system local
 
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}${usec}`;
+  const dtLocal = DateTime.fromFormat(base, "yyyy:MM:dd HH:mm:ss", {
+    zone: offset ?? "local",
+  }).plus({ microseconds: Number(subsec) });
+
+  if (!dtLocal.isValid) {
+    throw new Error(
+      `Invalid date in EXIF for ${filePath}: ${dtLocal.invalidExplanation}`
+    );
+  }
+
+  return dtLocal.toUTC().toFormat("yyyyLLdd'T'HHmmss") + subsec + "Z";
 }
 ```
 
@@ -2461,6 +2483,10 @@ export function capitalizeAttributeName(attributeName) {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+// …other re‑exports remain
+export { utcTimestampForFile } from "./precise-timestamp.js";
+export { renameWithUtcPrefix } from "./export-images.js";
 ```
 
 ### **./backend/utils/export-images.js**
@@ -4092,56 +4118,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     }
   }
 }
-```
-
-### **./backend/data/albums.json**
-```json
-[
-    {
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
-        "title": "Inner Space"
-    },
-    {
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
-        "title": "Carmen"
-    },
-    {
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
-        "title": "Jamie"
-    },
-    {
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
-        "title": "LoVid"
-    },
-    {
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
-        "title": "Lera Show"
-...
-```
-
-### **./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14 Recently",
-            "Kendell & Mandy's Wedding \u2014 All",
-            "Kendell & Mandy's Wedding \u2014 Tyler's Photos",
-            "Tyler James (@firsthandaccount)"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-08 09:12:25.848879-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-05-30 08:52:35.160000-06:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 800,
-...
 ```
 
 ### **./backend/views/albums.hbs**
@@ -6300,14 +6276,10 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[{"year":2025,"months":[{"month":5,"days":[30,31]},{"month":6,"days":[1,2,3,10]}]}]}
+Could not fetch /api/time-index. Is the server running?
+
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
 
-### Album UUID: 0EB23188-CA33-4FDA-BA27-A3B290466224
-Location: ./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json
-Photo Count: 13242
-Earliest Date: 2025-05-30 08:52:35.160000-06:00
-Latest Date: 2025-06-10 11:25:17-04:00
-
+No directory found at ./backend/data/albums

@@ -150,3 +150,9 @@ Testing
 License
 
 This project is licensed under the MIT License.
+
+### 2025‑06‑16 — UTC filename upgrade
+
+> **Breaking change:** After clearing `backend/data/albums`, all newly exported
+> images will have a UTC timestamp prefix (see `docs/FILE‑NAMING.md`).
+> Old caches can safely be deleted; no user‑visible paths changed.

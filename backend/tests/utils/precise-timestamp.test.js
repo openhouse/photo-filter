@@ -1,20 +1,38 @@
-// backend/tests/utils/precise-timestamp.test.js
+import { utcTimestampForFile } from "../../backend/utils/precise-timestamp.js";
+import { exiftool } from "exiftool-vendored";
 
-import { formatPreciseTimestamp } from "../../../utils/precise-timestamp.js";
+// Mock exiftool.read so we don’t hit the binary during CI
+jest.mock("exiftool-vendored", () => {
+  return {
+    exiftool: {
+      read: jest.fn(),
+    },
+  };
+});
 
-describe("formatPreciseTimestamp", () => {
-  it("keeps existing micro-seconds", () => {
-    const src = "2025-03-14 16:09:26.123456-04:00";
-    expect(formatPreciseTimestamp(src)).toBe("20250314-160926123456");
+describe("utcTimestampForFile", () => {
+  it("handles OffsetTimeOriginal with sub‑seconds", async () => {
+    exiftool.read.mockResolvedValue({
+      DateTimeOriginal: "2025:05:31 13:45:41",
+      SubSecTimeOriginal: "540000",
+      OffsetTimeOriginal: "-06:00",
+    });
+
+    const ts = await utcTimestampForFile("/dummy.jpg");
+    expect(ts).toBe("20250531T194541540000Z"); // 13:45‑06 → 19:45Z
   });
 
-  it("pads when subseconds missing", () => {
-    const src = "2022-11-05 08:17:09-05:00";
-    expect(formatPreciseTimestamp(src)).toBe("20221105-081709000000");
-  });
+  it("falls back to CreateDate & local zone when no offset", async () => {
+    // pretend local tz is UTC‑4
+    process.env.TZ = "America/New_York";
 
-  it("handles Date instances", () => {
-    const d = new Date("1999-12-31T23:59:59.999Z");
-    expect(formatPreciseTimestamp(d)).toBe("19991231-235959999000");
+    exiftool.read.mockResolvedValue({
+      CreateDate: "2025:01:02 03:04:05",
+      SubSecTime: "1",
+    });
+
+    const ts = await utcTimestampForFile("/dummy.jpg");
+    expect(ts.startsWith("20250102T070405")).toBe(true); // 03:04 EDT + 4 h
+    expect(ts.endsWith("000001Z")).toBe(true);
   });
 });

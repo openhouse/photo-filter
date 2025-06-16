@@ -1,48 +1,52 @@
-// backend/utils/precise-timestamp.js
-//
-// Convert a Photos / osxphotos date string (or a JS Date) into an
-// always-20-character, micro-second-precise timestamp suitable for
-// lexicographic sorting and collision-proof filenames.
-//
-//   INPUT EXAMPLES
-//     "2025-03-14 16:09:26.123456-04:00"
-//     "2022-11-05 08:17:09-05:00"         (no subseconds)
-//     new Date()
-//
-//   OUTPUT
-//     "20250314-160926123456"
-//     "20221105-081709000000"
-//
-// * Time-zone is intentionally dropped — once micro-seconds are
-//   present the sequence is unambiguous within a single library/export.
-// * Sub-seconds are padded/truncated to exactly 6 digits.
+/**
+ * Build a micro‑second‑precise, **UTC** timestamp string for an image file.
+ *
+ * Result format:  YYYYMMDDTHHMMSSffffffZ   (always 20 chars + ‘Z’)
+ * Example:        20250531T174503000123Z
+ *
+ * Logic
+ *  1. Read EXIF with exiftool‑vendored (native binary, 100× faster than spawning CLI).
+ *  2. Start with DateTimeOriginal (fallback: CreateDate, ModifyDate).
+ *  3. Determine sub‑seconds, padding to 6 digits.
+ *  4. Determine zone:
+ *       • OffsetTimeOriginal, else OffsetTime, else default to local().
+ *  5. Convert to UTC and format.
+ */
 
-export function formatPreciseTimestamp(dateInput) {
-  // Normalise to string first
-  const str =
-    typeof dateInput === "string"
-      ? dateInput
-      : new Date(dateInput).toISOString(); // fallback for Date objects
+import { exiftool } from "exiftool-vendored";
+import { DateTime } from "luxon";
 
-  const m = str.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/
-  );
-  if (!m) {
-    // Very unlikely, but defensive fallback for weird input
-    const d = new Date(str);
-    const YYYY = d.getFullYear();
-    const MM = String(d.getMonth() + 1).padStart(2, "0");
-    const DD = String(d.getDate()).padStart(2, "0");
-    const HH = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-    return `${YYYY}${MM}${DD}-${HH}${mm}${ss}000000`;
+/**
+ * @param {string} filePath – absolute path to an image
+ * @returns {Promise<string>} UTC timestamp suitable for a filename prefix
+ * @throws if DateTimeOriginal is missing / unparsable
+ */
+export async function utcTimestampForFile(filePath) {
+  const tags = await exiftool.read(filePath);
+
+  const base = tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate;
+
+  if (!base) {
+    throw new Error(`No date field in EXIF for ${filePath}`);
   }
 
-  const [, YYYY, MM, DD, HH, mm, ss, subsec = ""] = m;
+  // Sub‑second – pad right then slice to exactly 6 chars
+  const subsec = (
+    (tags.SubSecTimeOriginal || tags.SubSecTime || "0").toString() + "000000"
+  ).slice(0, 6);
 
-  // exactly 6 micro-second digits
-  const usec = subsec.padEnd(6, "0").slice(0, 6);
+  // EXIF stores offsets like "+01:00" or "-06:00"
+  const offset = tags.OffsetTimeOriginal || tags.OffsetTime || null; // luxon 'null' == system local
 
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}${usec}`;
+  const dtLocal = DateTime.fromFormat(base, "yyyy:MM:dd HH:mm:ss", {
+    zone: offset ?? "local",
+  }).plus({ microseconds: Number(subsec) });
+
+  if (!dtLocal.isValid) {
+    throw new Error(
+      `Invalid date in EXIF for ${filePath}: ${dtLocal.invalidExplanation}`
+    );
+  }
+
+  return dtLocal.toUTC().toFormat("yyyyLLdd'T'HHmmss") + subsec + "Z";
 }

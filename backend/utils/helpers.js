@@ -25,3 +25,7 @@ export function capitalizeAttributeName(attributeName) {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+// …other re‑exports remain
+export { utcTimestampForFile } from "./precise-timestamp.js";
+export { renameWithUtcPrefix } from "./export-images.js";
