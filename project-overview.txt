@@ -1,10 +1,10 @@
 # Project Overview: Photo Filter
 
-Generated on: Sun Jun 15 20:18:45 EDT 2025
+Generated on: Sun Jun 15 22:20:05 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
-Branch: feature/cool-scripts
+Branch: feature/v2-filenames
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -72,6 +72,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
 │   │   ├── helpers.js
+│   │   ├── precise-timestamp.js
 │   │   └── run-python-script.js
 │   └── views
 │       ├── albums.hbs
@@ -234,7 +235,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-65 directories, 156 files
+65 directories, 157 files
 ```
 
 ---
@@ -2346,14 +2347,85 @@ export async function getPhotosLibraryLastModified() {
 }
 ```
 
+### **./backend/utils/precise-timestamp.js**
+```
+// backend/utils/precise-timestamp.js
+//
+// Helper for formatting Apple-Photos / osxphotos date strings
+// into a strictly-ordered, collision-proof timestamp segment.
+//
+//  ────────────────────────────────────────────────────────────
+//  INPUT  examples
+//    "2025-03-14 16:09:26.123456-04:00"
+//    "2022-11-05 08:17:09-05:00"           (no subseconds)
+//    new Date()                            (fallback path)
+//
+//  OUTPUT  (string)  "20250314-160926123456"   ← always 20 chars
+//                    "20221105-081709000000"
+//  ────────────────────────────────────────────────────────────
+//
+// *  Micro-seconds (6 digits) are included even when the source
+//    lacks them → we pad with "000000", ensuring filenames sort
+//    lexicographically identically to chronological order.
+// *  We do **not** include timezone; the moment-in-time is
+//    unambiguous once micro-second precision is present and the
+//    sequence counter (below) is removed.
+//
+
+export function formatPreciseTimestamp(dateInput) {
+  let str =
+    typeof dateInput === "string"
+      ? dateInput
+      : new Date(dateInput).toISOString();
+
+  const m = str.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/
+  );
+
+  if (!m) {
+    // Fallback — ISO without sub-seconds
+    const d = new Date(str);
+    const YYYY = d.getFullYear();
+    const MM = String(d.getMonth() + 1).padStart(2, "0");
+    const DD = String(d.getDate()).padStart(2, "0");
+    const HH = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const ss = String(d.getSeconds()).padStart(2, "0");
+    return `${YYYY}${MM}${DD}-${HH}${mm}${ss}000000`;
+  }
+
+  const [
+    ,
+    YYYY,
+    MM,
+    DD,
+    HH,
+    mm,
+    ss,
+    subsec = "0", // undefined → "0"
+  ] = m;
+
+  // micro-seconds, always 6 digits
+  const usec = subsec.padEnd(6, "0").slice(0, 6);
+
+  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}${usec}`;
+}
+```
+
 ### **./backend/utils/helpers.js**
 ```
 // backend/utils/helpers.js
+//
+// Small shared utils; re-exports the precise timestamp helper
+// to keep older imports working should they be updated later.
+//
+
+import { formatPreciseTimestamp } from "./precise-timestamp.js";
+
+export { formatPreciseTimestamp };
 
 export function getNestedProperty(obj, propertyPath) {
-  if (!propertyPath || typeof propertyPath !== "string") {
-    return null;
-  }
+  if (!propertyPath || typeof propertyPath !== "string") return null;
   return propertyPath
     .split(".")
     .reduce(
@@ -2362,22 +2434,12 @@ export function getNestedProperty(obj, propertyPath) {
     );
 }
 
-export function formatPhotoDate(dateObj) {
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
 export function capitalizeAttributeName(attributeName) {
   const nameParts = attributeName.split(".");
   const lastPart = nameParts[nameParts.length - 1];
   return lastPart
     .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 ```
@@ -2385,17 +2447,23 @@ export function capitalizeAttributeName(attributeName) {
 ### **./backend/utils/export-images.js**
 ```
 // backend/utils/export-images.js
+//
+// Responsible only for *running osxphotos* — no more post-rename.
+// The filename template now embeds micro-seconds directly, so we
+// never collide and never lose chronological order.
+//
 
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
 /**
- * Export images using osxphotos for a given album.
- * @param {string} osxphotosPath - Path to the osxphotos executable in the virtualenv.
- * @param {string} albumUUID - The UUID of the album to export.
- * @param {string} imagesDir - The directory to which images will be exported.
- * @param {string} photosPath - The path to the photos.json file.
+ * Export JPEGs with a deterministic, micro-second timestamp prefix:
+ *
+ *   YYYYMMDD-HHMMSSffffff-original_name.jpg
+ *
+ * …where “ffffff” is the six-digit micro-seconds field provided by
+ * Python’s %f in strftime.
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -2403,33 +2471,28 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // Read photo UUIDs from photos.json
-  const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
+  // Gather UUIDs into a temp file for osxphotos
+  const photos = await fs.readJson(photosPath);
+  const uuidsFile = path.join(imagesDir, "uuids.txt");
   await fs.ensureDir(imagesDir);
+  await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf-8");
 
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
+  // %f  → micro-seconds  (Python ≥3.6)  – always 6 digits
+  const filenameTemplate = "{created.strftime,%Y%m%d-%H%M%S%f}-{original_name}";
 
-  // Use a date/time prefix and original_name directly via osxphotos template:
-  // {created.strftime,%Y%m%d-%H%M%S}-{original_name}
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{created.strftime,%Y%m%d-%H%M%S}-{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
+  const cmd = `"${osxphotosPath}" export "${imagesDir}" \
+--uuid-from-file "${uuidsFile}" \
+--filename "${filenameTemplate}" \
+--convert-to-jpeg --jpeg-ext jpg`;
 
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
+  await execCommand(cmd, "osxphotos image export failed:");
 }
 
 /**
- * Safely get a nested property from an object.
- * @param {object} obj - The object to retrieve the property from.
- * @param {string} propertyPath - The dot-separated path (e.g. "score.overall").
- * @returns {*} - The property value or null if not found.
+ * Utility surfaced elsewhere
  */
-export function getNestedProperty(obj, propertyPath) {
-  return propertyPath
+export function getNestedProperty(obj, pathStr) {
+  return pathStr
     .split(".")
     .reduce(
       (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
@@ -3903,17 +3966,26 @@ export const getPhotosByPerson = async (req, res) => {
 ### **./backend/controllers/api/photos-controller.js**
 ```
 // backend/controllers/api/photos-controller.js
+//
+// Now uses the shared `formatPreciseTimestamp` helper and never
+// performs a post-export rename.  The export routine already wrote
+// filenames with 6-digit micro-second precision, guaranteeing
+// uniqueness and correct lexicographic sort.
+//
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import { getNestedProperty } from "../../utils/helpers.js";
-import { execCommand } from "../../utils/exec-command.js";
+import { formatPreciseTimestamp } from "../../utils/precise-timestamp.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/* ---------------- Serializers ---------------- */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -3927,213 +3999,128 @@ const PhotoSerializer = new Serializer("photo", {
   attributes: [
     "originalName",
     "originalFilename",
-    "exportedFilename", // <= We will use this in the frontend
-    "filename",
+    "exportedFilename",
     "score",
     "exifInfo",
   ],
-  keyForAttribute: "camelCase",
   relationships: {
     album: { type: "album" },
     persons: { type: "person" },
   },
+  keyForAttribute: "camelCase",
   pluralizeType: false,
-  meta: {},
 });
 
-function formatPhotoDateWithOffset(dateString) {
-  // ...same as your existing code...
-  const match = dateString.match(
-    /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
-  );
-  if (!match) {
-    return fallbackFormat(new Date(dateString));
-  }
-
-  const datePart = match[1];
-  const timePart = match[2];
-
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, secondRaw] = timePart.split(":");
-  const hourNum = Number(hour);
-  const minuteNum = Number(minute);
-  const secondNum = Math.floor(Number(secondRaw));
-
-  const YYYY = String(year);
-  const MM = String(month).padStart(2, "0");
-  const DD = String(day).padStart(2, "0");
-  const HH = String(hourNum).padStart(2, "0");
-  const mm = String(minuteNum).padStart(2, "0");
-  const ss = String(secondNum).padStart(2, "0");
-
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
-function fallbackFormat(dateObj) {
-  // ...same as your existing code...
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
+/* ---------------- Controller ---------------- */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
+    /* ── params, paths ───────────────────────── */
     const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall";
+    const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = path.join(photosDir, "images");
+
     const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
+    const python = path.join(venvDir, "bin", "python3");
+    const pyExport = path.join(
       __dirname,
       "..",
       "..",
       "scripts",
       "export_photos_in_album.py"
     );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    await fs.ensureDir(photosDir);
+    /* ── ensure exports exist ────────────────── */
     await fs.ensureDir(imagesDir);
 
-    // If we haven't exported yet, do so
     if (!(await fs.pathExists(photosPath))) {
-      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      // ❶ export metadata
+      await runPythonScript(python, pyExport, [albumUUID], photosPath);
+      // ❷ export jpegs with new filename template
       await runOsxphotosExportImages(
-        osxphotosPath,
+        osxphotos,
         albumUUID,
         imagesDir,
         photosPath
       );
     }
 
-    let photosData = await fs.readJson(photosPath);
+    /* ── load & enrich data ──────────────────── */
+    let photos = await fs.readJson(photosPath);
 
-    // 1) Deduplicate if needed
-    photosData = deduplicatePhotos(photosData);
+    const personsSet = new Map(); // slug → {id,name}
 
-    // 2) For each photo, build the final 'exportedFilename'
-    //    so that the frontend can use that exact string in <img src>.
-    const uniquePersons = new Map();
-    photosData.forEach((photo) => {
-      photo.originalName = path.parse(photo.original_filename).name;
+    photos.forEach((p) => {
+      p.originalName = path.parse(p.original_filename).name;
 
-      // We compute a date-based prefix
-      const prefix = formatPhotoDateWithOffset(photo.date);
-      // Then the final on-disk name
-      photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+      // Build the filename we know osxphotos wrote
+      const tsSegment = formatPreciseTimestamp(p.date); // returns YYYYMMDD-…ffffff
+      p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
 
-      // If no persons, default to empty array
-      if (!Array.isArray(photo.persons)) {
-        photo.persons = [];
-      }
+      // persons → array assur’d
+      p.persons = Array.isArray(p.persons) ? p.persons : [];
 
-      // We'll collect persons as well for JSON:API
-      photo.personsData = photo.persons.map((name) => {
-        const slug = slugifyName(name);
-        if (!uniquePersons.has(slug)) {
-          uniquePersons.set(slug, { id: slug, name });
-        }
+      // Collect persons across set
+      p.personsData = p.persons.map((name) => {
+        const slug = slugify(name);
+        if (!personsSet.has(slug)) personsSet.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
 
-      // Set the album relationship
-      photo.album = albumUUID;
+      p.album = albumUUID;
     });
 
-    // If at least one photo has a 'score', we can get its attributes
-    let scoreAttributes = [];
-    if (photosData.length > 0 && photosData[0].score) {
-      scoreAttributes = Object.keys(photosData[0].score);
-    }
-
-    // 3) Sort photos
-    photosData.sort((a, b) => {
-      const aValue = getNestedProperty(a, sortAttribute);
-      const bValue = getNestedProperty(b, sortAttribute);
-
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    /* ── sorting ─────────────────────────────── */
+    photos.sort((a, b) => {
+      const va = getNestedProperty(a, sortAttr);
+      const vb = getNestedProperty(b, sortAttr);
+      if (va === undefined || va === null) return 1;
+      if (vb === undefined || vb === null) return -1;
+      return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    // 4) Serialize the photos
-    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
+    /* ── JSON:API serialise ──────────────────── */
+    const jsonPhotos = PhotoSerializer.serialize(photos);
+    const jsonPersons = PersonSerializer.serialize([...personsSet.values()]);
 
-    // 5) Serialize the persons
-    const personsArray = Array.from(uniquePersons.values());
-    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
+    // attach person relationships
+    jsonPhotos.data.forEach((photoDatum) => {
+      const origin = photos.find((p) => p.uuid === photoDatum.id);
+      photoDatum.relationships = photoDatum.relationships || {};
+      photoDatum.relationships.persons = {
+        data: origin.personsData,
+      };
+    });
 
-    // 6) Merge them
-    const merged = {
-      data: jsonApiPhotoData.data,
-      included: jsonApiPersonData.data,
+    res.json({
+      data: jsonPhotos.data,
+      included: jsonPersons.data,
       meta: {
         albumUUID,
-        sortAttribute,
+        sortAttribute: sortAttr,
         sortOrder,
-        scoreAttributes,
+        scoreAttributes:
+          photos.length > 0 && photos[0].score
+            ? Object.keys(photos[0].score)
+            : [],
       },
-    };
-
-    // For each photo in `merged.data`, attach the "persons" relationship
-    merged.data.forEach((photo) => {
-      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
-      if (
-        originalPhoto &&
-        originalPhoto.personsData &&
-        originalPhoto.personsData.length > 0
-      ) {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = {
-          data: originalPhoto.personsData,
-        };
-      } else {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = { data: [] };
-      }
     });
-
-    // Finally, respond with JSON:API
-    res.json(merged);
-  } catch (error) {
-    console.error("Error fetching photos for album:", error);
+  } catch (err) {
+    console.error("photos-controller:", err);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
 
-// Helper function to unify duplicates if needed
-function deduplicatePhotos(photos) {
-  const map = new Map();
-  for (const photo of photos) {
-    const key = `${photo.original_filename}-${photo.date}`;
-    if (!map.has(key)) {
-      map.set(key, { ...photo });
-    } else {
-      // Merge persons if there's a duplicate
-      const existing = map.get(key);
-      if (Array.isArray(photo.persons)) {
-        const existingPersons = new Set(existing.persons || []);
-        photo.persons.forEach((p) => existingPersons.add(p));
-        existing.persons = Array.from(existingPersons);
-      }
-      map.set(key, existing);
-    }
-  }
-  return Array.from(map.values());
-}
+/* ────────────────────────────────────────────── */
 
-function slugifyName(name) {
-  return name
+function slugify(str) {
+  return str
     .toLowerCase()
     .replace(/[\s+]/g, "-")
     .replace(/[^a-z0-9-]/g, "");

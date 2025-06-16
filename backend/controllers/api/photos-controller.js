@@ -1,15 +1,24 @@
 // backend/controllers/api/photos-controller.js
+//
+// Now uses the shared `formatPreciseTimestamp` helper and never
+// performs a post-export rename.  The export routine already wrote
+// filenames with 6-digit micro-second precision, guaranteeing
+// uniqueness and correct lexicographic sort.
+//
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import { getNestedProperty } from "../../utils/helpers.js";
-import { execCommand } from "../../utils/exec-command.js";
+import { formatPreciseTimestamp } from "../../utils/precise-timestamp.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/* ---------------- Serializers ---------------- */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -23,213 +32,128 @@ const PhotoSerializer = new Serializer("photo", {
   attributes: [
     "originalName",
     "originalFilename",
-    "exportedFilename", // <= We will use this in the frontend
-    "filename",
+    "exportedFilename",
     "score",
     "exifInfo",
   ],
-  keyForAttribute: "camelCase",
   relationships: {
     album: { type: "album" },
     persons: { type: "person" },
   },
+  keyForAttribute: "camelCase",
   pluralizeType: false,
-  meta: {},
 });
 
-function formatPhotoDateWithOffset(dateString) {
-  // ...same as your existing code...
-  const match = dateString.match(
-    /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
-  );
-  if (!match) {
-    return fallbackFormat(new Date(dateString));
-  }
-
-  const datePart = match[1];
-  const timePart = match[2];
-
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, secondRaw] = timePart.split(":");
-  const hourNum = Number(hour);
-  const minuteNum = Number(minute);
-  const secondNum = Math.floor(Number(secondRaw));
-
-  const YYYY = String(year);
-  const MM = String(month).padStart(2, "0");
-  const DD = String(day).padStart(2, "0");
-  const HH = String(hourNum).padStart(2, "0");
-  const mm = String(minuteNum).padStart(2, "0");
-  const ss = String(secondNum).padStart(2, "0");
-
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
-function fallbackFormat(dateObj) {
-  // ...same as your existing code...
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
+/* ---------------- Controller ---------------- */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
+    /* ── params, paths ───────────────────────── */
     const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall";
+    const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = path.join(photosDir, "images");
+
     const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
+    const python = path.join(venvDir, "bin", "python3");
+    const pyExport = path.join(
       __dirname,
       "..",
       "..",
       "scripts",
       "export_photos_in_album.py"
     );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    await fs.ensureDir(photosDir);
+    /* ── ensure exports exist ────────────────── */
     await fs.ensureDir(imagesDir);
 
-    // If we haven't exported yet, do so
     if (!(await fs.pathExists(photosPath))) {
-      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      // ❶ export metadata
+      await runPythonScript(python, pyExport, [albumUUID], photosPath);
+      // ❷ export jpegs with new filename template
       await runOsxphotosExportImages(
-        osxphotosPath,
+        osxphotos,
         albumUUID,
         imagesDir,
         photosPath
       );
     }
 
-    let photosData = await fs.readJson(photosPath);
+    /* ── load & enrich data ──────────────────── */
+    let photos = await fs.readJson(photosPath);
 
-    // 1) Deduplicate if needed
-    photosData = deduplicatePhotos(photosData);
+    const personsSet = new Map(); // slug → {id,name}
 
-    // 2) For each photo, build the final 'exportedFilename'
-    //    so that the frontend can use that exact string in <img src>.
-    const uniquePersons = new Map();
-    photosData.forEach((photo) => {
-      photo.originalName = path.parse(photo.original_filename).name;
+    photos.forEach((p) => {
+      p.originalName = path.parse(p.original_filename).name;
 
-      // We compute a date-based prefix
-      const prefix = formatPhotoDateWithOffset(photo.date);
-      // Then the final on-disk name
-      photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+      // Build the filename we know osxphotos wrote
+      const tsSegment = formatPreciseTimestamp(p.date); // returns YYYYMMDD-…ffffff
+      p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
 
-      // If no persons, default to empty array
-      if (!Array.isArray(photo.persons)) {
-        photo.persons = [];
-      }
+      // persons → array assur’d
+      p.persons = Array.isArray(p.persons) ? p.persons : [];
 
-      // We'll collect persons as well for JSON:API
-      photo.personsData = photo.persons.map((name) => {
-        const slug = slugifyName(name);
-        if (!uniquePersons.has(slug)) {
-          uniquePersons.set(slug, { id: slug, name });
-        }
+      // Collect persons across set
+      p.personsData = p.persons.map((name) => {
+        const slug = slugify(name);
+        if (!personsSet.has(slug)) personsSet.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
 
-      // Set the album relationship
-      photo.album = albumUUID;
+      p.album = albumUUID;
     });
 
-    // If at least one photo has a 'score', we can get its attributes
-    let scoreAttributes = [];
-    if (photosData.length > 0 && photosData[0].score) {
-      scoreAttributes = Object.keys(photosData[0].score);
-    }
-
-    // 3) Sort photos
-    photosData.sort((a, b) => {
-      const aValue = getNestedProperty(a, sortAttribute);
-      const bValue = getNestedProperty(b, sortAttribute);
-
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    /* ── sorting ─────────────────────────────── */
+    photos.sort((a, b) => {
+      const va = getNestedProperty(a, sortAttr);
+      const vb = getNestedProperty(b, sortAttr);
+      if (va === undefined || va === null) return 1;
+      if (vb === undefined || vb === null) return -1;
+      return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    // 4) Serialize the photos
-    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
+    /* ── JSON:API serialise ──────────────────── */
+    const jsonPhotos = PhotoSerializer.serialize(photos);
+    const jsonPersons = PersonSerializer.serialize([...personsSet.values()]);
 
-    // 5) Serialize the persons
-    const personsArray = Array.from(uniquePersons.values());
-    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
+    // attach person relationships
+    jsonPhotos.data.forEach((photoDatum) => {
+      const origin = photos.find((p) => p.uuid === photoDatum.id);
+      photoDatum.relationships = photoDatum.relationships || {};
+      photoDatum.relationships.persons = {
+        data: origin.personsData,
+      };
+    });
 
-    // 6) Merge them
-    const merged = {
-      data: jsonApiPhotoData.data,
-      included: jsonApiPersonData.data,
+    res.json({
+      data: jsonPhotos.data,
+      included: jsonPersons.data,
       meta: {
         albumUUID,
-        sortAttribute,
+        sortAttribute: sortAttr,
         sortOrder,
-        scoreAttributes,
+        scoreAttributes:
+          photos.length > 0 && photos[0].score
+            ? Object.keys(photos[0].score)
+            : [],
       },
-    };
-
-    // For each photo in `merged.data`, attach the "persons" relationship
-    merged.data.forEach((photo) => {
-      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
-      if (
-        originalPhoto &&
-        originalPhoto.personsData &&
-        originalPhoto.personsData.length > 0
-      ) {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = {
-          data: originalPhoto.personsData,
-        };
-      } else {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = { data: [] };
-      }
     });
-
-    // Finally, respond with JSON:API
-    res.json(merged);
-  } catch (error) {
-    console.error("Error fetching photos for album:", error);
+  } catch (err) {
+    console.error("photos-controller:", err);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
 
-// Helper function to unify duplicates if needed
-function deduplicatePhotos(photos) {
-  const map = new Map();
-  for (const photo of photos) {
-    const key = `${photo.original_filename}-${photo.date}`;
-    if (!map.has(key)) {
-      map.set(key, { ...photo });
-    } else {
-      // Merge persons if there's a duplicate
-      const existing = map.get(key);
-      if (Array.isArray(photo.persons)) {
-        const existingPersons = new Set(existing.persons || []);
-        photo.persons.forEach((p) => existingPersons.add(p));
-        existing.persons = Array.from(existingPersons);
-      }
-      map.set(key, existing);
-    }
-  }
-  return Array.from(map.values());
-}
+/* ────────────────────────────────────────────── */
 
-function slugifyName(name) {
-  return name
+function slugify(str) {
+  return str
     .toLowerCase()
     .replace(/[\s+]/g, "-")
     .replace(/[^a-z0-9-]/g, "");

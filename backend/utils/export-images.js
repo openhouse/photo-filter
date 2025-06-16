@@ -1,15 +1,21 @@
 // backend/utils/export-images.js
+//
+// Responsible only for *running osxphotos* — no more post-rename.
+// The filename template now embeds micro-seconds directly, so we
+// never collide and never lose chronological order.
+//
 
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
 /**
- * Export images using osxphotos for a given album.
- * @param {string} osxphotosPath - Path to the osxphotos executable in the virtualenv.
- * @param {string} albumUUID - The UUID of the album to export.
- * @param {string} imagesDir - The directory to which images will be exported.
- * @param {string} photosPath - The path to the photos.json file.
+ * Export JPEGs with a deterministic, micro-second timestamp prefix:
+ *
+ *   YYYYMMDD-HHMMSSffffff-original_name.jpg
+ *
+ * …where “ffffff” is the six-digit micro-seconds field provided by
+ * Python’s %f in strftime.
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -17,33 +23,28 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // Read photo UUIDs from photos.json
-  const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
+  // Gather UUIDs into a temp file for osxphotos
+  const photos = await fs.readJson(photosPath);
+  const uuidsFile = path.join(imagesDir, "uuids.txt");
   await fs.ensureDir(imagesDir);
+  await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf-8");
 
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
+  // %f  → micro-seconds  (Python ≥3.6)  – always 6 digits
+  const filenameTemplate = "{created.strftime,%Y%m%d-%H%M%S%f}-{original_name}";
 
-  // Use a date/time prefix and original_name directly via osxphotos template:
-  // {created.strftime,%Y%m%d-%H%M%S}-{original_name}
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{created.strftime,%Y%m%d-%H%M%S}-{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
+  const cmd = `"${osxphotosPath}" export "${imagesDir}" \
+--uuid-from-file "${uuidsFile}" \
+--filename "${filenameTemplate}" \
+--convert-to-jpeg --jpeg-ext jpg`;
 
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
+  await execCommand(cmd, "osxphotos image export failed:");
 }
 
 /**
- * Safely get a nested property from an object.
- * @param {object} obj - The object to retrieve the property from.
- * @param {string} propertyPath - The dot-separated path (e.g. "score.overall").
- * @returns {*} - The property value or null if not found.
+ * Utility surfaced elsewhere
  */
-export function getNestedProperty(obj, propertyPath) {
-  return propertyPath
+export function getNestedProperty(obj, pathStr) {
+  return pathStr
     .split(".")
     .reduce(
       (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),

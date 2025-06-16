@@ -1,9 +1,15 @@
 // backend/utils/helpers.js
+//
+// Small shared utils; re-exports the precise timestamp helper
+// to keep older imports working should they be updated later.
+//
+
+import { formatPreciseTimestamp } from "./precise-timestamp.js";
+
+export { formatPreciseTimestamp };
 
 export function getNestedProperty(obj, propertyPath) {
-  if (!propertyPath || typeof propertyPath !== "string") {
-    return null;
-  }
+  if (!propertyPath || typeof propertyPath !== "string") return null;
   return propertyPath
     .split(".")
     .reduce(
@@ -12,21 +18,11 @@ export function getNestedProperty(obj, propertyPath) {
     );
 }
 
-export function formatPhotoDate(dateObj) {
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
 export function capitalizeAttributeName(attributeName) {
   const nameParts = attributeName.split(".");
   const lastPart = nameParts[nameParts.length - 1];
   return lastPart
     .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
