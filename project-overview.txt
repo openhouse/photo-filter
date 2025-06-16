@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Sun Jun 15 19:45:22 EDT 2025
+Generated on: Sun Jun 15 20:18:45 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -36,20 +36,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   ├── .DS_Store
-│   │   ├── albums
-│   │   │   ├── .DS_Store
-│   │   │   ├── 0EB23188-CA33-4FDA-BA27-A3B290466224
-│   │   │   │   └── photos.json
-│   │   │   ├── 419046F2-6098-4B97-B22C-3D441ABC535B
-│   │   │   │   └── photos.json
-│   │   │   ├── 9183FA6F-C6A6-423F-AE90-119B367497EE
-│   │   │   │   └── photos.json
-│   │   │   ├── D68913EC-51D3-4525-BD52-130D2656C18F
-│   │   │   │   └── photos.json
-│   │   │   └── DC0CF1FF-D9F1-45EC-84EA-91CD24C9AFA3
-│   │   │       └── photos.json
-│   │   └── albums.json
+│   │   └── .DS_Store
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
@@ -63,6 +50,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── api.js
 │   │   └── index.js
 │   ├── scripts
+│   │   ├── detect_cameras.js
 │   │   ├── detect_sources.js
 │   │   ├── export_albums.py
 │   │   ├── export_photos_in_album.py
@@ -92,6 +80,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   └── main.hbs
 │       ├── person.hbs
 │       └── persons.hbs
+├── camera-summary.json
 ├── CINEMATIC-VISION.md
 ├── COMPASSION.md
 ├── DEVELOPMENT_PLAN.md
@@ -245,7 +234,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-71 directories, 161 files
+65 directories, 156 files
 ```
 
 ---
@@ -2592,6 +2581,133 @@ form button {
 20
 ```
 
+### **./backend/scripts/detect_cameras.js**
+```
+/**
+ * List all distinct physical cameras that contributed to an album.
+ *
+ * USAGE
+ *   node detect_cameras.js <ALBUM_UUID> [--json]
+ *
+ * OUTPUT
+ *   By default: a nice aligned table.
+ *   With --json:  JSON { cameraKey: count, ... } to stdout.
+ *
+ * A “cameraKey” is:  `${make}|${model}|${serial}`  where
+ *   make   – EXIF "Make"  (or "Unknown")
+ *   model  – EXIF "Model" (or "Unknown")
+ *   serial – first non‑empty of BodySerialNumber, SerialNumber,
+ *            InternalSerialNumber, CameraSerialNumber, else "Unknown"
+ *
+ * The script is intentionally defensive – *any* missing or non‑string
+ * metadata ends up as "Unknown", never crashes the run.
+ */
+
+import { exiftool } from "exiftool-vendored";
+import fg from "fast-glob";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Return a trimmed string or 'Unknown' when falsy / non‑string */
+const safe = (v) =>
+  typeof v === "string"
+    ? v.replace(/\0/g, "").trim() || "Unknown"
+    : v === undefined || v === null
+      ? "Unknown"
+      : String(v).trim() || "Unknown";
+
+/** Build the physical‑camera key from an EXIF object */
+function buildCameraKey(meta) {
+  const make = safe(meta.Make);
+  const model = safe(meta.Model ?? meta.CameraModelName);
+  const serial = safe(
+    meta.BodySerialNumber ??
+      meta.SerialNumber ??
+      meta.InternalSerialNumber ??
+      meta.CameraSerialNumber
+  );
+
+  return `${make}|${model}|${serial}`;
+}
+
+/** Human‑friendly padding */
+const pad = (s, n) => s + " ".repeat(Math.max(0, n - s.length));
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function main() {
+  const [, , albumUuid, ...rest] = process.argv;
+  if (!albumUuid) {
+    console.error("Usage: node detect_cameras.js <ALBUM_UUID> [--json]");
+    process.exit(1);
+  }
+  const asJson = rest.includes("--json");
+
+  // images live under backend/data/albums/<uuid>/images/…
+  const imagesDir = path.join(
+    __dirname,
+    "..",
+    "data",
+    "albums",
+    albumUuid,
+    "images"
+  );
+  const patterns = ["**/*.{jpg,jpeg,JPG,JPEG,png,PNG,heic,HEIC}"];
+  const imagePaths = await fg(patterns, {
+    cwd: imagesDir,
+    absolute: true,
+    followSymbolicLinks: false,
+  });
+
+  const counts = Object.create(null);
+
+  for (const img of imagePaths) {
+    try {
+      const meta = await exiftool.read(img, ["-fast"]); // faster: no huge maker notes
+      const key = buildCameraKey(meta);
+      counts[key] = (counts[key] ?? 0) + 1;
+    } catch (err) {
+      // exiftool-vendored already logs warnings; we just keep going
+      console.warn(
+        `⚠️  EXIF read failed for ${path.basename(img)}: ${err.message}`
+      );
+    }
+  }
+
+  await exiftool.end(); // close daemon
+
+  if (asJson) {
+    console.log(JSON.stringify(counts, null, 2));
+  } else {
+    const w1 = Math.max(...Object.keys(counts).map((k) => k.length), 10);
+    const w2 = Math.max(
+      ...Object.values(counts).map((n) => String(n).length),
+      5
+    );
+    console.log(pad("Camera (Make|Model|Serial)", w1), pad("Count", w2));
+    console.log("-".repeat(w1 + 1 + w2));
+    for (const [k, n] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
+      console.log(pad(k, w1), pad(String(n), w2));
+    }
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+```
+
 ### **./backend/scripts/detect_sources.js**
 ```
 #!/usr/bin/env node
@@ -4209,156 +4325,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     }
   }
 }
-```
-
-### **./backend/data/albums.json**
-```json
-[
-    {
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
-        "title": "Inner Space"
-    },
-    {
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
-        "title": "Carmen"
-    },
-    {
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
-        "title": "Jamie"
-    },
-    {
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
-        "title": "LoVid"
-    },
-    {
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
-        "title": "Lera Show"
-...
-```
-
-### **./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14 Recently",
-            "Kendell & Mandy's Wedding \u2014 All",
-            "Kendell & Mandy's Wedding \u2014 Tyler's Photos",
-            "Tyler James (@firsthandaccount)"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-08 09:12:25.848879-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-05-30 08:52:35.160000-06:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 800,
-...
-```
-
-### **./backend/data/albums/9183FA6F-C6A6-423F-AE90-119B367497EE/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14",
-            "2025-06-14 No Kings March",
-            "2025-06-14 No Kings March, in the march",
-            "2025-06-14 No Kings March, in the march, minus friend",
-            "2025-06-14 Recently",
-            "2025-06-15 No Kings, my faves"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-14 19:53:05.653276-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-06-14 16:18:48-04:00",
-        "description": null,
-        "exif_info": {
-...
-```
-
-### **./backend/data/albums/419046F2-6098-4B97-B22C-3D441ABC535B/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14",
-            "2025-06-14 No Kings March",
-            "2025-06-14 Recently"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-14 19:50:46.052320-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-06-14 15:47:53-04:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 160,
-            "metering_mode": 5,
-...
-```
-
-### **./backend/data/albums/D68913EC-51D3-4525-BD52-130D2656C18F/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14",
-            "2025-06-14 No Kings March",
-            "2025-06-14 No Kings March, in the march",
-            "2025-06-14 No Kings March, in the march, minus friend",
-            "2025-06-14 Recently"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-14 19:50:53.556239-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-06-14 15:51:00-04:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-...
-```
-
-### **./backend/data/albums/DC0CF1FF-D9F1-45EC-84EA-91CD24C9AFA3/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14",
-            "2025-06-14 No Kings March",
-            "2025-06-14 No Kings March, in the march",
-            "2025-06-14 Recently"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-14 19:50:53.556239-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-06-14 15:51:00-04:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 160,
-...
 ```
 
 ### **./backend/views/albums.hbs**
@@ -6517,38 +6483,10 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[{"year":2025,"months":[{"month":5,"days":[30,31]},{"month":6,"days":[1,2,3,10,14]}]}]}
+Could not fetch /api/time-index. Is the server running?
+
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
 
-### Album UUID: 0EB23188-CA33-4FDA-BA27-A3B290466224
-Location: ./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json
-Photo Count: 13242
-Earliest Date: 2025-05-30 08:52:35.160000-06:00
-Latest Date: 2025-06-10 11:25:17-04:00
-
-### Album UUID: 9183FA6F-C6A6-423F-AE90-119B367497EE
-Location: ./backend/data/albums/9183FA6F-C6A6-423F-AE90-119B367497EE/photos.json
-Photo Count: 136
-Earliest Date: 2025-06-14 16:18:48-04:00
-Latest Date: 2025-06-14 16:21:23-04:00
-
-### Album UUID: 419046F2-6098-4B97-B22C-3D441ABC535B
-Location: ./backend/data/albums/419046F2-6098-4B97-B22C-3D441ABC535B/photos.json
-Photo Count: 3117
-Earliest Date: 2025-06-14 15:47:53-04:00
-Latest Date: 2025-06-14 16:45:36-04:00
-
-### Album UUID: D68913EC-51D3-4525-BD52-130D2656C18F
-Location: ./backend/data/albums/D68913EC-51D3-4525-BD52-130D2656C18F/photos.json
-Photo Count: 1525
-Earliest Date: 2025-06-14 15:51:00-04:00
-Latest Date: 2025-06-14 16:25:01-04:00
-
-### Album UUID: DC0CF1FF-D9F1-45EC-84EA-91CD24C9AFA3
-Location: ./backend/data/albums/DC0CF1FF-D9F1-45EC-84EA-91CD24C9AFA3/photos.json
-Photo Count: 1762
-Earliest Date: 2025-06-14 15:51:00-04:00
-Latest Date: 2025-06-14 16:25:01-04:00
-
+No directory found at ./backend/data/albums

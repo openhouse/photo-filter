@@ -31,5 +31,10 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "nodemon": "^3.0.0"
+  },
+  "dependencies": {
+    "exiftool-vendored": "^30.2.0",
+    "fast-glob": "^3.3.3",
+    "hash-sum": "^2.0.0"
   }
 }
