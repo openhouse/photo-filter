@@ -1,19 +1,24 @@
 // backend/utils/export-images.js
 //
-// Responsibility: run osxphotos to render JPEGs — nothing more.
-// The filename template embeds micro-second precision, guaranteeing
-// uniqueness and strictly chronological lexicographic order.
+// Export JPEGs from an album with **UTC‑based, micro‑second‑precise** names:
+//
+//     20250531T174503000123Z-DSCF7309.jpg
+//
+// ‑ UTC eliminates cross‑camera drift
+// ‑ Micro‑seconds guarantee uniqueness
+// ‑ The prefix sorts lexicographically == chronologically
 
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
 /**
- * Export JPEGs from an album:
+ * Export JPEGs from an album.
  *
- *   YYYYMMDD-HHMMSSffffff-original_name.jpg
- *
- * …where “ffffff” is the six-digit micro-second field (%f).
+ * @param {string} osxphotosPath   – absolute path to the `osxphotos` binary
+ * @param {string} albumUUID      – Photos album UUID
+ * @param {string} imagesDir      – destination directory
+ * @param {string} photosPath     – path to the album’s photos.json
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -21,14 +26,15 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // 1 collect UUIDs (one per line) for osxphotos’ --uuid-from-file
+  // 1.  collect the UUID list for osxphotos’ --uuid-from-file
   const photos = await fs.readJson(photosPath);
   const uuidsFile = path.join(imagesDir, "uuids.txt");
   await fs.ensureDir(imagesDir);
   await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
 
-  // 2 run osxphotos
-  const filenameTemplate = "{created.strftime,%Y%m%d-%H%M%S%f}-{original_name}";
+  // 2.  export with a UTC‑normalised filename template
+  const filenameTemplate =
+    "{created_utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
 
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
 --uuid-from-file "${uuidsFile}" \
@@ -36,14 +42,4 @@ export async function runOsxphotosExportImages(
 --convert-to-jpeg --jpeg-ext jpg`;
 
   await execCommand(cmd, "osxphotos image export failed:");
-}
-
-/* ---------- small util re-exported elsewhere ----------- */
-export function getNestedProperty(obj, pathStr) {
-  return pathStr
-    .split(".")
-    .reduce(
-      (acc, part) => (acc && acc[part] !== undefined ? acc[part] : null),
-      obj
-    );
 }

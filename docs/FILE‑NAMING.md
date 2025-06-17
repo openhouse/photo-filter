@@ -1,17 +1,50 @@
-# File‑naming rules (v2 – UTC)
+# File‑naming convention (v2 — UTC)
 
-| Version | Prefix example                      | Meaning                       |
-| ------- | ----------------------------------- | ----------------------------- |
-| v1      | 20250531‑134503000000‑DSCF7309.jpg  | Local camera time             |
-| **v2**  | 20250531T174503000000Z‑DSCF7309.jpg | **UTC**, micro‑second precise |
+**Pattern**
 
-**How it works**
+```
 
-1. Read `DateTimeOriginal` (or Create/Modify).
-2. Combine with `SubSecTimeOriginal` – always 6 digits.
-3. Read `OffsetTimeOriginal`; if absent fall back to `OffsetTime`, else system zone.
-4. Convert to UTC and format `YYYYMMDDTHHMMSSffffffZ`.
-5. Prepend to original filename.
+YYYYMMDDTHHMMSSffffffZ-{original\_name}.jpg
+│        │ │     │ │
+│        │ │     │ └── 6‑digit micro‑seconds (zero‑padded)
+│        │ │     └──── Seconds
+│        │ └────────── Hours & minutes
+│        └──────────── Literal “T” separator
+└────────────────────── Date in UTC
 
-This guarantees that lexicographic sorting == true chronological order even
-when different cameras were set to different time‑zones or daylight‑saving rules.
+```
+
+Example (31 May 2025, 17:45:03.000000 UTC):
+
+```
+
+20250531T174503000000Z-DSCF7309.jpg
+
+```
+
+**Why UTC?**
+
+- Eliminates cross‑body drift when photographers forget to set the correct
+  local TZ.
+- Guarantees strict lexical = chronological sorting.
+- Unequivocal at ingest time; downstream tools never need to guess offsets.
+
+**How it is produced**
+
+The exporter now calls **osxphotos** with:
+
+```
+--filename "{created_utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}"
+```
+
+`created_utc` is supplied by Photos and already normalised to UTC; micro‑second
+precision (`%f`) prevents collisions even on burst shots.
+
+The frontend/server rebuilds the same prefix via
+`formatPreciseTimestamp(photo.date)` so internal URLs line up with the physical
+file names.
+
+**Upgrading**
+
+If you still have older `YYYYMMDD-HHMMSSffffff-…` files, simply delete
+`backend/data/albums/*` and trigger a fresh export.
