@@ -47,6 +47,15 @@ const PhotoSerializer = new Serializer("photo", {
   pluralizeType: false,
 });
 
+/* ─────────── helpers ─────────────────────────────────────────────── */
+
+function slugify(str) {
+  return str
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
 /* ─────────── controller ───────────────────────────────────────────── */
 
 export const getPhotosByAlbumData = async (req, res) => {
@@ -82,8 +91,12 @@ export const getPhotosByAlbumData = async (req, res) => {
       await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosDB);
     }
 
-    /* 2. load photo records */
-    const photos = await fs.readJson(photosDB);
+    /* 2. load & sanitise photo records
+          (photos.json can contain `null` placeholders → filter them out) */
+    const raw = await fs.readJson(photosDB);
+    const photos = raw.filter(
+      (p) => p && typeof p === "object" && p.uuid && p.original_filename
+    );
 
     /* 3. parallel rename pass (8 concurrent) */
     await pMap(
@@ -113,12 +126,12 @@ export const getPhotosByAlbumData = async (req, res) => {
           await fs.rename(src, dst);
         }
 
-        // build person relationship array
+        // normalise persons array
         p.persons = Array.isArray(p.persons) ? p.persons : [];
-        p.personsData = p.persons.map((n) => {
-          const slug = slugify(n);
-          return { type: "person", id: slug };
-        });
+        p.personsData = p.persons.map((n) => ({
+          type: "person",
+          id: slugify(n),
+        }));
 
         // link album
         p.album = albumUUID;
@@ -126,13 +139,13 @@ export const getPhotosByAlbumData = async (req, res) => {
       { concurrency: 8 }
     );
 
-    /* 4. aggregate persons */
+    /* 4. aggregate persons (defensive against missing arrays) */
     const personsMap = new Map();
-    photos.forEach((p) =>
-      p.persons.forEach((n) =>
+    photos.forEach((p) => {
+      (p.persons ?? []).forEach((n) =>
         personsMap.set(slugify(n), { id: slugify(n), name: n })
-      )
-    );
+      );
+    });
 
     /* 5. sort */
     photos.sort((a, b) => {
@@ -162,6 +175,7 @@ export const getPhotosByAlbumData = async (req, res) => {
         sortOrder,
         scoreAttributes:
           photos.length && photos[0].score ? Object.keys(photos[0].score) : [],
+        filteredOut: raw.length - photos.length,
       },
     });
   } catch (err) {
@@ -169,12 +183,3 @@ export const getPhotosByAlbumData = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
-
-/* ─────────── helpers ─────────────────────────────────────────────── */
-
-function slugify(str) {
-  return str
-    .toLowerCase()
-    .replace(/[\s+]/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}

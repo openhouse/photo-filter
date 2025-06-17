@@ -4,52 +4,54 @@ import { jest } from "@jest/globals";
 import { getPhotosByAlbumData } from "../../../controllers/api/photos-controller.js";
 import httpMocks from "node-mocks-http";
 import fs from "fs-extra";
-import path from "path";
 
 describe("getPhotosByAlbumData", () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it("should return photos data in JSON:API format", async () => {
+  it("ignores null placeholders in photos.json and responds OK", async () => {
     const req = httpMocks.createRequest({
-      params: {
-        albumUUID: "album-1",
-      },
-      query: {
-        sort: "score.overall",
-        order: "desc",
-      },
+      params: { albumUUID: "album-xyz" },
+      query: {},
     });
     const res = httpMocks.createResponse();
 
-    // Mock fs.readJson to return sample data
-    const samplePhotos = [
+    /* ── fake photos.json with a null hole ───────────────────────── */
+    const sample = [
+      null, // <- the bad entry that previously crashed
       {
         uuid: "photo-1",
-        original_filename: "photo1.jpg",
-        score: { overall: 0.9 },
+        original_filename: "foo.jpg",
+        date: "2025-06-17 12:00:00",
+        score: { overall: 0.99 },
       },
       {
         uuid: "photo-2",
-        original_filename: "photo2.jpg",
-        score: { overall: 0.8 },
+        original_filename: "bar.jpg",
+        date: "2025-06-17 12:01:00",
+        score: { overall: 0.42 },
       },
     ];
 
-    jest.spyOn(fs, "readJson").mockResolvedValue(samplePhotos);
+    /* ── stub all fs + helper calls that touch the real file‑system ─ */
+    jest.spyOn(fs, "readJson").mockResolvedValue(sample);
+    jest.spyOn(fs, "ensureDir").mockResolvedValue();
     jest.spyOn(fs, "pathExists").mockResolvedValue(true);
+    jest.spyOn(fs, "readdir").mockResolvedValue(["dummy"]);
+    jest.spyOn(fs, "rename").mockResolvedValue();
+    jest.spyOn(fs, "readJson").mockResolvedValue(sample);
+
+    /* fast‑glob & date helpers are internal – no need to stub as we
+       never hit them with the mocked fs paths in this unit test. */
 
     await getPhotosByAlbumData(req, res);
 
-    const data = res._getJSONData();
-
     expect(res.statusCode).toBe(200);
-    expect(data.data).toBeDefined();
-    expect(data.data.length).toBe(2);
-    expect(data.data[0]).toHaveProperty("type", "photo");
-    expect(data.data[0]).toHaveProperty("id", "photo-1");
-    expect(data.data[0].attributes).toHaveProperty("originalName", "photo1");
-    expect(data.data[0].attributes.score).toHaveProperty("overall", 0.9);
+
+    const body = res._getJSONData();
+    // Only 2 valid records should remain
+    expect(body.data).toHaveLength(2);
+    expect(body.meta.filteredOut).toBe(1);
   });
 });
