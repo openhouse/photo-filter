@@ -1,10 +1,10 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Jun 17 17:14:43 EDT 2025
+Generated on: Tue Jun 17 18:23:42 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
-Branch: feature/v2-filenames
+Branch: feature/expanded-types
 
 This project is a monorepo containing both the Ember.js frontend and the Express.js backend applications.
 ---
@@ -35,13 +35,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   ├── .DS_Store
-│   │   ├── albums
-│   │   │   ├── .DS_Store
-│   │   │   └── 0EB23188-CA33-4FDA-BA27-A3B290466224
-│   │   │       ├── .DS_Store
-│   │   │       └── photos.json
-│   │   └── albums.json
+│   │   └── .DS_Store
 │   ├── jest.config.js
 │   ├── models
 │   │   └── photoModel.js
@@ -80,6 +74,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
 │   │   ├── helpers.js
+│   │   ├── media-type.js
 │   │   ├── precise-timestamp.js
 │   │   └── run-python-script.js
 │   └── views
@@ -124,6 +119,8 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   │   ├── .gitkeep
 │       │   │   ├── photo-grid.hbs
 │       │   │   ├── photo-grid.js
+│       │   │   ├── photo-tile.hbs
+│       │   │   ├── photo-tile.js
 │       │   │   ├── time-nav.hbs
 │       │   │   └── time-nav.ts
 │       │   ├── config
@@ -193,7 +190,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │       │   ├── helpers.js
 │       │   ├── index.html
 │       │   ├── integration
-│       │   │   └── .gitkeep
+│       │   │   ├── .gitkeep
+│       │   │   └── components
+│       │   │       └── photo-tile-test.js
 │       │   ├── test-helper.js
 │       │   └── unit
 │       │       ├── .gitkeep
@@ -248,7 +247,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-69 directories, 166 files
+68 directories, 166 files
 ```
 
 ---
@@ -2620,6 +2619,20 @@ export async function runOsxphotosExportImages(
 }
 ```
 
+### **./backend/utils/media-type.js**
+```
+// Map a file‑extension → generic media type.
+// Returns 'image' | 'video' | 'other'
+export function mediaTypeFromExt(ext) {
+  const e = ext.toLowerCase().replace(/^\./, "");
+  if (["jpg", "jpeg", "png", "heic", "gif", "webp", "tiff", "bmp"].includes(e))
+    return "image";
+  if (["mov", "mp4", "m4v", "hevc", "avi", "mts", "m2ts", "webm"].includes(e))
+    return "video";
+  return "other";
+}
+```
+
 ### **./backend/models/photoModel.js**
 ```
 // ./models/photoModel.js
@@ -2728,7 +2741,7 @@ form button {
 ```
 {
   "name": "photo-filter-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "server.js",
   "license": "MIT",
   "type": "module",
@@ -2736,9 +2749,11 @@ form button {
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "express-handlebars": "^8.0.1",
+    "fast-glob": "^3.3.2",
     "fs-extra": "^11.2.0",
     "jsonapi-serializer": "^3.6.7",
     "osx-tag": "^0.4.9",
+    "p-map": "^5.5.0",
     "plist": "^3.1.0"
   },
   "devDependencies": {
@@ -3858,33 +3873,27 @@ export const getPhotosByPerson = async (req, res) => {
 ```
 // backend/controllers/api/photos-controller.js
 //
-// Returns JSON:API “photo” resources for a single album and ensures that
-// every exported JPEG is named with a micro‑second‑precise UTC timestamp.
-//
-// Pipeline
-// ─────────────────────────────────────────────────────────────────────
-// 1. If photos.json or the JPEGs are missing → call osxphotos export.
-//    (export produces   <uuid>.jpg  files)
-// 2. For each photo
-//      a) compute canonical name
-//      b) if <uuid>.jpg exists and canonical name does not → rename
-// 3. Serialize & return JSON to the Ember front‑end.
+// Export photos & videos for a single album, rename them with
+// micro‑second‑precise UTC timestamps, and return JSON:API photo resources.
 
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
+import fg from "fast-glob";
+import pMap from "p-map";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import {
   formatPreciseTimestamp,
   getNestedProperty,
 } from "../../utils/helpers.js";
+import { mediaTypeFromExt } from "../../utils/media-type.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── JSON:API serializers ───────────────────────────────────────── */
+/* ─────────── JSON:API serializers ─────────────────────────────────── */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -3899,6 +3908,7 @@ const PhotoSerializer = new Serializer("photo", {
     "originalName",
     "originalFilename",
     "exportedFilename",
+    "mediaType",
     "score",
     "exifInfo",
   ],
@@ -3910,18 +3920,18 @@ const PhotoSerializer = new Serializer("photo", {
   pluralizeType: false,
 });
 
-/* ───── controller ─────────────────────────────────────────────────── */
+/* ─────────── controller ───────────────────────────────────────────── */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
-    /* 0. paths & params */
+    /* 0. paths & params */
     const albumUUID = req.params.albumUUID;
     const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumDir = path.join(dataDir, "albums", albumUUID);
-    const photosJSON = path.join(albumDir, "photos.json");
+    const photosDB = path.join(albumDir, "photos.json");
     const imagesDir = path.join(albumDir, "images");
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
@@ -3935,57 +3945,69 @@ export const getPhotosByAlbumData = async (req, res) => {
     );
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    /* 1. ensure data exists */
+    /* 1. ensure data exists */
     await fs.ensureDir(imagesDir);
 
-    if (!(await fs.pathExists(photosJSON))) {
-      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
+    if (!(await fs.pathExists(photosDB))) {
+      await runPythonScript(python, pyExport, [albumUUID], photosDB);
     }
-    if (!(await fs.readdir(imagesDir)).length) {
-      await runOsxphotosExportImages(
-        osxphotos,
-        albumUUID,
-        imagesDir,
-        photosJSON
-      );
+    if ((await fs.readdir(imagesDir)).length === 0) {
+      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosDB);
     }
 
-    /* 2. load photo records */
-    const photos = await fs.readJson(photosJSON);
+    /* 2. load photo records */
+    const photos = await fs.readJson(photosDB);
 
-    const personsMap = new Map(); // slug -> {id,name}
+    /* 3. parallel rename pass (8 concurrent) */
+    await pMap(
+      photos,
+      async (p) => {
+        p.originalName = path.parse(p.original_filename).name;
 
-    for (const p of photos) {
-      /* 2a. derive basics */
-      p.originalName = path.parse(p.original_filename).name;
-      const ts = formatPreciseTimestamp(p.date);
-      p.exportedFilename = `${ts}-${p.originalName}.jpg`;
-      p.persons = Array.isArray(p.persons) ? p.persons : [];
-
-      /* 2b. rename physical file if needed */
-      const src = path.join(imagesDir, `${p.uuid}.jpg`);
-      const dst = path.join(imagesDir, p.exportedFilename);
-
-      if (!(await fs.pathExists(dst))) {
-        if (await fs.pathExists(src)) {
-          await fs.rename(src, dst);
-        } else {
-          console.warn(`⚠︎ expected image missing: ${src}`);
+        // find real file with any extension
+        const pattern = path.join(imagesDir, `${p.uuid}.*`);
+        const matches = await fg(pattern, {
+          dot: false,
+          caseSensitiveMatch: false,
+        });
+        if (matches.length === 0) {
+          console.warn(`⚠︎ expected image missing: ${p.uuid}.*`);
+          return;
         }
-      }
 
-      /* 2c. build person relationship data */
-      p.personsData = p.persons.map((name) => {
-        const slug = slugify(name);
-        if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
-        return { type: "person", id: slug };
-      });
+        const src = matches[0];
+        const ext = path.extname(src).toLowerCase(); // includes leading '.'
+        const ts = formatPreciseTimestamp(p.date);
+        p.exportedFilename = `${ts}-${p.originalName}${ext}`;
+        p.mediaType = mediaTypeFromExt(ext);
 
-      /* 2d. link album */
-      p.album = albumUUID;
-    }
+        const dst = path.join(imagesDir, p.exportedFilename);
+        if (!(await fs.pathExists(dst))) {
+          await fs.rename(src, dst);
+        }
 
-    /* 3. sort */
+        // build person relationship array
+        p.persons = Array.isArray(p.persons) ? p.persons : [];
+        p.personsData = p.persons.map((n) => {
+          const slug = slugify(n);
+          return { type: "person", id: slug };
+        });
+
+        // link album
+        p.album = albumUUID;
+      },
+      { concurrency: 8 }
+    );
+
+    /* 4. aggregate persons */
+    const personsMap = new Map();
+    photos.forEach((p) =>
+      p.persons.forEach((n) =>
+        personsMap.set(slugify(n), { id: slugify(n), name: n })
+      )
+    );
+
+    /* 5. sort */
     photos.sort((a, b) => {
       const va = getNestedProperty(a, sortAttr);
       const vb = getNestedProperty(b, sortAttr);
@@ -3994,11 +4016,11 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    /* 4. serialize */
+    /* 6. serialize */
     const jsonPhotos = PhotoSerializer.serialize(photos);
     const jsonPersons = PersonSerializer.serialize([...personsMap.values()]);
 
-    // glue person relationships onto photos
+    // glue relationships
     jsonPhotos.data.forEach((d) => {
       const src = photos.find((p) => p.uuid === d.id);
       d.relationships.persons = { data: src.personsData };
@@ -4016,12 +4038,13 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("photos‑controller:", err);
+    console.error("photos-controller:", err);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
 
-/* ───── helpers ────────────────────────────────────────────────────── */
+/* ─────────── helpers ─────────────────────────────────────────────── */
+
 function slugify(str) {
   return str
     .toLowerCase()
@@ -4215,56 +4238,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     }
   }
 }
-```
-
-### **./backend/data/albums.json**
-```json
-[
-    {
-        "uuid": "13F82066-89B7-44D1-B42E-C6D139EDB3EA",
-        "title": "Inner Space"
-    },
-    {
-        "uuid": "F1FBF40F-1B96-4040-80BB-B438AE7CF673",
-        "title": "Carmen"
-    },
-    {
-        "uuid": "5DF549B9-BA1C-4958-A538-46811101F518",
-        "title": "Jamie"
-    },
-    {
-        "uuid": "B307E6B7-F2A1-4077-8520-1556B09B98AF",
-        "title": "LoVid"
-    },
-    {
-        "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
-        "title": "Lera Show"
-...
-```
-
-### **./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14 Recently",
-            "Kendell & Mandy's Wedding \u2014 All",
-            "Kendell & Mandy's Wedding \u2014 Tyler's Photos",
-            "Tyler James (@firsthandaccount)"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-08 09:12:25.848879-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-05-30 08:52:35.160000-06:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 800,
-...
 ```
 
 ### **./backend/views/albums.hbs**
@@ -4724,20 +4697,26 @@ export default class AlbumModel extends Model {
 
 ### **./frontend/photo-filter-frontend/app/models/photo.js**
 ```
-// frontend/photo-filter-frontend/app/models/photo.js
+// app/models/photo.js
 import Model, { attr, belongsTo, hasMany } from '@ember-data/model';
 
 export default class PhotoModel extends Model {
+  /* core attrs */
   @attr('string') originalName;
   @attr('string') originalFilename;
-  @attr('string') filename;
   @attr('string') exportedFilename;
+  @attr('string') mediaType; // 'image' | 'video' | 'other'
   @attr() score;
   @attr() exifInfo;
 
+  /* relationships */
   @belongsTo('album', { async: false, inverse: 'photos' }) album;
-  // Set async: false since we include all persons in the payload
   @hasMany('person', { async: false, inverse: 'photos' }) persons;
+
+  /* derived convenience */
+  get isVideo() {
+    return this.mediaType === 'video';
+  }
 }
 ```
 
@@ -4980,6 +4959,74 @@ import config from 'photo-filter-frontend/config/environment';
 export default class PhotoGridComponent extends Component {
   get apiHost() {
     return config.APP.apiHost;
+  }
+}
+```
+
+### **./frontend/photo-filter-frontend/app/components/photo-tile.hbs**
+```
+<div class="card bg-base-100 shadow-lg">
+  <figure>
+    {{#if @photo.isVideo}}
+      <video
+        src="{{this.mediaSrc}}"
+        playsinline
+        muted
+        loop
+        controls
+        class="max-w-full h-auto"
+      >
+      </video>
+    {{else}}
+      <img
+        src="{{this.mediaSrc}}"
+        alt="{{@photo.exportedFilename}}"
+        loading="lazy"
+        class="max-w-full h-auto"
+      />
+    {{/if}}
+  </figure>
+
+  <div class="card-body">
+    <h2 class="card-title text-sm">
+      <span class="opacity-50">{{@index}} -</span>
+      {{@photo.exportedFilename}}
+    </h2>
+
+    {{#if @photo.tags}}
+      <div class="mt-2 flex flex-wrap gap-2">
+        {{#each @photo.tags as |tag|}}
+          <span class="badge badge-accent badge-outline">{{tag}}</span>
+        {{/each}}
+      </div>
+    {{/if}}
+
+    {{#if @sortAttribute}}
+      <p class="mt-2">
+        {{capitalize (replace @sortAttribute "score." "")}}:
+        {{get-nested-property @photo @sortAttribute}}
+      </p>
+    {{/if}}
+  </div>
+</div>```
+
+### **./frontend/photo-filter-frontend/app/components/photo-tile.js**
+```
+// app/components/photo-tile.js
+import Component from '@glimmer/component';
+import { inject as service } from '@ember/service';
+import config from 'photo-filter-frontend/config/environment';
+
+export default class PhotoTileComponent extends Component {
+  @service router;
+
+  get apiHost() {
+    return config.APP.apiHost || 'http://localhost:3000';
+  }
+
+  get mediaSrc() {
+    const { albumUUID, photo } = this.args;
+    return `${this.apiHost}/images/${albumUUID}/${photo.exportedFilename}`;
   }
 }
 ```
@@ -5922,6 +5969,44 @@ module('Unit | Service | store', function (hooks) {
 });
 ```
 
+### **./frontend/photo-filter-frontend/tests/integration/components/photo-tile-test.js**
+```
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
+import { hbs } from 'ember-cli-htmlbars';
+
+module('Integration | Component | photo-tile', function (hooks) {
+  setupRenderingTest(hooks);
+
+  test('it renders img for images and video tag for videos', async function (assert) {
+    this.setProperties({
+      dummyAlbum: 'ALBUM',
+      imagePhoto: {
+        exportedFilename: 'foo.jpg',
+        mediaType: 'image',
+        isVideo: false,
+      },
+      videoPhoto: {
+        exportedFilename: 'bar.mov',
+        mediaType: 'video',
+        isVideo: true,
+      },
+    });
+
+    await render(hbs`
+      <PhotoTile @photo={{this.imagePhoto}} @albumUUID={{this.dummyAlbum}} />
+    `);
+    assert.dom('img').exists('renders <img> for still');
+
+    await render(hbs`
+      <PhotoTile @photo={{this.videoPhoto}} @albumUUID={{this.dummyAlbum}} />
+    `);
+    assert.dom('video').exists('renders <video> for motion');
+  });
+});
+```
+
 ### **./frontend/photo-filter-frontend/tests/test-helper.js**
 ```
 import Application from 'photo-filter-frontend/app';
@@ -6423,14 +6508,9 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[{"year":2025,"months":[{"month":5,"days":[30,31]},{"month":6,"days":[1,2,3,10]}]}]}
+{"errors":[{"detail":"ENOENT: no such file or directory, scandir '/Users/jburkart/Documents/sites/photo-filter/backend/data/albums'"}]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
 
-### Album UUID: 0EB23188-CA33-4FDA-BA27-A3B290466224
-Location: ./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json
-Photo Count: 13242
-Earliest Date: 2025-05-30 08:52:35.160000-06:00
-Latest Date: 2025-06-10 11:25:17-04:00
-
+No directory found at ./backend/data/albums

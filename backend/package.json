@@ -1,6 +1,6 @@
 {
   "name": "photo-filter-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "server.js",
   "license": "MIT",
   "type": "module",
@@ -8,9 +8,11 @@
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "express-handlebars": "^8.0.1",
+    "fast-glob": "^3.3.2",
     "fs-extra": "^11.2.0",
     "jsonapi-serializer": "^3.6.7",
     "osx-tag": "^0.4.9",
+    "p-map": "^5.5.0",
     "plist": "^3.1.0"
   },
   "devDependencies": {

@@ -1,0 +1,44 @@
+<div class="card bg-base-100 shadow-lg">
+  <figure>
+    {{#if @photo.isVideo}}
+      <video
+        src="{{this.mediaSrc}}"
+        playsinline
+        muted
+        loop
+        controls
+        class="max-w-full h-auto"
+      >
+      </video>
+    {{else}}
+      <img
+        src="{{this.mediaSrc}}"
+        alt="{{@photo.exportedFilename}}"
+        loading="lazy"
+        class="max-w-full h-auto"
+      />
+    {{/if}}
+  </figure>
+
+  <div class="card-body">
+    <h2 class="card-title text-sm">
+      <span class="opacity-50">{{@index}} -</span>
+      {{@photo.exportedFilename}}
+    </h2>
+
+    {{#if @photo.tags}}
+      <div class="mt-2 flex flex-wrap gap-2">
+        {{#each @photo.tags as |tag|}}
+          <span class="badge badge-accent badge-outline">{{tag}}</span>
+        {{/each}}
+      </div>
+    {{/if}}
+
+    {{#if @sortAttribute}}
+      <p class="mt-2">
+        {{capitalize (replace @sortAttribute "score." "")}}:
+        {{get-nested-property @photo @sortAttribute}}
+      </p>
+    {{/if}}
+  </div>
+</div>

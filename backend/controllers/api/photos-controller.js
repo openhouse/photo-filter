@@ -1,32 +1,26 @@
 // backend/controllers/api/photos-controller.js
 //
-// Returns JSON:API “photo” resources for a single album and ensures that
-// every exported JPEG is named with a micro‑second‑precise UTC timestamp.
-//
-// Pipeline
-// ─────────────────────────────────────────────────────────────────────
-// 1. If photos.json or the JPEGs are missing → call osxphotos export.
-//    (export produces   <uuid>.jpg  files)
-// 2. For each photo
-//      a) compute canonical name
-//      b) if <uuid>.jpg exists and canonical name does not → rename
-// 3. Serialize & return JSON to the Ember front‑end.
+// Export photos & videos for a single album, rename them with
+// micro‑second‑precise UTC timestamps, and return JSON:API photo resources.
 
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
+import fg from "fast-glob";
+import pMap from "p-map";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import {
   formatPreciseTimestamp,
   getNestedProperty,
 } from "../../utils/helpers.js";
+import { mediaTypeFromExt } from "../../utils/media-type.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ───── JSON:API serializers ───────────────────────────────────────── */
+/* ─────────── JSON:API serializers ─────────────────────────────────── */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -41,6 +35,7 @@ const PhotoSerializer = new Serializer("photo", {
     "originalName",
     "originalFilename",
     "exportedFilename",
+    "mediaType",
     "score",
     "exifInfo",
   ],
@@ -52,18 +47,18 @@ const PhotoSerializer = new Serializer("photo", {
   pluralizeType: false,
 });
 
-/* ───── controller ─────────────────────────────────────────────────── */
+/* ─────────── controller ───────────────────────────────────────────── */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
-    /* 0. paths & params */
+    /* 0. paths & params */
     const albumUUID = req.params.albumUUID;
     const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumDir = path.join(dataDir, "albums", albumUUID);
-    const photosJSON = path.join(albumDir, "photos.json");
+    const photosDB = path.join(albumDir, "photos.json");
     const imagesDir = path.join(albumDir, "images");
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
@@ -77,57 +72,69 @@ export const getPhotosByAlbumData = async (req, res) => {
     );
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    /* 1. ensure data exists */
+    /* 1. ensure data exists */
     await fs.ensureDir(imagesDir);
 
-    if (!(await fs.pathExists(photosJSON))) {
-      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
+    if (!(await fs.pathExists(photosDB))) {
+      await runPythonScript(python, pyExport, [albumUUID], photosDB);
     }
-    if (!(await fs.readdir(imagesDir)).length) {
-      await runOsxphotosExportImages(
-        osxphotos,
-        albumUUID,
-        imagesDir,
-        photosJSON
-      );
+    if ((await fs.readdir(imagesDir)).length === 0) {
+      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosDB);
     }
 
-    /* 2. load photo records */
-    const photos = await fs.readJson(photosJSON);
+    /* 2. load photo records */
+    const photos = await fs.readJson(photosDB);
 
-    const personsMap = new Map(); // slug -> {id,name}
+    /* 3. parallel rename pass (8 concurrent) */
+    await pMap(
+      photos,
+      async (p) => {
+        p.originalName = path.parse(p.original_filename).name;
 
-    for (const p of photos) {
-      /* 2a. derive basics */
-      p.originalName = path.parse(p.original_filename).name;
-      const ts = formatPreciseTimestamp(p.date);
-      p.exportedFilename = `${ts}-${p.originalName}.jpg`;
-      p.persons = Array.isArray(p.persons) ? p.persons : [];
-
-      /* 2b. rename physical file if needed */
-      const src = path.join(imagesDir, `${p.uuid}.jpg`);
-      const dst = path.join(imagesDir, p.exportedFilename);
-
-      if (!(await fs.pathExists(dst))) {
-        if (await fs.pathExists(src)) {
-          await fs.rename(src, dst);
-        } else {
-          console.warn(`⚠︎ expected image missing: ${src}`);
+        // find real file with any extension
+        const pattern = path.join(imagesDir, `${p.uuid}.*`);
+        const matches = await fg(pattern, {
+          dot: false,
+          caseSensitiveMatch: false,
+        });
+        if (matches.length === 0) {
+          console.warn(`⚠︎ expected image missing: ${p.uuid}.*`);
+          return;
         }
-      }
 
-      /* 2c. build person relationship data */
-      p.personsData = p.persons.map((name) => {
-        const slug = slugify(name);
-        if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
-        return { type: "person", id: slug };
-      });
+        const src = matches[0];
+        const ext = path.extname(src).toLowerCase(); // includes leading '.'
+        const ts = formatPreciseTimestamp(p.date);
+        p.exportedFilename = `${ts}-${p.originalName}${ext}`;
+        p.mediaType = mediaTypeFromExt(ext);
 
-      /* 2d. link album */
-      p.album = albumUUID;
-    }
+        const dst = path.join(imagesDir, p.exportedFilename);
+        if (!(await fs.pathExists(dst))) {
+          await fs.rename(src, dst);
+        }
 
-    /* 3. sort */
+        // build person relationship array
+        p.persons = Array.isArray(p.persons) ? p.persons : [];
+        p.personsData = p.persons.map((n) => {
+          const slug = slugify(n);
+          return { type: "person", id: slug };
+        });
+
+        // link album
+        p.album = albumUUID;
+      },
+      { concurrency: 8 }
+    );
+
+    /* 4. aggregate persons */
+    const personsMap = new Map();
+    photos.forEach((p) =>
+      p.persons.forEach((n) =>
+        personsMap.set(slugify(n), { id: slugify(n), name: n })
+      )
+    );
+
+    /* 5. sort */
     photos.sort((a, b) => {
       const va = getNestedProperty(a, sortAttr);
       const vb = getNestedProperty(b, sortAttr);
@@ -136,11 +143,11 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    /* 4. serialize */
+    /* 6. serialize */
     const jsonPhotos = PhotoSerializer.serialize(photos);
     const jsonPersons = PersonSerializer.serialize([...personsMap.values()]);
 
-    // glue person relationships onto photos
+    // glue relationships
     jsonPhotos.data.forEach((d) => {
       const src = photos.find((p) => p.uuid === d.id);
       d.relationships.persons = { data: src.personsData };
@@ -158,12 +165,13 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("photos‑controller:", err);
+    console.error("photos-controller:", err);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
 
-/* ───── helpers ────────────────────────────────────────────────────── */
+/* ─────────── helpers ─────────────────────────────────────────────── */
+
 function slugify(str) {
   return str
     .toLowerCase()
