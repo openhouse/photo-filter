@@ -118,7 +118,7 @@ export const getPhotosByAlbumData = async (req, res) => {
 
       /* 2c. build person relationship data */
       p.personsData = p.persons.map((name) => {
-        const slug = slug(name);
+        const slug = slugify(name);
         if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
@@ -164,7 +164,7 @@ export const getPhotosByAlbumData = async (req, res) => {
 };
 
 /* ───── helpers ────────────────────────────────────────────────────── */
-function slug(str) {
+function slugify(str) {
   return str
     .toLowerCase()
     .replace(/[\s+]/g, "-")

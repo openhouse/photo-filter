@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Jun 17 16:52:24 EDT 2025
+Generated on: Tue Jun 17 17:14:43 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -37,7 +37,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── data
 │   │   ├── .DS_Store
 │   │   ├── albums
-│   │   │   └── .DS_Store
+│   │   │   ├── .DS_Store
+│   │   │   └── 0EB23188-CA33-4FDA-BA27-A3B290466224
+│   │   │       ├── .DS_Store
+│   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -245,7 +248,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-68 directories, 164 files
+69 directories, 166 files
 ```
 
 ---
@@ -3973,7 +3976,7 @@ export const getPhotosByAlbumData = async (req, res) => {
 
       /* 2c. build person relationship data */
       p.personsData = p.persons.map((name) => {
-        const slug = slug(name);
+        const slug = slugify(name);
         if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
@@ -4019,7 +4022,7 @@ export const getPhotosByAlbumData = async (req, res) => {
 };
 
 /* ───── helpers ────────────────────────────────────────────────────── */
-function slug(str) {
+function slugify(str) {
   return str
     .toLowerCase()
     .replace(/[\s+]/g, "-")
@@ -4236,6 +4239,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     {
         "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
         "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2025-06-14 Recently",
+            "Kendell & Mandy's Wedding \u2014 All",
+            "Kendell & Mandy's Wedding \u2014 Tyler's Photos",
+            "Tyler James (@firsthandaccount)"
+        ],
+        "burst": false,
+        "cloud_guid": null,
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-06-08 09:12:25.848879-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-05-30 08:52:35.160000-06:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 800,
 ...
 ```
 
@@ -6395,8 +6423,14 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[]}
+{"years":[{"year":2025,"months":[{"month":5,"days":[30,31]},{"month":6,"days":[1,2,3,10]}]}]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
+
+### Album UUID: 0EB23188-CA33-4FDA-BA27-A3B290466224
+Location: ./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json
+Photo Count: 13242
+Earliest Date: 2025-05-30 08:52:35.160000-06:00
+Latest Date: 2025-06-10 11:25:17-04:00
 
