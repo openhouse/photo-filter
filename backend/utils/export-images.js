@@ -1,67 +1,31 @@
 // backend/utils/export-images.js
 //
-// Export JPEGs from an album with **UTC‑based, micro‑second‑precise** names:
+// Export JPEGs from an album with a **micro‑second UTC** prefix:
 //
-//     20250531T174503000123Z-DSCF7309.jpg
+//     20250531T174503000123Z‑DSCF7309.jpg
 //
-// ‑ UTC eliminates cross‑camera drift
-// ‑ Micro‑seconds guarantee uniqueness
-// ‑ The prefix sorts lexicographically == chronologically
+// Implementation notes
+// --------------------
+// • osxphotos ≤ 0.72.x lacks a built‑in “|utc” filter.
+//   We ship our own Python helper (`to_utc`) and register it via
+//   --filter "to_utc:backend.utils.osxphotos_filters:to_utc".
+// • We extend PYTHONPATH at runtime so the module is import‑resolvable.
+// • The prefix sorts lexicographically == chronologically == across time‑zones.
 
 import fs from "fs-extra";
 import path from "path";
 import { execSync } from "child_process";
 import { execCommand } from "./exec-command.js";
 
-/**
- * Ensure the installed osxphotos is new enough for the `utc` template filter.
- * Throws with a helpful upgrade hint if the version is < 0.71.0.
- *
- * @param {string} osxphotosPath – absolute path to the osxphotos binary
- */
-function assertOsxphotosSupportsUtc(osxphotosPath) {
-  let versionString;
-  try {
-    versionString = execSync(`"${osxphotosPath}" --version`, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    throw new Error(
-      `Unable to execute \`${osxphotosPath} --version\` — is the binary path correct?`
-    );
-  }
-
-  // Very small, dependency‑free semver comparator
-  const [major, minor, patch] = versionString
-    .split(".")
-    .map((n) => parseInt(n, 10));
-
-  const tooOld =
-    Number.isNaN(major) ||
-    (major === 0 && minor < 71) || // 0.70.x or below
-    major < 0; // clearly broken parse
-
-  if (tooOld) {
-    throw new Error(
-      [
-        `osxphotos ${versionString} is too old; the “|utc” template filter`,
-        `needs ≥ 0.71.0.  Upgrade inside backend/venv with:`,
-        ``,
-        `    pip install --upgrade "osxphotos>=0.72.0"`,
-        ``,
-      ].join("\n")
-    );
-  }
-}
+const backendRoot = path.join(__dirname, "..");
 
 /**
  * Export JPEGs from an album.
  *
- * @param {string} osxphotosPath – absolute path to the `osxphotos` binary
- * @param {string} albumUUID    – Photos album UUID  (unused here but kept for API parity)
- * @param {string} imagesDir    – destination directory
- * @param {string} photosPath   – path to the album’s photos.json
+ * @param {string} osxphotosPath  Absolute path to the `osxphotos` binary.
+ * @param {string} albumUUID      Photos album UUID.
+ * @param {string} imagesDir      Destination directory.
+ * @param {string} photosPath     Path to the album’s photos.json.
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -69,23 +33,26 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // 0.  Verify osxphotos capability before doing any work
-  assertOsxphotosSupportsUtc(osxphotosPath);
-
-  // 1.  Collect the UUID list for osxphotos’ --uuid-from-file
+  // 1.  Gather the UUIDs that should be exported
   const photos = await fs.readJson(photosPath);
   const uuidsFile = path.join(imagesDir, "uuids.txt");
-
   await fs.ensureDir(imagesDir);
   await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
 
-  // 2.  Export with a UTC‑normalised filename template
-  //     {created|utc|strftime,"%Y%m%dT%H%M%S%fZ"} → 20250531T174503000123Z
+  // 2.  Filename template that pipes the capture date through our custom filter
   const filenameTemplate =
-    '{created|utc|strftime,"%Y%m%dT%H%M%S%fZ"}-{original_name}';
+    '{created|to_utc.strftime,"%Y%m%dT%H%M%S%fZ"}-{original_name}';
 
-  const cmd = `"${osxphotosPath}" export "${imagesDir}" \
+  // 3.  Build command.  We prepend PYTHONPATH so osxphotos can import the filter.
+  const pythonPathEnv = process.env.PYTHONPATH
+    ? `${backendRoot}:${process.env.PYTHONPATH}`
+    : backendRoot;
+
+  const cmd =
+    `PYTHONPATH="${pythonPathEnv}" ` +
+    `"${osxphotosPath}" export "${imagesDir}" \
 --uuid-from-file "${uuidsFile}" \
+--filter "to_utc:backend.utils.osxphotos_filters:to_utc" \
 --filename '${filenameTemplate}' \
 --convert-to-jpeg --jpeg-ext jpg`;
 
