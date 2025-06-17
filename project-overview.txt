@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Jun 17 11:47:37 EDT 2025
+Generated on: Tue Jun 17 12:13:03 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -38,8 +38,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── albums
 │   │   │   ├── 0EB23188-CA33-4FDA-BA27-A3B290466224
 │   │   │   │   └── photos.json
-│   │   │   └── 13F82066-89B7-44D1-B42E-C6D139EDB3EA
-│   │   │       └── photos.json
+│   │   │   ├── 13F82066-89B7-44D1-B42E-C6D139EDB3EA
+│   │   │   │   └── photos.json
+│   │   │   └── F1FBF40F-1B96-4040-80BB-B438AE7CF673
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -248,7 +249,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-70 directories, 165 files
+71 directories, 165 files
 ```
 
 ---
@@ -2552,8 +2553,14 @@ export { utcTimestampForFile } from "./precise-timestamp.js";
 
 import fs from "fs-extra";
 import path from "path";
-import { execSync } from "child_process";
 import { execCommand } from "./exec-command.js";
+import { fileURLToPath } from "url";
+
+// ────────────────────────────────────────────────────────────────
+// Re‑create CommonJS globals for ESM scope
+// ────────────────────────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const backendRoot = path.join(__dirname, "..");
 
@@ -2588,11 +2595,11 @@ export async function runOsxphotosExportImages(
 
   const cmd =
     `PYTHONPATH="${pythonPathEnv}" ` +
-    `"${osxphotosPath}" export "${imagesDir}" \
---uuid-from-file "${uuidsFile}" \
---filter "to_utc:backend.utils.osxphotos_filters:to_utc" \
---filename '${filenameTemplate}' \
---convert-to-jpeg --jpeg-ext jpg`;
+    `"${osxphotosPath}" export "${imagesDir}" ` +
+    `--uuid-from-file "${uuidsFile}" ` +
+    '--filter "to_utc:backend.utils.osxphotos_filters:to_utc" ' +
+    `--filename '${filenameTemplate}' ` +
+    "--convert-to-jpeg --jpeg-ext jpg";
 
   await execCommand(cmd, "osxphotos image export failed:");
 }
@@ -6407,8 +6414,7 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-Could not fetch /api/time-index. Is the server running?
-
+{"years":[{"year":2019,"months":[{"month":11,"days":[29]}]},{"year":2022,"months":[{"month":8,"days":[30]},{"month":12,"days":[1]}]},{"year":2023,"months":[{"month":1,"days":[7]},{"month":12,"days":[30]}]},{"year":2024,"months":[{"month":4,"days":[25]},{"month":6,"days":[4]}]},{"year":2025,"months":[{"month":5,"days":[30,31]},{"month":6,"days":[1,2,3,10]}]}]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums

@@ -14,8 +14,14 @@
 
 import fs from "fs-extra";
 import path from "path";
-import { execSync } from "child_process";
 import { execCommand } from "./exec-command.js";
+import { fileURLToPath } from "url";
+
+// ────────────────────────────────────────────────────────────────
+// Re‑create CommonJS globals for ESM scope
+// ────────────────────────────────────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const backendRoot = path.join(__dirname, "..");
 
@@ -50,11 +56,11 @@ export async function runOsxphotosExportImages(
 
   const cmd =
     `PYTHONPATH="${pythonPathEnv}" ` +
-    `"${osxphotosPath}" export "${imagesDir}" \
---uuid-from-file "${uuidsFile}" \
---filter "to_utc:backend.utils.osxphotos_filters:to_utc" \
---filename '${filenameTemplate}' \
---convert-to-jpeg --jpeg-ext jpg`;
+    `"${osxphotosPath}" export "${imagesDir}" ` +
+    `--uuid-from-file "${uuidsFile}" ` +
+    '--filter "to_utc:backend.utils.osxphotos_filters:to_utc" ' +
+    `--filename '${filenameTemplate}' ` +
+    "--convert-to-jpeg --jpeg-ext jpg";
 
   await execCommand(cmd, "osxphotos image export failed:");
 }
