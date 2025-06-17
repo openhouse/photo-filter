@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Mon Jun 16 21:12:33 EDT 2025
+Generated on: Tue Jun 17 11:02:53 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -35,10 +35,11 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
-│   │   ├── .DS_Store
 │   │   ├── albums
 │   │   │   ├── 0EB23188-CA33-4FDA-BA27-A3B290466224
+│   │   │   │   └── photos.json
 │   │   │   └── 13F82066-89B7-44D1-B42E-C6D139EDB3EA
+│   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -244,7 +245,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-70 directories, 161 files
+70 directories, 162 files
 ```
 
 ---
@@ -2544,15 +2545,58 @@ export { utcTimestampForFile } from "./precise-timestamp.js";
 
 import fs from "fs-extra";
 import path from "path";
+import { execSync } from "child_process";
 import { execCommand } from "./exec-command.js";
+
+/**
+ * Ensure the installed osxphotos is new enough for the `utc` template filter.
+ * Throws with a helpful upgrade hint if the version is < 0.71.0.
+ *
+ * @param {string} osxphotosPath – absolute path to the osxphotos binary
+ */
+function assertOsxphotosSupportsUtc(osxphotosPath) {
+  let versionString;
+  try {
+    versionString = execSync(`"${osxphotosPath}" --version`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    throw new Error(
+      `Unable to execute \`${osxphotosPath} --version\` — is the binary path correct?`
+    );
+  }
+
+  // Very small, dependency‑free semver comparator
+  const [major, minor, patch] = versionString
+    .split(".")
+    .map((n) => parseInt(n, 10));
+
+  const tooOld =
+    Number.isNaN(major) ||
+    (major === 0 && minor < 71) || // 0.70.x or below
+    major < 0; // clearly broken parse
+
+  if (tooOld) {
+    throw new Error(
+      [
+        `osxphotos ${versionString} is too old; the “|utc” template filter`,
+        `needs ≥ 0.71.0.  Upgrade inside backend/venv with:`,
+        ``,
+        `    pip install --upgrade "osxphotos>=0.72.0"`,
+        ``,
+      ].join("\n")
+    );
+  }
+}
 
 /**
  * Export JPEGs from an album.
  *
- * @param {string} osxphotosPath   – absolute path to the `osxphotos` binary
- * @param {string} albumUUID      – Photos album UUID
- * @param {string} imagesDir      – destination directory
- * @param {string} photosPath     – path to the album’s photos.json
+ * @param {string} osxphotosPath – absolute path to the `osxphotos` binary
+ * @param {string} albumUUID    – Photos album UUID  (unused here but kept for API parity)
+ * @param {string} imagesDir    – destination directory
+ * @param {string} photosPath   – path to the album’s photos.json
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -2560,19 +2604,24 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // 1.  collect the UUID list for osxphotos’ --uuid-from-file
+  // 0.  Verify osxphotos capability before doing any work
+  assertOsxphotosSupportsUtc(osxphotosPath);
+
+  // 1.  Collect the UUID list for osxphotos’ --uuid-from-file
   const photos = await fs.readJson(photosPath);
   const uuidsFile = path.join(imagesDir, "uuids.txt");
+
   await fs.ensureDir(imagesDir);
   await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
 
-  // 2.  export with a UTC‑normalised filename template
+  // 2.  Export with a UTC‑normalised filename template
+  //     {created|utc|strftime,"%Y%m%dT%H%M%S%fZ"} → 20250531T174503000123Z
   const filenameTemplate =
-    "{created_utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
+    '{created|utc|strftime,"%Y%m%dT%H%M%S%fZ"}-{original_name}';
 
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
 --uuid-from-file "${uuidsFile}" \
---filename "${filenameTemplate}" \
+--filename '${filenameTemplate}' \
 --convert-to-jpeg --jpeg-ext jpg`;
 
   await execCommand(cmd, "osxphotos image export failed:");
@@ -4179,6 +4228,56 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     {
         "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
         "title": "Lera Show"
+...
+```
+
+### **./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json**
+```json
+[
+    {
+        "albums": [
+            "2025-06-14 Recently",
+            "Kendell & Mandy's Wedding \u2014 All",
+            "Kendell & Mandy's Wedding \u2014 Tyler's Photos",
+            "Tyler James (@firsthandaccount)"
+        ],
+        "burst": false,
+        "cloud_guid": null,
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2025-06-08 09:12:25.848879-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2025-05-30 08:52:35.160000-06:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": 800,
+...
+```
+
+### **./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Inner Space"
+        ],
+        "burst": false,
+        "cloud_guid": "Aaed7ns2sh3tSO5kS2ThMSfIMwIS",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-06-16 17:09:19.390949-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2019-11-29 11:22:40-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": null,
+            "metering_mode": null,
+            "sample_rate": null,
+            "track_format": null,
 ...
 ```
 
@@ -6338,8 +6437,21 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[]}
+Could not fetch /api/time-index. Is the server running?
+
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
+
+### Album UUID: 0EB23188-CA33-4FDA-BA27-A3B290466224
+Location: ./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json
+Photo Count: 13242
+Earliest Date: 2025-05-30 08:52:35.160000-06:00
+Latest Date: 2025-06-10 11:25:17-04:00
+
+### Album UUID: 13F82066-89B7-44D1-B42E-C6D139EDB3EA
+Location: ./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json
+Photo Count: 15
+Earliest Date: 2019-11-29 11:22:40-05:00
+Latest Date: 2024-06-04 17:52:13-04:00
 
