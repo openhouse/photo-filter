@@ -28,4 +28,4 @@ export function capitalizeAttributeName(attributeName) {
 
 // …other re‑exports remain
 export { utcTimestampForFile } from "./precise-timestamp.js";
-export { renameWithUtcPrefix } from "./export-images.js";
+// export { renameWithUtcPrefix } from "./export-images.js";
