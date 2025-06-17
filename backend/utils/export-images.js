@@ -58,7 +58,7 @@ export async function runOsxphotosExportImages(
     `PYTHONPATH="${pythonPathEnv}" ` +
     `"${osxphotosPath}" export "${imagesDir}" ` +
     `--uuid-from-file "${uuidsFile}" ` +
-    '--filter "to_utc:backend.utils.osxphotos_filters:to_utc" ' +
+    '--template-filter "to_utc:backend.utils.osxphotos_filters:to_utc" ' +
     `--filename '${filenameTemplate}' ` +
     "--convert-to-jpeg --jpeg-ext jpg";
 

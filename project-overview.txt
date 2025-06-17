@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Jun 17 12:13:03 EDT 2025
+Generated on: Tue Jun 17 13:46:12 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -2414,29 +2414,58 @@ export async function getPhotosLibraryLastModified() {
 /**
  * precise‑timestamp.js
  * --------------------
- * Two related utilities that build micro‑second‑precise **UTC** stamps
- * used as filename prefixes.
+ * Build micro‑second‑precise UTC stamps for filenames.
  *
  *   • formatPreciseTimestamp(dateLike)
- *       └─ Pure helper for an ISO string or JS Date.
- *
  *   • utcTimestampForFile(filePath)
- *       └─ Reads EXIF (with exiftool‑vendored) and delegates to Luxon.
  *
- * Both return the canonical 27‑character form:
- *     YYYYMMDDTHHMMSSffffffZ
- * Example:
- *     20250531T174503000123Z
+ * Both return:  YYYYMMDDTHHMMSSffffffZ   (27 chars)
+ * Example:      20250531T174503000123Z
  */
 
 import { exiftool } from "exiftool-vendored";
 import { DateTime } from "luxon";
 
+/*───────────────────────────────────────────────────────────────────────────*/
+/* Internal helpers                                                         */
+/*───────────────────────────────────────────────────────────────────────────*/
+
 /**
- * Convert a Date or ISO‑8601 string into our canonical UTC stamp.
- *
- * @param {string|Date} dateLike
- * @returns {string} e.g. "20250531T174503123000Z"
+ * Replace the first space between date and time with “T” so
+ * `yyyy‑MM‑dd HH:mm:ss` becomes ISO‑like for Luxon.
+ */
+function normaliseIsoLike(str) {
+  const i = str.indexOf(" ");
+  return i === -1 ? str : str.slice(0, i) + "T" + str.slice(i + 1);
+}
+
+/** Try several parsing strategies until one succeeds. */
+function parseLooseIso(raw) {
+  // 1) quick normalisation + fromISO
+  let dt = DateTime.fromISO(normaliseIsoLike(raw), { setZone: true });
+  if (dt.isValid) return dt;
+
+  // 2) explicit fallback formats we’ve seen in osxphotos exports
+  const formats = [
+    "yyyy-MM-dd HH:mm:ss.SSSSSSZZ",
+    "yyyy-MM-dd HH:mm:ss.SSSSSZZ",
+    "yyyy-MM-dd HH:mm:ssZZ",
+  ];
+
+  for (const f of formats) {
+    dt = DateTime.fromFormat(raw, f, { setZone: true });
+    if (dt.isValid) return dt;
+  }
+  return dt; // still invalid – caller will handle
+}
+
+/*───────────────────────────────────────────────────────────────────────────*/
+/* Public API                                                               */
+/*───────────────────────────────────────────────────────────────────────────*/
+
+/**
+ * @param {string|Date} dateLike – JS Date or ISO‑ish string
+ * @returns {string} canonical UTC stamp (YYYYMMDDTHHMMSSffffffZ)
  */
 export function formatPreciseTimestamp(dateLike) {
   let dt;
@@ -2444,8 +2473,7 @@ export function formatPreciseTimestamp(dateLike) {
   if (dateLike instanceof Date) {
     dt = DateTime.fromJSDate(dateLike, { zone: "utc" });
   } else if (typeof dateLike === "string") {
-    // Let Luxon respect any embedded offset; fall back to local().
-    dt = DateTime.fromISO(dateLike, { setZone: true }).toUTC();
+    dt = parseLooseIso(dateLike).toUTC();
   } else {
     throw new TypeError(
       `formatPreciseTimestamp(): expected Date or string, got ${typeof dateLike}`
@@ -2458,14 +2486,13 @@ export function formatPreciseTimestamp(dateLike) {
     );
   }
 
-  // Luxon gives millisecond precision; multiply to micro‑seconds.
+  // Luxon supplies millisecond precision → pad to six‑digit micro‑seconds.
   const micro = String(dt.millisecond * 1_000).padStart(6, "0");
-
   return dt.toFormat("yyyyLLdd'T'HHmmss") + micro + "Z";
 }
 
 /**
- * Read EXIF and build the canonical UTC timestamp.
+ * Read EXIF timestamps and convert to canonical UTC stamp.
  *
  * @param {string} filePath – absolute image path
  * @returns {Promise<string>}
@@ -2475,9 +2502,7 @@ export async function utcTimestampForFile(filePath) {
 
   const base =
     tags.DateTimeOriginal || tags.CreateDate || tags.ModifyDate || null;
-  if (!base) {
-    throw new Error(`No date field in EXIF for ${filePath}`);
-  }
+  if (!base) throw new Error(`No date field in EXIF for ${filePath}`);
 
   // Sub‑seconds → six digits
   const subsec = (
