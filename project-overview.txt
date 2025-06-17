@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Jun 17 13:46:12 EDT 2025
+Generated on: Tue Jun 17 16:52:24 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -35,12 +35,9 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── people-legacy-controller.js
 │   │   └── photo-controller.js
 │   ├── data
+│   │   ├── .DS_Store
 │   │   ├── albums
-│   │   │   ├── 0EB23188-CA33-4FDA-BA27-A3B290466224
-│   │   │   │   └── photos.json
-│   │   │   ├── 13F82066-89B7-44D1-B42E-C6D139EDB3EA
-│   │   │   │   └── photos.json
-│   │   │   └── F1FBF40F-1B96-4040-80BB-B438AE7CF673
+│   │   │   └── .DS_Store
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -80,7 +77,6 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   │   ├── export-images.js
 │   │   ├── get-photos-library-last-modified.js
 │   │   ├── helpers.js
-│   │   ├── osxphotos_filters.py
 │   │   ├── precise-timestamp.js
 │   │   └── run-python-script.js
 │   └── views
@@ -249,7 +245,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-71 directories, 165 files
+68 directories, 164 files
 ```
 
 ---
@@ -2564,38 +2560,34 @@ export { utcTimestampForFile } from "./precise-timestamp.js";
 ```
 // backend/utils/export-images.js
 //
-// Export JPEGs from an album with a **micro‑second UTC** prefix:
+// Export JPEGs from a Photos album.
 //
-//     20250531T174503000123Z‑DSCF7309.jpg
+// Rationale (2025‑06‑17)
+// ──────────────────────
+// The public osxphotos CLI still does **not** ship the
+// `--template-filter` option.  We therefore export every photo as
 //
-// Implementation notes
-// --------------------
-// • osxphotos ≤ 0.72.x lacks a built‑in “|utc” filter.
-//   We ship our own Python helper (`to_utc`) and register it via
-//   --filter "to_utc:backend.utils.osxphotos_filters:to_utc".
-// • We extend PYTHONPATH at runtime so the module is import‑resolvable.
-// • The prefix sorts lexicographically == chronologically == across time‑zones.
+//     <uuid>.jpg
+//
+// and do the UTC‑timestamp renaming in JavaScript immediately after
+// the export.  That keeps us compatible with *all* osxphotos versions
+// while retaining the deterministic
+//
+//     20250617T162144123456Z‑DSCF9999.jpg
+//
+// prefix our pipeline expects.
 
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
-import { fileURLToPath } from "url";
-
-// ────────────────────────────────────────────────────────────────
-// Re‑create CommonJS globals for ESM scope
-// ────────────────────────────────────────────────────────────────
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const backendRoot = path.join(__dirname, "..");
 
 /**
- * Export JPEGs from an album.
+ * Export JPEGs for the UUIDs listed in `photosPath` into `imagesDir`.
  *
- * @param {string} osxphotosPath  Absolute path to the `osxphotos` binary.
- * @param {string} albumUUID      Photos album UUID.
- * @param {string} imagesDir      Destination directory.
- * @param {string} photosPath     Path to the album’s photos.json.
+ * @param {string} osxphotosPath absolute path to the osxphotos binary
+ * @param {string} albumUUID     Photos album UUID (only used for logging)
+ * @param {string} imagesDir     Destination directory
+ * @param {string} photosPath    Absolute path to the album’s photos.json
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
@@ -2603,30 +2595,25 @@ export async function runOsxphotosExportImages(
   imagesDir,
   photosPath
 ) {
-  // 1.  Gather the UUIDs that should be exported
+  /* 1 ─ create <imagesDir>/uuids.txt */
+  await fs.ensureDir(imagesDir);
+
   const photos = await fs.readJson(photosPath);
   const uuidsFile = path.join(imagesDir, "uuids.txt");
-  await fs.ensureDir(imagesDir);
   await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
 
-  // 2.  Filename template that pipes the capture date through our custom filter
-  const filenameTemplate =
-    '{created|to_utc.strftime,"%Y%m%dT%H%M%S%fZ"}-{original_name}';
-
-  // 3.  Build command.  We prepend PYTHONPATH so osxphotos can import the filter.
-  const pythonPathEnv = process.env.PYTHONPATH
-    ? `${backendRoot}:${process.env.PYTHONPATH}`
-    : backendRoot;
+  /* 2 ─ build export command */
+  const filenameTemplate = "{uuid}"; // guaranteed unique, easy to rename later
 
   const cmd =
-    `PYTHONPATH="${pythonPathEnv}" ` +
     `"${osxphotosPath}" export "${imagesDir}" ` +
     `--uuid-from-file "${uuidsFile}" ` +
-    '--filter "to_utc:backend.utils.osxphotos_filters:to_utc" ' +
     `--filename '${filenameTemplate}' ` +
     "--convert-to-jpeg --jpeg-ext jpg";
 
+  console.log(`\n[osxphotos] exporting album ${albumUUID} …`);
   await execCommand(cmd, "osxphotos image export failed:");
+  console.log("[osxphotos] export complete\n");
 }
 ```
 
@@ -3868,15 +3855,20 @@ export const getPhotosByPerson = async (req, res) => {
 ```
 // backend/controllers/api/photos-controller.js
 //
-// Builds `exportedFilename` from the *same* micro-second timestamp that
-// osxphotos embedded, so the frontend can construct <img src> without
-// touching the filesystem.
+// Returns JSON:API “photo” resources for a single album and ensures that
+// every exported JPEG is named with a micro‑second‑precise UTC timestamp.
 //
-// NB: any older duplicate controller (e.g. “-photos-controller.js”)
-//     should be deleted to prevent route-loader ambiguity.
+// Pipeline
+// ─────────────────────────────────────────────────────────────────────
+// 1. If photos.json or the JPEGs are missing → call osxphotos export.
+//    (export produces   <uuid>.jpg  files)
+// 2. For each photo
+//      a) compute canonical name
+//      b) if <uuid>.jpg exists and canonical name does not → rename
+// 3. Serialize & return JSON to the Ember front‑end.
 
-import path from "path";
 import fs from "fs-extra";
+import path from "path";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
@@ -3889,7 +3881,7 @@ import { Serializer } from "jsonapi-serializer";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/* ---------- JSON:API serializers ---------- */
+/* ───── JSON:API serializers ───────────────────────────────────────── */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -3915,11 +3907,11 @@ const PhotoSerializer = new Serializer("photo", {
   pluralizeType: false,
 });
 
-/* ---------- main controller ---------- */
+/* ───── controller ─────────────────────────────────────────────────── */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
-    /* paths & params */
+    /* 0. paths & params */
     const albumUUID = req.params.albumUUID;
     const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
@@ -3940,10 +3932,13 @@ export const getPhotosByAlbumData = async (req, res) => {
     );
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    /* (1) Ensure exports exist */
+    /* 1. ensure data exists */
     await fs.ensureDir(imagesDir);
+
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
+    }
+    if (!(await fs.readdir(imagesDir)).length) {
       await runOsxphotosExportImages(
         osxphotos,
         albumUUID,
@@ -3952,30 +3947,42 @@ export const getPhotosByAlbumData = async (req, res) => {
       );
     }
 
-    /* (2) Load data & enrich */
-    let photos = await fs.readJson(photosJSON);
+    /* 2. load photo records */
+    const photos = await fs.readJson(photosJSON);
 
     const personsMap = new Map(); // slug -> {id,name}
 
-    photos.forEach((p) => {
-      /* derive names & filenames */
+    for (const p of photos) {
+      /* 2a. derive basics */
       p.originalName = path.parse(p.original_filename).name;
-      const tsSegment = formatPreciseTimestamp(p.date);
-      p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
-
-      /* normalise persons */
+      const ts = formatPreciseTimestamp(p.date);
+      p.exportedFilename = `${ts}-${p.originalName}.jpg`;
       p.persons = Array.isArray(p.persons) ? p.persons : [];
 
+      /* 2b. rename physical file if needed */
+      const src = path.join(imagesDir, `${p.uuid}.jpg`);
+      const dst = path.join(imagesDir, p.exportedFilename);
+
+      if (!(await fs.pathExists(dst))) {
+        if (await fs.pathExists(src)) {
+          await fs.rename(src, dst);
+        } else {
+          console.warn(`⚠︎ expected image missing: ${src}`);
+        }
+      }
+
+      /* 2c. build person relationship data */
       p.personsData = p.persons.map((name) => {
-        const slug = slugify(name);
+        const slug = slug(name);
         if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
 
+      /* 2d. link album */
       p.album = albumUUID;
-    });
+    }
 
-    /* (3) sort */
+    /* 3. sort */
     photos.sort((a, b) => {
       const va = getNestedProperty(a, sortAttr);
       const vb = getNestedProperty(b, sortAttr);
@@ -3984,14 +3991,13 @@ export const getPhotosByAlbumData = async (req, res) => {
       return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    /* (4) serialise */
+    /* 4. serialize */
     const jsonPhotos = PhotoSerializer.serialize(photos);
     const jsonPersons = PersonSerializer.serialize([...personsMap.values()]);
 
-    // attach person relationships
+    // glue person relationships onto photos
     jsonPhotos.data.forEach((d) => {
       const src = photos.find((p) => p.uuid === d.id);
-      d.relationships = d.relationships || {};
       d.relationships.persons = { data: src.personsData };
     });
 
@@ -4007,13 +4013,13 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("photos-controller:", err);
+    console.error("photos‑controller:", err);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
 
-/* ---------- util ---------- */
-function slugify(str) {
+/* ───── helpers ────────────────────────────────────────────────────── */
+function slug(str) {
   return str
     .toLowerCase()
     .replace(/[\s+]/g, "-")
@@ -4230,56 +4236,6 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
     {
         "uuid": "265925AE-5152-40DD-A35B-2F9AD7F19610",
         "title": "Lera Show"
-...
-```
-
-### **./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json**
-```json
-[
-    {
-        "albums": [
-            "2025-06-14 Recently",
-            "Kendell & Mandy's Wedding \u2014 All",
-            "Kendell & Mandy's Wedding \u2014 Tyler's Photos",
-            "Tyler James (@firsthandaccount)"
-        ],
-        "burst": false,
-        "cloud_guid": null,
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2025-06-08 09:12:25.848879-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2025-05-30 08:52:35.160000-06:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": 800,
-...
-```
-
-### **./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json**
-```json
-[
-    {
-        "albums": [
-            "Inner Space"
-        ],
-        "burst": false,
-        "cloud_guid": "Aaed7ns2sh3tSO5kS2ThMSfIMwIS",
-        "cloud_owner_hashed_id": null,
-        "comments": [],
-        "date_added": "2024-06-16 17:09:19.390949-04:00",
-        "date_modified": null,
-        "date_trashed": null,
-        "date": "2019-11-29 11:22:40-05:00",
-        "description": null,
-        "exif_info": {
-            "flash_fired": false,
-            "iso": null,
-            "metering_mode": null,
-            "sample_rate": null,
-            "track_format": null,
 ...
 ```
 
@@ -6439,20 +6395,8 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[{"year":2019,"months":[{"month":11,"days":[29]}]},{"year":2022,"months":[{"month":8,"days":[30]},{"month":12,"days":[1]}]},{"year":2023,"months":[{"month":1,"days":[7]},{"month":12,"days":[30]}]},{"year":2024,"months":[{"month":4,"days":[25]},{"month":6,"days":[4]}]},{"year":2025,"months":[{"month":5,"days":[30,31]},{"month":6,"days":[1,2,3,10]}]}]}
+{"years":[]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
-
-### Album UUID: 0EB23188-CA33-4FDA-BA27-A3B290466224
-Location: ./backend/data/albums/0EB23188-CA33-4FDA-BA27-A3B290466224/photos.json
-Photo Count: 13242
-Earliest Date: 2025-05-30 08:52:35.160000-06:00
-Latest Date: 2025-06-10 11:25:17-04:00
-
-### Album UUID: 13F82066-89B7-44D1-B42E-C6D139EDB3EA
-Location: ./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json
-Photo Count: 15
-Earliest Date: 2019-11-29 11:22:40-05:00
-Latest Date: 2024-06-04 17:52:13-04:00
 
