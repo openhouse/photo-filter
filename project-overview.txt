@@ -1,6 +1,6 @@
 # Project Overview: Photo Filter
 
-Generated on: Tue Jun 17 19:13:08 EDT 2025
+Generated on: Tue Jun 17 19:16:52 EDT 2025
 System Architecture: x86_64
 Operating System: macOS 15.4.1
 Node Version: v20.18.1
@@ -37,7 +37,10 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 │   ├── data
 │   │   ├── .DS_Store
 │   │   ├── albums
-│   │   │   └── .DS_Store
+│   │   │   ├── .DS_Store
+│   │   │   ├── 0EB23188-CA33-4FDA-BA27-A3B290466224
+│   │   │   └── 13F82066-89B7-44D1-B42E-C6D139EDB3EA
+│   │   │       └── photos.json
 │   │   └── albums.json
 │   ├── jest.config.js
 │   ├── models
@@ -250,7 +253,7 @@ This project is a monorepo containing both the Ember.js frontend and the Express
 ├── tsconfig.json
 └── TYPESCRIPT_GUIDE.md
 
-69 directories, 168 files
+71 directories, 169 files
 ```
 
 ---
@@ -4300,6 +4303,31 @@ async function setTagsOnExportedImages(imagesDir, photosData) {
 ...
 ```
 
+### **./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json**
+```json
+[
+    {
+        "albums": [
+            "Inner Space"
+        ],
+        "burst": false,
+        "cloud_guid": "Aaed7ns2sh3tSO5kS2ThMSfIMwIS",
+        "cloud_owner_hashed_id": null,
+        "comments": [],
+        "date_added": "2024-06-16 17:09:19.390949-04:00",
+        "date_modified": null,
+        "date_trashed": null,
+        "date": "2019-11-29 11:22:40-05:00",
+        "description": null,
+        "exif_info": {
+            "flash_fired": false,
+            "iso": null,
+            "metering_mode": null,
+            "sample_rate": null,
+            "track_format": null,
+...
+```
+
 ### **./backend/views/albums.hbs**
 ```
 <h1 class="text-3xl font-bold mb-4">Select an Album</h1>
@@ -6568,8 +6596,14 @@ module.exports = {
 
 Fetching http://localhost:3000/api/time-index ...
 
-{"years":[]}
+{"years":[{"year":2019,"months":[{"month":11,"days":[29]}]},{"year":2022,"months":[{"month":8,"days":[30]},{"month":12,"days":[1]}]},{"year":2023,"months":[{"month":1,"days":[7]},{"month":12,"days":[30]}]},{"year":2024,"months":[{"month":4,"days":[25]},{"month":6,"days":[4]}]}]}
 ---
 
 ## Photos.json Summaries in ./backend/data/albums
+
+### Album UUID: 13F82066-89B7-44D1-B42E-C6D139EDB3EA
+Location: ./backend/data/albums/13F82066-89B7-44D1-B42E-C6D139EDB3EA/photos.json
+Photo Count: 15
+Earliest Date: 2019-11-29 11:22:40-05:00
+Latest Date: 2024-06-04 17:52:13-04:00
 
