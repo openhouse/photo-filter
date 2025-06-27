@@ -1,0 +1,41 @@
+{
+  "name": "photo-filter-monorepo",
+  "version": "1.0.0",
+  "description": "A monorepo containing both the Photo Filter backend (Express.js) and frontend (Ember.js).",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm --prefix backend run build || echo 'No build script for backend'",
+    "build:frontend": "npm --prefix frontend/photo-filter-frontend run build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "npm --prefix backend run dev",
+    "start:frontend": "npm --prefix frontend/photo-filter-frontend run start",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "npm --prefix backend run test",
+    "test:frontend": "npm --prefix frontend/photo-filter-frontend run test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "npm --prefix backend run lint || echo 'No lint script for backend'",
+    "lint:frontend": "npm --prefix frontend/photo-filter-frontend run lint",
+    "generate-overview": "bash generate-overview.sh",
+    "super-dev": "concurrently -n BACKEND,FRONTEND,TEST-BE,TEST-FE,OVERVIEW -c cyan,green,yellow,magenta,blue \"/bin/bash -c 'npm run watch:backend'\" \"/bin/bash -c 'npm run watch:frontend'\" \"npm run watch:test:backend\" \"npm run watch:test:frontend\" \"npm run watch:overview\"",
+    "watch:backend": "nodemon --watch backend --ignore backend/data --ext js,ts,hbs,sh,md --exec \"npm run start:backend\"",
+    "watch:frontend": "npm --prefix frontend/photo-filter-frontend run start",
+    "watch:test:backend": "npm --prefix backend run test:watch || echo 'No watch test script for backend'",
+    "watch:test:frontend": "npm --prefix frontend/photo-filter-frontend run test:ember -- --server",
+    "watch:overview": "nodemon --watch backend --watch frontend --ext js,ts,hbs,sh,md --ignore project-overview.txt --exec \"npm run generate-overview\""
+  },
+  "workspaces": [
+    "backend",
+    "frontend/photo-filter-frontend"
+  ],
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.0"
+  },
+  "dependencies": {
+    "exiftool-vendored": "^30.2.0",
+    "fast-glob": "^3.3.3",
+    "hash-sum": "^2.0.0",
+    "luxon": "^3.6.1"
+  }
+}

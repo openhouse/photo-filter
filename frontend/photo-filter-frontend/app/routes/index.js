@@ -1,12 +1,8 @@
-// app/routes/index.js
+// frontend/photo-filter-frontend/app/routes/index.js
 
 import Route from '@ember/routing/route';
-import { inject as service } from '@ember/service';
 
 export default class IndexRoute extends Route {
-  @service router;
-
-  beforeModel() {
-    this.router.replaceWith('albums');
-  }
+  // No redirect now, so the user stays at '/'
+  // (Add a template if you want a custom landing page.)
 }

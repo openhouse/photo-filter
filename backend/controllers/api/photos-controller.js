@@ -1,15 +1,27 @@
 // backend/controllers/api/photos-controller.js
+//
+// Builds `exportedFilename` from the *same* micro-second timestamp that
+// osxphotos embedded, so the frontend can construct <img src> without
+// touching the filesystem.
+//
+// NB: any older duplicate controller (e.g. “-photos-controller.js”)
+//     should be deleted to prevent route-loader ambiguity.
+
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
-import { getNestedProperty } from "../../utils/helpers.js";
-import { execCommand } from "../../utils/exec-command.js";
+import {
+  formatPreciseTimestamp,
+  getNestedProperty,
+} from "../../utils/helpers.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/* ---------- JSON:API serializers ---------- */
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -24,200 +36,117 @@ const PhotoSerializer = new Serializer("photo", {
     "originalName",
     "originalFilename",
     "exportedFilename",
-    "filename",
     "score",
     "exifInfo",
   ],
-  keyForAttribute: "camelCase",
   relationships: {
     album: { type: "album" },
     persons: { type: "person" },
   },
+  keyForAttribute: "camelCase",
   pluralizeType: false,
-  meta: {},
 });
 
-function formatPhotoDateWithOffset(dateString) {
-  const match = dateString.match(
-    /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)([\+\-]\d{2}:\d{2})$/
-  );
-  if (!match) {
-    return fallbackFormat(new Date(dateString));
-  }
-
-  const datePart = match[1];
-  const timePart = match[2];
-
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute, secondRaw] = timePart.split(":");
-  const hourNum = Number(hour);
-  const minuteNum = Number(minute);
-  const secondNum = Math.floor(Number(secondRaw));
-
-  const YYYY = String(year);
-  const MM = String(month).padStart(2, "0");
-  const DD = String(day).padStart(2, "0");
-  const HH = String(hourNum).padStart(2, "0");
-  const mm = String(minuteNum).padStart(2, "0");
-  const ss = String(secondNum).padStart(2, "0");
-
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
-
-function fallbackFormat(dateObj) {
-  const YYYY = dateObj.getFullYear();
-  const MM = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const DD = String(dateObj.getDate()).padStart(2, "0");
-  const HH = String(dateObj.getHours()).padStart(2, "0");
-  const mm = String(dateObj.getMinutes()).padStart(2, "0");
-  const ss = String(dateObj.getSeconds()).padStart(2, "0");
-  return `${YYYY}${MM}${DD}-${HH}${mm}${ss}`;
-}
+/* ---------- main controller ---------- */
 
 export const getPhotosByAlbumData = async (req, res) => {
   try {
+    /* paths & params */
     const albumUUID = req.params.albumUUID;
-    const sortAttribute = req.query.sort || "score.overall";
+    const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
     const dataDir = path.join(__dirname, "..", "..", "data");
-    const photosDir = path.join(dataDir, "albums", albumUUID);
-    const photosPath = path.join(photosDir, "photos.json");
-    const imagesDir = path.join(photosDir, "images");
+    const albumDir = path.join(dataDir, "albums", albumUUID);
+    const photosJSON = path.join(albumDir, "photos.json");
+    const imagesDir = path.join(albumDir, "images");
+
     const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
+    const python = path.join(venvDir, "bin", "python3");
+    const pyExport = path.join(
       __dirname,
       "..",
       "..",
       "scripts",
       "export_photos_in_album.py"
     );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    await fs.ensureDir(photosDir);
+    /* (1) Ensure exports exist */
     await fs.ensureDir(imagesDir);
-
-    if (!(await fs.pathExists(photosPath))) {
-      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+    if (!(await fs.pathExists(photosJSON))) {
+      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
       await runOsxphotosExportImages(
-        osxphotosPath,
+        osxphotos,
         albumUUID,
         imagesDir,
-        photosPath
+        photosJSON
       );
     }
 
-    let photosData = await fs.readJson(photosPath);
+    /* (2) Load data & enrich */
+    let photos = await fs.readJson(photosJSON);
 
-    // Deduplicate photos by (original_filename, date) if needed
-    photosData = deduplicatePhotos(photosData);
+    const personsMap = new Map(); // slug -> {id,name}
 
-    // Prepare each photo
-    const uniquePersons = new Map();
-    photosData.forEach((photo) => {
-      photo.originalName = path.parse(photo.original_filename).name;
-      const prefix = formatPhotoDateWithOffset(photo.date);
-      photo.exportedFilename = `${prefix}-${photo.originalName}.jpg`;
+    photos.forEach((p) => {
+      /* derive names & filenames */
+      p.originalName = path.parse(p.original_filename).name;
+      const tsSegment = formatPreciseTimestamp(p.date);
+      p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
 
-      // Ensure persons is an array; if empty or undefined, make it empty array
-      if (!Array.isArray(photo.persons)) {
-        photo.persons = [];
-      }
+      /* normalise persons */
+      p.persons = Array.isArray(p.persons) ? p.persons : [];
 
-      // Collect person slugs
-      photo.personsData = photo.persons.map((name) => {
-        const slug = slugifyName(name);
-        if (!uniquePersons.has(slug)) {
-          uniquePersons.set(slug, { id: slug, name });
-        }
+      p.personsData = p.persons.map((name) => {
+        const slug = slugify(name);
+        if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
 
-      // Set the album relationship
-      photo.album = albumUUID;
+      p.album = albumUUID;
     });
 
-    const scoreAttributes = Object.keys(photosData[0].score);
-
-    // Sort photos
-    photosData.sort((a, b) => {
-      const aValue = getNestedProperty(a, sortAttribute);
-      const bValue = getNestedProperty(b, sortAttribute);
-
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    /* (3) sort */
+    photos.sort((a, b) => {
+      const va = getNestedProperty(a, sortAttr);
+      const vb = getNestedProperty(b, sortAttr);
+      if (va === undefined || va === null) return 1;
+      if (vb === undefined || vb === null) return -1;
+      return sortOrder === "asc" ? va - vb : vb - va;
     });
 
-    // Serialize photos
-    const jsonApiPhotoData = PhotoSerializer.serialize(photosData);
+    /* (4) serialise */
+    const jsonPhotos = PhotoSerializer.serialize(photos);
+    const jsonPersons = PersonSerializer.serialize([...personsMap.values()]);
 
-    // Serialize persons
-    const personsArray = Array.from(uniquePersons.values());
-    const jsonApiPersonData = PersonSerializer.serialize(personsArray);
+    // attach person relationships
+    jsonPhotos.data.forEach((d) => {
+      const src = photos.find((p) => p.uuid === d.id);
+      d.relationships = d.relationships || {};
+      d.relationships.persons = { data: src.personsData };
+    });
 
-    // Merge included resources
-    const merged = {
-      data: jsonApiPhotoData.data,
-      included: jsonApiPersonData.data,
+    res.json({
+      data: jsonPhotos.data,
+      included: jsonPersons.data,
       meta: {
         albumUUID,
-        sortAttribute,
+        sortAttribute: sortAttr,
         sortOrder,
-        scoreAttributes,
+        scoreAttributes:
+          photos.length && photos[0].score ? Object.keys(photos[0].score) : [],
       },
-    };
-
-    // Assign relationships.persons to each photo in `merged.data`
-    // This ensures each photo has a proper JSON:API relationship
-    merged.data.forEach((photo) => {
-      const originalPhoto = photosData.find((p) => p.uuid === photo.id);
-      if (
-        originalPhoto &&
-        originalPhoto.personsData &&
-        originalPhoto.personsData.length > 0
-      ) {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = {
-          data: originalPhoto.personsData,
-        };
-      } else {
-        photo.relationships = photo.relationships || {};
-        photo.relationships.persons = { data: [] };
-      }
     });
-
-    res.json(merged);
-  } catch (error) {
-    console.error("Error fetching photos for album:", error);
+  } catch (err) {
+    console.error("photos-controller:", err);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
 
-function deduplicatePhotos(photos) {
-  const map = new Map();
-  for (const photo of photos) {
-    const key = `${photo.original_filename}-${photo.date}`;
-    if (!map.has(key)) {
-      map.set(key, { ...photo });
-    } else {
-      // Merge persons if there's a duplicate
-      const existing = map.get(key);
-      if (Array.isArray(photo.persons)) {
-        const existingPersons = new Set(existing.persons || []);
-        photo.persons.forEach((p) => existingPersons.add(p));
-        existing.persons = Array.from(existingPersons);
-      }
-      map.set(key, existing);
-    }
-  }
-  return Array.from(map.values());
-}
-
-function slugifyName(name) {
-  return name
+/* ---------- util ---------- */
+function slugify(str) {
+  return str
     .toLowerCase()
     .replace(/[\s+]/g, "-")
     .replace(/[^a-z0-9-]/g, "");

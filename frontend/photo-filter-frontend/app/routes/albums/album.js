@@ -1,4 +1,5 @@
 // frontend/photo-filter-frontend/app/routes/albums/album.js
+
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
 
@@ -6,20 +7,34 @@ export default class AlbumsAlbumRoute extends Route {
   @service store;
   @service currentAlbum;
 
+  // We add `dates` to the recognized queryParams
   queryParams = {
     sort: {},
     order: {},
     persons: {
-      // Custom serialize/deserialize so persons is always an array
       serialize(value) {
         return JSON.stringify(value);
       },
       deserialize(value) {
         if (typeof value === 'string') {
           try {
-            const arr = JSON.parse(value);
-            return arr;
-          } catch (e) {
+            return JSON.parse(value);
+          } catch {
+            return [];
+          }
+        }
+        return value || [];
+      },
+    },
+    dates: {
+      serialize(value) {
+        return JSON.stringify(value);
+      },
+      deserialize(value) {
+        if (typeof value === 'string') {
+          try {
+            return JSON.parse(value);
+          } catch {
             return [];
           }
         }
@@ -34,42 +49,33 @@ export default class AlbumsAlbumRoute extends Route {
       sort = 'score.overall',
       order = 'desc',
       persons = [],
+      dates = [],
     } = params;
 
-    // Fetch the album record and persons in one go (async: false means all included data is ready)
     const album = await this.store.findRecord('album', album_id, {
-      include: 'persons', // This ensures persons are included in the album payload
+      include: 'persons',
       reload: true,
     });
 
     const loadedPersons = album.persons;
-    const allPersons = loadedPersons.map((person) => person.name);
+    const allPersons = loadedPersons.map((p) => p.name);
 
-    // Fetch all photos once, including included persons
-    const allPhotos = await this.store.query('photo', {
-      album_id,
-    });
+    const allPhotos = await this.store.query('photo', { album_id });
 
-    // Since async: false is set on photo.persons and album.persons, we have all data now.
-    // No need to reload anything. The included payload gave us all persons upfront.
-
-    // Determine score attributes
     let scoreAttributes = [];
-    if (allPhotos.meta && allPhotos.meta.scoreAttributes) {
+    if (allPhotos.meta?.scoreAttributes) {
       scoreAttributes = allPhotos.meta.scoreAttributes;
     } else if (allPhotos.length > 0 && allPhotos.firstObject.score) {
       scoreAttributes = Object.keys(allPhotos.firstObject.score);
     }
 
-    // Sort persons by how many times they appear in the photos
+    // Sort persons by frequency
     const personCountMap = {};
     allPhotos.forEach((photo) => {
-      // photo.persons is already resolved since async: false
       photo.persons.forEach((p) => {
         personCountMap[p.name] = (personCountMap[p.name] || 0) + 1;
       });
     });
-
     const sortedAllPersons = allPersons.sort((a, b) => {
       const countA = personCountMap[a] || 0;
       const countB = personCountMap[b] || 0;
@@ -77,16 +83,13 @@ export default class AlbumsAlbumRoute extends Route {
       return a.localeCompare(b);
     });
 
-    // Update currentAlbum service
     this.currentAlbum.isAlbumRoute = true;
     this.currentAlbum.albumTitle = album.title;
     this.currentAlbum.scoreAttributes = scoreAttributes;
     this.currentAlbum.sortAttribute = sort;
     this.currentAlbum.sortOrder = order;
 
-    // Data is fully ready, no reload needed
     const isDataReady = true;
-
     return {
       album,
       photos: allPhotos,
@@ -96,6 +99,7 @@ export default class AlbumsAlbumRoute extends Route {
       scoreAttributes,
       persons: sortedAllPersons,
       selectedPersons: persons,
+      selectedDates: dates,
       isDataReady,
     };
   }
@@ -103,7 +107,6 @@ export default class AlbumsAlbumRoute extends Route {
   resetController(controller, isExiting) {
     super.resetController(...arguments);
     if (isExiting) {
-      // Reset currentAlbum service when leaving the album route
       this.currentAlbum.isAlbumRoute = false;
       this.currentAlbum.albumTitle = null;
       this.currentAlbum.scoreAttributes = [];
