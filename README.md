@@ -138,6 +138,18 @@ npm run start
 
 Visit http://localhost:4200.
 
+### Build Standalone macOS App
+
+After installing dependencies, you can package the entire application as a macOS
+app using Electron. This bundles the Express backend and the built Ember front
+end so the program runs without the command line.
+
+```bash
+npm run package:mac
+```
+
+The generated `.app` bundle can be found in `dist/mac`.
+
 Contributing
 • Use clear and descriptive commit messages.
 • Track issues in ISSUES.md.
