@@ -2,10 +2,11 @@
   "name": "photo-filter-monorepo",
   "version": "1.0.0",
   "description": "A monorepo containing both the Photo Filter backend (Express.js) and frontend (Ember.js).",
+  "author": "Jamie Burkart",
   "private": true,
   "main": "electron-main.js",
   "scripts": {
-    "build": "npm run build:backend && npm run build:frontend",
+    "build": "npm run build:frontend",
     "build:backend": "npm --prefix backend run build || echo 'No build script for backend'",
     "build:frontend": "npm --prefix frontend/photo-filter-frontend run build",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
