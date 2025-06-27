@@ -47,9 +47,10 @@ export async function runOsxphotosExportImages(
     "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
 
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
---uuid-from-file "${uuidsFile}" \
---filename "${filenameTemplate}" \
---convert-to-jpeg --jpeg-ext jpg`;
+  --uuid-from-file "${uuidsFile}" \
+  --download-missing \
+  --filename "${filenameTemplate}" \
+  --convert-to-jpeg --jpeg-ext jpg`;
 
   await execCommand(cmd, "osxphotos image export failed:");
 }
