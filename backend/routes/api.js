@@ -19,6 +19,7 @@ import { runOsxphotosExportImages } from "../utils/export-images.js";
 
 // === Import our new time controller
 import { getTimeIndex } from "../controllers/api/time-controller.js";
+import { getPeopleByFilename } from "../controllers/api/filename-controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,6 +38,7 @@ apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 // People
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
+apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
 
 // ======================
 //   TIME-INDEX ENDPOINT
