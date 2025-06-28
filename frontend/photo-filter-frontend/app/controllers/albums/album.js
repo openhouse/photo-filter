@@ -4,6 +4,7 @@ import Controller from '@ember/controller';
 import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
 import { inject as service } from '@ember/service';
+import config from 'photo-filter-frontend/config/environment';
 
 export default class AlbumsAlbumController extends Controller {
   @service router;
@@ -13,6 +14,9 @@ export default class AlbumsAlbumController extends Controller {
   @tracked order = 'desc';
   @tracked persons = [];
   @tracked dates = [];
+
+  // Export Top-N
+  @tracked exportN = 5;
 
   // Pagination
   @tracked page = 1;
@@ -135,6 +139,32 @@ export default class AlbumsAlbumController extends Controller {
     this.order = event.target.value;
     this.page = 1;
     this.updateQueryParams();
+  }
+
+  @action
+  updateExportN(event) {
+    const value = parseInt(event.target.value, 10);
+    if (!isNaN(value) && value > 0) {
+      this.exportN = value;
+    }
+  }
+
+  @action
+  async exportTopN() {
+    const albumId = this.router.currentRoute.params.album_id;
+    const apiHost = config.APP.apiHost;
+    const body = {
+      n: this.exportN,
+      persons: this.persons,
+    };
+
+    await fetch(`${apiHost}/api/albums/${albumId}/export-top-n`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
   }
 
   updateQueryParams() {
