@@ -29,11 +29,15 @@ describe("getPhotosByAlbumData", () => {
         uuid: "photo-1",
         original_filename: "photo1.jpg",
         score: { overall: 0.9 },
+        date: "2025-05-30T23:35:13.160Z",
+        persons: ["Alice"],
       },
       {
         uuid: "photo-2",
         original_filename: "photo2.jpg",
         score: { overall: 0.8 },
+        date: "2025-05-30T23:36:13.160Z",
+        persons: ["Bob"],
       },
     ];
 

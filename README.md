@@ -11,6 +11,7 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 - **DEVELOPMENT_PLAN.md**: Roadmap and implementation details.
 - **ISSUES.md**: Issues, debugging steps, and resolutions.
 - **project-guidelines.md**: Collaboration and coding standards.
+- **docs/API_ENDPOINTS.md**: Reference for all available API routes.
 
 ## Features
 
@@ -35,6 +36,11 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 
 - JSON:API compliance for seamless Ember Data integration.
 - Plans to implement lazy loading and indexing for improved performance.
+
+## API Documentation
+
+See [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md) for a list of all REST
+endpoints, including the filename lookup API introduced in this release.
 
 ## UI/UX
 
