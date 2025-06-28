@@ -9,6 +9,10 @@ import fs from "fs-extra";
 import cors from "cors"; // Import cors
 
 const app = express();
+
+// Basic body parsing for JSON and URL-encoded form data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
