@@ -1,5 +1,6 @@
 import { jest } from "@jest/globals";
 import { utcTimestampForFile } from "../../utils/precise-timestamp.js";
+import { formatPreciseTimestamp } from "../../utils/precise-timestamp.js";
 import { exiftool } from "exiftool-vendored";
 
 // Stub exiftool.read so we don’t hit the binary during CI
@@ -29,5 +30,12 @@ describe("utcTimestampForFile", () => {
     const ts = await utcTimestampForFile("/dummy.jpg");
     expect(ts.startsWith("20250102T070405")).toBe(true); // 03:04 EDT + 4 h
     expect(ts.endsWith("000001Z")).toBe(true);
+  });
+});
+
+describe("formatPreciseTimestamp", () => {
+  it("applies tz offset when string lacks zone", () => {
+    const ts = formatPreciseTimestamp("2025-01-02 03:04:05", -3600);
+    expect(ts).toBe("20250102T040405000000Z");
   });
 });

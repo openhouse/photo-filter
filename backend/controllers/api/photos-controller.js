@@ -92,7 +92,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     photos.forEach((p) => {
       /* derive names & filenames */
       p.originalName = path.parse(p.original_filename).name;
-      const tsSegment = formatPreciseTimestamp(p.date);
+      const tsSegment = formatPreciseTimestamp(p.date, p.tzoffset);
       p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
 
       /* normalise persons */

@@ -41,8 +41,8 @@ The exporter now calls **osxphotos** with:
 precision (`%f`) prevents collisions even on burst shots.
 
 The frontend/server rebuilds the same prefix via
-`formatPreciseTimestamp(photo.date)` so internal URLs line up with the physical
-file names.
+`formatPreciseTimestamp(photo.date, photo.tzoffset)` so internal URLs line up
+with the physical file names.
 
 **Upgrading**
 

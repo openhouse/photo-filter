@@ -34,7 +34,7 @@ import { DateTime } from "luxon";
  * @param {string|Date} dateLike
  * @returns {string} e.g. "20250531T174503123000Z"
  */
-export function formatPreciseTimestamp(dateLike) {
+export function formatPreciseTimestamp(dateLike, tzOffsetSeconds = null) {
   let dt;
 
   // 1. Already a Date object ------------------------------------------------
@@ -77,6 +77,16 @@ export function formatPreciseTimestamp(dateLike) {
     throw new Error(
       `formatPreciseTimestamp(): invalid input (“${dateLike}” – ${dt.invalidReason})`
     );
+  }
+
+  // If tzOffsetSeconds is provided and the original string lacked a timezone
+  // specifier, adjust the datetime accordingly.
+  if (
+    typeof tzOffsetSeconds === "number" &&
+    typeof dateLike === "string" &&
+    !/[zZ]|[+-]\d{2}:?\d{2}$/.test(dateLike.trim())
+  ) {
+    dt = dt.minus({ seconds: tzOffsetSeconds });
   }
 
   // Luxon gives millisecond precision; multiply to micro‑seconds.

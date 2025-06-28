@@ -27,7 +27,7 @@ export async function getPeopleByFilename(req, res) {
       const photos = await fs.readJson(photosPath);
       for (const photo of photos) {
         const originalName = path.parse(photo.original_filename).name;
-        const ts = formatPreciseTimestamp(photo.date);
+        const ts = formatPreciseTimestamp(photo.date, photo.tzoffset);
         const exported = `${ts}-${originalName}.jpg`;
 
         if (exported === filename) {

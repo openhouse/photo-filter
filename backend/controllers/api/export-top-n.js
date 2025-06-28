@@ -59,7 +59,7 @@ export async function exportTopN(req, res) {
     const photos = await fs.readJson(photosJSON);
     photos.forEach((p) => {
       p.originalName = path.parse(p.original_filename).name;
-      const ts = formatPreciseTimestamp(p.date);
+      const ts = formatPreciseTimestamp(p.date, p.tzoffset);
       p.exportedFilename = `${ts}-${p.originalName}.jpg`;
     });
 
