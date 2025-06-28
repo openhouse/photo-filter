@@ -15,6 +15,19 @@
   {{/each}}
 </div>
 
+<div class="flex justify-center mb-4 gap-2">
+  <input
+    type="number"
+    min="1"
+    class="input input-xs w-16"
+    value={{this.exportN}}
+    {{on "input" this.updateExportN}}
+  />
+  <button type="button" class="btn btn-xs" {{on "click" this.exportTopN}}>
+    Export Top N
+  </button>
+</div>
+
 <!-- Remove the did-update modifier -->
 <div>
   <PhotoGrid
