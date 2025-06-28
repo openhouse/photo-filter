@@ -101,11 +101,21 @@ export async function exportTopN(req, res) {
       }
     }
 
-    // Save all unique photos
-    const allDir = path.join(personDir, '_all');
-    await fs.ensureDir(allDir);
+    // Save all unique photos for this person
+    const personAllDir = path.join(personDir, '_all');
+    await fs.ensureDir(personAllDir);
     for (const [filename, src] of uniqueMap.entries()) {
-      const dest = path.join(allDir, filename);
+      const dest = path.join(personAllDir, filename);
+      if (!(await fs.pathExists(dest))) {
+        await fs.copy(src, dest);
+      }
+    }
+
+    // Maintain album-wide _all directory with uniques from every person
+    const albumAllDir = path.join(exportBase, '_all');
+    await fs.ensureDir(albumAllDir);
+    for (const [filename, src] of uniqueMap.entries()) {
+      const dest = path.join(albumAllDir, filename);
       if (!(await fs.pathExists(dest))) {
         await fs.copy(src, dest);
       }
