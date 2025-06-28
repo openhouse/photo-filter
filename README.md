@@ -24,6 +24,7 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
   - **Photo Selection**: Select multiple photos; selections persist across sorting changes.
   - **Export Functionality**: Export selected photos to a directory.
   - **Top‑N Exports by Score**: Automatically copy the top N photos for several aesthetic metrics and the currently selected people via `POST /api/albums/:albumUUID/export-top-n`.
+    Each person folder also contains an `_all` directory with all unique photos merged from the individual score folders.
 
 ## Data Synchronization and Freshness
 

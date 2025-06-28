@@ -75,6 +75,8 @@ export async function exportTopN(req, res) {
     const personDir = path.join(exportBase, personKey);
     await fs.ensureDir(personDir);
 
+    const uniqueMap = new Map();
+
     for (const attr of AESTHETIC_ATTRIBUTES) {
       const scoreKey = `score.${attr}`;
       const sorted = [...filtered].sort((a, b) => {
@@ -92,7 +94,20 @@ export async function exportTopN(req, res) {
         const dest = path.join(attrDir, photo.exportedFilename);
         if (await fs.pathExists(src)) {
           await fs.copy(src, dest);
+          if (!uniqueMap.has(photo.exportedFilename)) {
+            uniqueMap.set(photo.exportedFilename, src);
+          }
         }
+      }
+    }
+
+    // Save all unique photos
+    const allDir = path.join(personDir, '_all');
+    await fs.ensureDir(allDir);
+    for (const [filename, src] of uniqueMap.entries()) {
+      const dest = path.join(allDir, filename);
+      if (!(await fs.pathExists(dest))) {
+        await fs.copy(src, dest);
       }
     }
 
