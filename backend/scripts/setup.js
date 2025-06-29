@@ -29,7 +29,7 @@ const PYTHON_EXE = "python3.11";
 /** default pip‑install spec for Jamie’s experimental branch */
 const DEFAULT_FORK_SPEC =
   "git+https://github.com/openhouse/osxphotos.git" +
-  "@codex/implement-utc-and-local-postfix-for-template-datetime" +
+  "@feature/utc-and-local-postfix-for-template-datetime" +
   "#egg=osxphotos";
 
 /** caller can override with  OSXPHOTOS_SPEC=… */
