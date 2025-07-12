@@ -7,6 +7,8 @@ import exphbs from "express-handlebars";
 import routes from "./routes/index.js";
 import fs from "fs-extra";
 import cors from "cors"; // Import cors
+import { runOsxphotosExportImages } from "./utils/export-images.js";
+import { formatPreciseTimestamp } from "./utils/helpers.js";
 
 const app = express();
 
@@ -63,12 +65,33 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/images/:albumUUID/:imageName", async (req, res) => {
   const { albumUUID, imageName } = req.params;
   const imagesDir = path.join(__dirname, "data", "albums", albumUUID, "images");
+  const photosPath = path.join(
+    __dirname,
+    "data",
+    "albums",
+    albumUUID,
+    "photos.json"
+  );
+  const osxphotos = path.join(__dirname, "venv", "bin", "osxphotos");
 
   try {
     const imagePath = path.join(imagesDir, imageName);
     if (await fs.pathExists(imagePath)) {
       res.sendFile(imagePath);
     } else {
+      if (await fs.pathExists(photosPath)) {
+        const photos = await fs.readJson(photosPath);
+        const match = photos.find((p) => {
+          const name = `${formatPreciseTimestamp(p.date)}-${path.parse(p.original_filename).name}.jpg`;
+          return name === imageName;
+        });
+        if (match) {
+          await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, [match.uuid]);
+          if (await fs.pathExists(imagePath)) {
+            return res.sendFile(imagePath);
+          }
+        }
+      }
       res.status(404).send("Image not found");
     }
   } catch (error) {

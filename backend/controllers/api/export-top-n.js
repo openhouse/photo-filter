@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { runPythonScript } from '../../utils/run-python-script.js';
 import { runOsxphotosExportImages } from '../../utils/export-images.js';
 import { formatPreciseTimestamp, getNestedProperty } from '../../utils/helpers.js';
+import { topUUIDsByAttributes } from '../../utils/top-uuids.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,7 +54,9 @@ export async function exportTopN(req, res) {
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
-      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON);
+      const allPhotos = await fs.readJson(photosJSON);
+      const initial = topUUIDsByAttributes(allPhotos, AESTHETIC_ATTRIBUTES, 50);
+      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, initial);
     }
 
     const photos = await fs.readJson(photosJSON);
@@ -92,6 +95,9 @@ export async function exportTopN(req, res) {
       for (const photo of topPhotos) {
         const src = path.join(imagesDir, photo.exportedFilename);
         const dest = path.join(attrDir, photo.exportedFilename);
+        if (!(await fs.pathExists(src))) {
+          await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, [photo.uuid]);
+        }
         if (await fs.pathExists(src)) {
           await fs.copy(src, dest);
           if (!uniqueMap.has(photo.exportedFilename)) {
