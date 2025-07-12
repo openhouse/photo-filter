@@ -12,6 +12,8 @@ import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../../utils/export-images.js";
+import { topUUIDsByAttributes } from "../../utils/top-uuids.js";
+import { AESTHETIC_ATTRIBUTES } from "./export-top-n.js";
 import {
   formatPreciseTimestamp,
   getNestedProperty,
@@ -76,24 +78,31 @@ export const getPhotosByAlbumData = async (req, res) => {
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
-      await runOsxphotosExportImages(
-        osxphotos,
-        albumUUID,
-        imagesDir,
-        photosJSON
+      const allPhotos = await fs.readJson(photosJSON);
+      const initial = topUUIDsByAttributes(
+        allPhotos,
+        AESTHETIC_ATTRIBUTES,
+        50
       );
+      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, initial);
     }
 
     /* (2) Load data & enrich */
     let photos = await fs.readJson(photosJSON);
 
     const personsMap = new Map(); // slug -> {id,name}
+    const missing = [];
 
     photos.forEach((p) => {
       /* derive names & filenames */
       p.originalName = path.parse(p.original_filename).name;
       const tsSegment = formatPreciseTimestamp(p.date);
       p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
+
+      const filePath = path.join(imagesDir, p.exportedFilename);
+      if (!fs.existsSync(filePath)) {
+        missing.push(p.uuid);
+      }
 
       /* normalise persons */
       p.persons = Array.isArray(p.persons) ? p.persons : [];
@@ -106,6 +115,10 @@ export const getPhotosByAlbumData = async (req, res) => {
 
       p.album = albumUUID;
     });
+
+    if (missing.length > 0) {
+      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, missing);
+    }
 
     /* (3) sort */
     photos.sort((a, b) => {

@@ -23,22 +23,30 @@ import { execCommand } from "./exec-command.js";
  * @param {string} osxphotosPath absolute path to the `osxphotos` binary
  * @param {string} albumUUID     Photos album UUID
  * @param {string} imagesDir     destination directory
- * @param {string} photosPath    path to the album’s photos.json
+ * @param {string|string[]} photosOrUuids  path to photos.json or an array of UUIDs
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
   albumUUID,
   imagesDir,
-  photosPath
+  photosOrUuids
 ) {
   // ------------------------------------------------------------------
-  // 1 · Write the list of UUIDs that belong to this album
+  // 1 · Determine which UUIDs to export
   // ------------------------------------------------------------------
-  const photos = await fs.readJson(photosPath);
+  let uuids = [];
+  if (Array.isArray(photosOrUuids)) {
+    uuids = photosOrUuids;
+  } else if (typeof photosOrUuids === "string") {
+    const photos = await fs.readJson(photosOrUuids);
+    uuids = photos.map((p) => p.uuid);
+  }
+  if (uuids.length === 0) return;
+
   const uuidsFile = path.join(imagesDir, "uuids.txt");
 
   await fs.ensureDir(imagesDir);
-  await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
+  await fs.writeFile(uuidsFile, uuids.join("\n"), "utf8");
 
   // ------------------------------------------------------------------
   // 2 · Export the actual images
