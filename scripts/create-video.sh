@@ -6,7 +6,11 @@
 # invoke this script to generate a single .mov video file from all .jpg images.
 #
 # Usage:
-#   sh create-video.sh [directory-of-jpg-images]
+#   sh create-video.sh [-b COLOR] [directory-of-jpg-images]
+#
+# Options:
+#   -b COLOR  Background color for padding. Use "transparent" to keep
+#              alpha transparency. Defaults to "transparent".
 #
 # If no directory is provided, the script will default to the current directory.
 #
@@ -24,6 +28,27 @@
 #   7. Output a ProRes .mov (yuv422p) at 16 fps, ready for editing
 
 set -e  # Exit immediately if a command exits with a non-zero status
+
+# Default background color is transparent
+BG_COLOR="transparent"
+
+# Parse options
+while getopts ":b:h" opt; do
+  case "$opt" in
+    b)
+      BG_COLOR="$OPTARG"
+      ;;
+    h)
+      echo "Usage: sh create-video.sh [-b COLOR] [directory]" >&2
+      exit 0
+      ;;
+    *)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+  esac
+done
+shift $((OPTIND - 1))
 
 # 1. Handle optional directory argument or default to current directory
 IMAGES_DIR="${1:-$(pwd)}"
@@ -46,7 +71,7 @@ mogrify -monitor -auto-orient *.jpg || {
 
 # 3. Generate a file list of .jpg images
 echo "2) Generating file_list.txt for ffmpeg..."
-ls -1 *.jpg > file_list.txt
+ls -1 ./*.jpg > file_list.txt
 
 # 4. Convert file_list.txt into ffmpeg's concat format
 echo "   Converting list to ffmpeg concat format -> formatted_list.txt"
@@ -74,13 +99,21 @@ echo "   Found dimensions: $WIDTH x $HEIGHT"
 #    -framerate is set to 16, but you can change it to your preference
 OUTPUT_FILE="output_preserved_aspect.mov"
 echo "4) Creating ProRes video ($OUTPUT_FILE) with preserved aspect ratio..."
+
+# If transparent background requested, use ProRes 4444 and alpha channel
+PAD_COLOR="$BG_COLOR"
+CODEC_ARGS=(-c:v prores -pix_fmt yuv422p)
+if [ "$BG_COLOR" = "transparent" ]; then
+  PAD_COLOR="0x00000000"
+  CODEC_ARGS=(-c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le)
+fi
+
 ffmpeg \
   -f concat -safe 0 \
   -i formatted_list.txt \
-  -vf "scale='min(iw*${HEIGHT}/ih,${WIDTH})':${HEIGHT},setsar=1,pad=${WIDTH}:${HEIGHT}:(${WIDTH}-iw)/2:(${HEIGHT}-ih)/2" \
+  -vf "scale='min(iw*${HEIGHT}/ih,${WIDTH})':${HEIGHT},setsar=1,pad=${WIDTH}:${HEIGHT}:(${WIDTH}-iw)/2:(${HEIGHT}-ih)/2:color=${PAD_COLOR}" \
   -framerate 16 \
-  -c:v prores \
-  -pix_fmt yuv422p \
+  "${CODEC_ARGS[@]}" \
   "$OUTPUT_FILE"
 
 echo "Done! Created video: $OUTPUT_FILE"
