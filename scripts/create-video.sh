@@ -60,7 +60,7 @@ jpgs=(*.jpg *.jpeg *.JPG *.JPEG)
 if (( ${#jpgs[@]} == 0 )); then
   echo "No JPEGs found – aborting."; exit 1
 fi
-mogrify -auto-orient "${jpgs[@]}"
+mogrify -monitor -auto-orient "${jpgs[@]}"
 
 # 3. Generate a file list of .jpg images
 echo "\u25B6 Building concat list…"
