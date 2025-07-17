@@ -115,8 +115,10 @@ ffmpeg -f concat -safe 0 -i formatted_list.txt \
 - **Change the Output Codec:**  
   Prefer a different codec (e.g., H.264 for smaller file sizes)? Replace \`-c:v prores -pix_fmt yuv422p\` with \`-c:v libx264 -crf 18\`.
 
-- **Further Refinements:**  
+- **Further Refinements:**
   If you have specific creative requirements (e.g., adding transitions, stabilizing footage, or applying filters), you can incorporate those steps into your ffmpeg pipeline or perform them later in your video editing software.
+
+- **Automate with `create-video.sh`:** Run `sh scripts/create-video.sh [-b COLOR] [dir]` to generate a padded ProRes video. The `-b` option lets you choose a background color. Use `transparent` (the default) for alpha padding.
 
 ## Installation and Setup
 
