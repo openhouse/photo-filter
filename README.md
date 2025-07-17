@@ -118,7 +118,7 @@ ffmpeg -f concat -safe 0 -i formatted_list.txt \
 - **Further Refinements:**
   If you have specific creative requirements (e.g., adding transitions, stabilizing footage, or applying filters), you can incorporate those steps into your ffmpeg pipeline or perform them later in your video editing software.
 
-- **Automate with `create-video.sh`:** Run `sh scripts/create-video.sh [-b COLOR] [-r FPS] [dir]` to generate a padded ProRes video. The `-b` option lets you choose a background color (use `transparent` for alpha padding). `-r` sets the input/output frame rate (defaults to 16 fps), preventing dropped frames.
+- **Automate with `create-video.sh`:** Run `sh scripts/create-video.sh [-b COLOR] [-r FPS] [-s] [dir]` to generate a padded ProRes video. The `-b` option lets you choose a background color (use `transparent` for alpha padding). `-r` sets the input/output frame rate (defaults to 16 fps). Use `-s` to skip the mogrify orientation step when reusing pre-oriented files.
 
 ## Installation and Setup
 
