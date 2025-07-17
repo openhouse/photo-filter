@@ -95,9 +95,10 @@ pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=${PAD_COLOR}"
 fi
 
 ffmpeg -hide_banner -y \
-  -f concat -safe 0 -i formatted_list.txt \
+  # Use the same frame rate for input and output to avoid dropped frames
+  -framerate "$FPS" -f concat -safe 0 -i formatted_list.txt \
   -vf "$FILTER" \
-  -r "$FPS" \
+  -r "$FPS" -vsync vfr \
   "${CODEC[@]}" \
   "$OUTPUT"
 
