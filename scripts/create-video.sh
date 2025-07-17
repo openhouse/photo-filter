@@ -67,8 +67,13 @@ echo "\u25B6 Building concat list…"
 printf "file '%s'\n" "${jpgs[@]}" > formatted_list.txt
 
 # 5. Determine the dimensions of the first .jpg via ffprobe
-read WIDTH HEIGHT < <(ffprobe -v error -select_streams v:0 \
+# ffprobe outputs width and height separated by a comma. Temporarily set IFS
+# to comma so both values are parsed correctly, then restore the original IFS
+# (newline/tab) used for handling filenames.
+OLD_IFS=$IFS
+IFS=',' read WIDTH HEIGHT < <(ffprobe -v error -select_streams v:0 \
   -show_entries stream=width,height -of csv=p=0 "${jpgs[0]}")
+IFS=$OLD_IFS
 
 echo "   Reference size: ${WIDTH}×${HEIGHT}"
 
