@@ -3,12 +3,13 @@
 # create-video.sh  ── build a ProRes (or other) movie from a folder of JPEGs
 #
 # Usage:
-#   ./create-video.sh [-b COLOR] [-r FPS] [directory]
+#   ./create-video.sh [-b COLOR] [-r FPS] [-s] [directory]
 #
 # Options:
 #   -b COLOR   Padding colour; use "transparent" for alpha padding (default).
 #              Any ImageMagick/ffmpeg colour value works, e.g. "#112233", "white".
 #   -r FPS     Frames per second (default: 16).
+#   -s         Skip the mogrify orientation step.
 #
 # If no directory is provided, the script will default to the current directory.
 #
@@ -30,14 +31,16 @@ IFS=$'\n\t'
 
 BG_COLOR="transparent"
 FPS=16
+SKIP_MOGRIFY=0
 
 # Parse options
-while getopts ":b:r:h" opt; do
+while getopts ":b:r:hs" opt; do
   case "$opt" in
     b) BG_COLOR="$OPTARG" ;;
     r) FPS="$OPTARG"      ;;
+    s) SKIP_MOGRIFY=1      ;;
     h)
-      echo "Usage: $0 [-b COLOR] [-r FPS] [directory]"
+      echo "Usage: $0 [-b COLOR] [-r FPS] [-s] [directory]"
       exit 0
       ;;
     *)
@@ -54,13 +57,17 @@ cd "$IMAGES_DIR" || { echo "Directory not found: $IMAGES_DIR"; exit 1; }
 echo "\u25B6 Working in: $IMAGES_DIR"
 
 # 2. Ensure all images have the correct orientation
-echo "\u25B6 Auto-orienting JPEGs\u2026"
 shopt -s nullglob
 jpgs=(*.jpg *.jpeg *.JPG *.JPEG)
 if (( ${#jpgs[@]} == 0 )); then
   echo "No JPEGs found – aborting."; exit 1
 fi
-mogrify -monitor -auto-orient "${jpgs[@]}"
+if [[ $SKIP_MOGRIFY -eq 0 ]]; then
+  echo "\u25B6 Auto-orienting JPEGs\u2026"
+  mogrify -monitor -auto-orient "${jpgs[@]}"
+else
+  echo "\u25B6 Skipping mogrify orientation step"
+fi
 
 # 3. Generate a file list of .jpg images
 echo "\u25B6 Building concat list…"
@@ -94,8 +101,8 @@ else
 pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=${PAD_COLOR}"
 fi
 
+# Use the same frame rate for input and output to avoid dropped frames
 ffmpeg -hide_banner -y \
-  # Use the same frame rate for input and output to avoid dropped frames
   -framerate "$FPS" -f concat -safe 0 -i formatted_list.txt \
   -vf "$FILTER" \
   -r "$FPS" -vsync vfr \
