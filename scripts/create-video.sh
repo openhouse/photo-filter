@@ -39,7 +39,7 @@ echo "Working in directory: $IMAGES_DIR"
 
 # 2. Ensure all images have the correct orientation
 echo "1) Ensuring all .jpg images have correct orientation..."
-mogrify -auto-orient *.jpg || {
+mogrify -monitor -auto-orient *.jpg || {
   echo "No .jpg files found or mogrify command failed."
   exit 1
 }
