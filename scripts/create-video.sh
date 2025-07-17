@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 #
-# create-video.sh
-#
-# After running "sh cleanup-duplicates.sh" on a directory of images,
-# invoke this script to generate a single .mov video file from all .jpg images.
+# create-video.sh  ── build a ProRes (or other) movie from a folder of JPEGs
 #
 # Usage:
-#   sh create-video.sh [-b COLOR] [directory-of-jpg-images]
+#   ./create-video.sh [-b COLOR] [-r FPS] [directory]
 #
 # Options:
-#   -b COLOR  Background color for padding. Use "transparent" to keep
-#              alpha transparency. Defaults to "transparent".
+#   -b COLOR   Padding colour; use "transparent" for alpha padding (default).
+#              Any ImageMagick/ffmpeg colour value works, e.g. "#112233", "white".
+#   -r FPS     Frames per second (default: 16).
 #
 # If no directory is provided, the script will default to the current directory.
 #
@@ -27,19 +25,19 @@
 #   6. Run ffmpeg with scale & pad to preserve aspect ratio
 #   7. Output a ProRes .mov (yuv422p) at 16 fps, ready for editing
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set -euo pipefail
+IFS=$'\n\t'
 
-# Default background color is transparent
 BG_COLOR="transparent"
+FPS=16
 
 # Parse options
-while getopts ":b:h" opt; do
+while getopts ":b:r:h" opt; do
   case "$opt" in
-    b)
-      BG_COLOR="$OPTARG"
-      ;;
+    b) BG_COLOR="$OPTARG" ;;
+    r) FPS="$OPTARG"      ;;
     h)
-      echo "Usage: sh create-video.sh [-b COLOR] [directory]" >&2
+      echo "Usage: $0 [-b COLOR] [-r FPS] [directory]"
       exit 0
       ;;
     *)
@@ -52,69 +50,52 @@ shift $((OPTIND - 1))
 
 # 1. Handle optional directory argument or default to current directory
 IMAGES_DIR="${1:-$(pwd)}"
-
-# Sanity check: does the directory exist?
-if [ ! -d "$IMAGES_DIR" ]; then
-  echo "Error: '$IMAGES_DIR' is not a directory or does not exist."
-  exit 1
-fi
-
-cd "$IMAGES_DIR"
-echo "Working in directory: $IMAGES_DIR"
+cd "$IMAGES_DIR" || { echo "Directory not found: $IMAGES_DIR"; exit 1; }
+echo "\u25B6 Working in: $IMAGES_DIR"
 
 # 2. Ensure all images have the correct orientation
-echo "1) Ensuring all .jpg images have correct orientation..."
-mogrify -monitor -auto-orient *.jpg || {
-  echo "No .jpg files found or mogrify command failed."
-  exit 1
-}
+echo "\u25B6 Auto-orienting JPEGs\u2026"
+shopt -s nullglob
+jpgs=(*.jpg *.jpeg *.JPG *.JPEG)
+if (( ${#jpgs[@]} == 0 )); then
+  echo "No JPEGs found – aborting."; exit 1
+fi
+mogrify -auto-orient "${jpgs[@]}"
 
 # 3. Generate a file list of .jpg images
-echo "2) Generating file_list.txt for ffmpeg..."
-ls -1 ./*.jpg > file_list.txt
-
-# 4. Convert file_list.txt into ffmpeg's concat format
-echo "   Converting list to ffmpeg concat format -> formatted_list.txt"
-awk '{print "file \x27" $0 "\x27"}' file_list.txt > formatted_list.txt
+echo "\u25B6 Building concat list…"
+printf "file '%s'\n" "${jpgs[@]}" > formatted_list.txt
 
 # 5. Determine the dimensions of the first .jpg via ffprobe
-echo "3) Detecting reference dimensions using ffprobe on the first .jpg..."
-FIRST_IMAGE=$(head -n 1 file_list.txt)
-if [ -z "$FIRST_IMAGE" ]; then
-  echo "No .jpg files found in $IMAGES_DIR. Exiting."
-  exit 1
+read WIDTH HEIGHT < <(ffprobe -v error -select_streams v:0 \
+  -show_entries stream=width,height -of csv=p=0 "${jpgs[0]}")
+
+echo "   Reference size: ${WIDTH}×${HEIGHT}"
+
+OUTPUT="output_preserved_aspect.mov"
+echo "\u25B6 Encoding → $OUTPUT"
+
+if [[ "$BG_COLOR" == "transparent" ]]; then
+  PAD_COLOR="black@0"                               # fully transparent
+  CODEC=(-c:v prores_ks -profile:v 4 -pix_fmt yuva444p10le) # ProRes 4444
+  FILTER="format=rgba,\
+scale='if(gt(a,${WIDTH}/${HEIGHT}),${WIDTH},-2)':'if(gt(a,${WIDTH}/${HEIGHT}),-2,${HEIGHT})',\
+pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=${PAD_COLOR},\
+format=yuva444p10le"
+else
+  PAD_COLOR="$BG_COLOR"
+  CODEC=(-c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le)  # ProRes 422 HQ
+  FILTER="scale='if(gt(a,${WIDTH}/${HEIGHT}),${WIDTH},-2)':'if(gt(a,${WIDTH}/${HEIGHT}),-2,${HEIGHT})',\
+pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=${PAD_COLOR}"
 fi
 
-DIMENSIONS=$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 "$FIRST_IMAGE")
-if [ -z "$DIMENSIONS" ]; then
-  echo "Could not determine dimensions from '$FIRST_IMAGE' via ffprobe."
-  exit 1
-fi
+ffmpeg -hide_banner -y \
+  -f concat -safe 0 -i formatted_list.txt \
+  -vf "$FILTER" \
+  -r "$FPS" \
+  "${CODEC[@]}" \
+  "$OUTPUT"
 
-WIDTH=$(echo "$DIMENSIONS" | cut -d ',' -f1)
-HEIGHT=$(echo "$DIMENSIONS" | cut -d ',' -f2)
-echo "   Found dimensions: $WIDTH x $HEIGHT"
-
-# 6. Create a video using ffmpeg with scale & pad to preserve aspect ratio
-#    -framerate is set to 16, but you can change it to your preference
-OUTPUT_FILE="output_preserved_aspect.mov"
-echo "4) Creating ProRes video ($OUTPUT_FILE) with preserved aspect ratio..."
-
-# If transparent background requested, use ProRes 4444 and alpha channel
-PAD_COLOR="$BG_COLOR"
-CODEC_ARGS=(-c:v prores -pix_fmt yuv422p)
-if [ "$BG_COLOR" = "transparent" ]; then
-  PAD_COLOR="0x00000000"
-  CODEC_ARGS=(-c:v prores_ks -profile:v 4444 -pix_fmt yuva444p10le)
-fi
-
-ffmpeg \
-  -f concat -safe 0 \
-  -i formatted_list.txt \
-  -vf "scale='min(iw*${HEIGHT}/ih,${WIDTH})':${HEIGHT},setsar=1,pad=${WIDTH}:${HEIGHT}:(${WIDTH}-iw)/2:(${HEIGHT}-ih)/2:color=${PAD_COLOR}" \
-  -framerate 16 \
-  "${CODEC_ARGS[@]}" \
-  "$OUTPUT_FILE"
-
-echo "Done! Created video: $OUTPUT_FILE"
-echo "You can now import '$OUTPUT_FILE' into Final Cut Pro or your preferred editor."
+echo "\u2705 Done.  Created $OUTPUT"
+[[ "$BG_COLOR" == "transparent" ]] && \
+  echo "   → In Final Cut set Clip Inspector \u25B8 Alpha Handling \u25B8 Straight/Premultiplied."
