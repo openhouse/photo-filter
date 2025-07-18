@@ -103,9 +103,9 @@ fi
 
 # Use the same frame rate for input and output to avoid dropped frames
 ffmpeg -hide_banner -y \
-  -f concat -safe 0 -i formatted_list.txt \
+  -framerate "$FPS" -f concat -safe 0 -i formatted_list.txt \
   -vf "$FILTER" \
-  -r "$FPS" \
+  -r "$FPS" -fps_mode cfr \
   "${CODEC[@]}" \
   "$OUTPUT"
 
