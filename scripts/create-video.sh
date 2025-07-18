@@ -101,11 +101,12 @@ else
 pad=${WIDTH}:${HEIGHT}:(ow-iw)/2:(oh-ih)/2:color=${PAD_COLOR}"
 fi
 
-# Use the same frame rate for input and output to avoid dropped frames
+# Use a variable frame rate to keep every source image
 ffmpeg -hide_banner -y \
-  -framerate "$FPS" -f concat -safe 0 -i formatted_list.txt \
+  -f concat -safe 0 \
+  -i formatted_list.txt \
   -vf "$FILTER" \
-  -r "$FPS" -fps_mode cfr \
+  -framerate 16 \
   "${CODEC[@]}" \
   "$OUTPUT"
 
