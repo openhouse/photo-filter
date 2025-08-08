@@ -13,6 +13,8 @@ import {
 import {
   getPeopleInAlbum,
   getPhotosByPerson,
+  getAllPeople,
+  getPhotosByPersonLibrary,
 } from "../controllers/api/people-controller.js";
 import { runPythonScript } from "../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../utils/export-images.js";
@@ -39,6 +41,8 @@ apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
+apiRouter.get("/people", getAllPeople);
+apiRouter.get("/person/:personName", getPhotosByPersonLibrary);
 
 // ======================
 //   TIME-INDEX ENDPOINT
