@@ -17,6 +17,9 @@ import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
+export const EXPORTED_FILENAME_TEMPLATE =
+  "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
+
 /**
  * Export JPEGs for the given album.
  *
@@ -43,14 +46,26 @@ export async function runOsxphotosExportImages(
   // ------------------------------------------------------------------
   // 2 · Export the actual images
   // ------------------------------------------------------------------
-  const filenameTemplate =
-    "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
+  const cmd = `"${osxphotosPath}" export "${imagesDir}" \
+  --uuid-from-file "${uuidsFile}" \
+  --download-missing \
+  --filename "${EXPORTED_FILENAME_TEMPLATE}" \
+  --convert-to-jpeg --jpeg-ext jpg`;
+
+  await execCommand(cmd, "osxphotos image export failed:");
+}
+
+export async function exportByUuids(osxphotosPath, imagesDir, uuids) {
+  if (!uuids?.length) return;
+  await fs.ensureDir(imagesDir);
+  const uuidsFile = path.join(imagesDir, 'uuids.txt');
+  await fs.writeFile(uuidsFile, uuids.join('\n'), 'utf8');
 
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
   --uuid-from-file "${uuidsFile}" \
   --download-missing \
-  --filename "${filenameTemplate}" \
+  --filename "${EXPORTED_FILENAME_TEMPLATE}" \
   --convert-to-jpeg --jpeg-ext jpg`;
 
-  await execCommand(cmd, "osxphotos image export failed:");
+  await execCommand(cmd, 'osxphotos subset export failed:');
 }

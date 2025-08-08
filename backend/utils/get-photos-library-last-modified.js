@@ -1,16 +1,20 @@
-// ./utils/get-photos-library-last-modified.js
+import fs from 'fs-extra';
+import os from 'os';
+import path from 'path';
 
-import fs from "fs-extra";
-import path from "path";
-import os from "os";
-
+// Returns the last-modified time of a file in the Photos library that
+// reliably changes when the library is updated; falls back safely.
 export async function getPhotosLibraryLastModified() {
-  const photosLibraryPath = path.join(
-    os.homedir(),
-    "Pictures",
-    "Photos Library.photoslibrary"
-  );
-
-  const stats = await fs.stat(photosLibraryPath);
-  return stats.mtime;
+  const home = os.homedir();
+  const candidates = [
+    path.join(home, 'Pictures', 'Photos Library.photoslibrary', 'database', 'Photos.sqlite'),
+    path.join(home, 'Pictures', 'Photos Library.photoslibrary'),
+  ];
+  for (const p of candidates) {
+    if (await fs.pathExists(p)) {
+      const stat = await fs.stat(p);
+      return new Date(stat.mtimeMs);
+    }
+  }
+  return null;
 }

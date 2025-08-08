@@ -1,6 +1,7 @@
 'use strict';
 
 module.exports = function (environment) {
+  const backendHost = process.env.BACKEND_HOST || 'http://localhost:3000';
   const ENV = {
     modulePrefix: 'photo-filter-frontend',
     environment,
@@ -12,8 +13,9 @@ module.exports = function (environment) {
       FEATURES: {},
     },
 
+    backendHost,
     APP: {
-      apiHost: 'http://localhost:3000',
+      apiHost: backendHost,
     },
 
     // Add routerScroll configuration here

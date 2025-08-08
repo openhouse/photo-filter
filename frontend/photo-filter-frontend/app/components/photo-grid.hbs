@@ -2,11 +2,7 @@
   {{#each @photos as |photo index|}}
     <div class="card bg-base-100 shadow-lg">
       <figure>
-        <img
-          src="{{this.apiHost}}/images/{{photo.album.id}}/{{photo.exportedFilename}}"
-          alt="{{photo.exportedFilename}}"
-          class="max-w-full h-auto"
-        />
+        <PhotoImg @photo={{photo}} />
       </figure>
       <div class="card-body">
         <h2 class="card-title text-sm">

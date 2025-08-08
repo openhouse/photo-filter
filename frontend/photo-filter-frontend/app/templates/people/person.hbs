@@ -2,6 +2,7 @@
   <button
     type="button"
     class="btn btn-xs rounded-full normal-case {{if this.solo 'btn-primary text-white' 'btn-outline text-gray-600'}}"
+    data-test-solo-toggle
     {{on "click" this.toggleSolo}}
   >
     Solo
