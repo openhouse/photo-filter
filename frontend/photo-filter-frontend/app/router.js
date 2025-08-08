@@ -10,4 +10,7 @@ Router.map(function () {
   this.route('albums', function () {
     this.route('album', { path: '/:album_id' });
   });
+  this.route('people', function () {
+    this.route('person', { path: '/:person_name' });
+  });
 });

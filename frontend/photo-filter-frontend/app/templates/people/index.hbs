@@ -1,0 +1,14 @@
+<h1 class="text-2xl font-bold mb-4">People</h1>
+<ul class="menu p-0 w-full mb-4">
+  {{#each this.model as |person|}}
+    <li class="mb-1">
+      <LinkTo
+        @route="people.person"
+        @model={{person.name}}
+        class="rounded hover:bg-gray-200 px-2 py-1"
+      >
+        {{person.name}}
+      </LinkTo>
+    </li>
+  {{/each}}
+</ul>
