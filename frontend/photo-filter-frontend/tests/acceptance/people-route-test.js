@@ -21,4 +21,29 @@ module('Acceptance | people routes', function (hooks) {
       'URL contains solo query param after toggling'
     );
   });
+
+  test('person route builds correct image URLs and preserves QPs', async function (assert) {
+    await visit('/people/Jamie%20Burkart?sort=score.highlight_visibility&order=desc&solo=false');
+    assert.strictEqual(
+      currentURL(),
+      '/people/Jamie%20Burkart?sort=score.highlight_visibility&order=desc&solo=false'
+    );
+
+    const imgs = findAll('img');
+    assert.ok(imgs.length > 0, 'renders some images');
+    imgs.slice(0, 5).forEach((img) => {
+      assert.ok(
+        /\/images\/[A-F0-9-]+\/\d{8}T\d{6}\d{6}Z-/.test(img.src),
+        'img src includes album id & exported filename'
+      );
+    });
+
+    await click('[data-test-solo-toggle]');
+    assert.ok(currentURL().includes('solo=true'), 'URL includes solo=true after toggle');
+    assert.ok(
+      currentURL().includes('sort=score.highlight_visibility'),
+      'sort param preserved'
+    );
+    assert.ok(currentURL().includes('order=desc'), 'order param preserved');
+  });
 });

@@ -8,6 +8,7 @@ import {
   getNestedProperty,
   formatPreciseTimestamp,
 } from "../../utils/helpers.js";
+import { exportByUuids } from "../../utils/export-images.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -270,6 +271,25 @@ export const getPhotosByPersonLibrary = async (req, res) => {
 
       return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
     });
+
+    // Ensure images exist for all filtered photos
+    const missingByAlbum = new Map();
+    for (const p of filteredPhotos) {
+      const albumImages = path.join(albumsDir, p.album, "images");
+      const dst = path.join(albumImages, p.exportedFilename);
+      if (!(await fs.pathExists(dst))) {
+        const set = missingByAlbum.get(p.album) ?? new Set();
+        set.add(p.uuid);
+        missingByAlbum.set(p.album, set);
+      }
+    }
+
+    const venvDir = path.join(__dirname, "..", "..", "venv");
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
+    for (const [albumUUID, uuidSet] of missingByAlbum.entries()) {
+      const albumImages = path.join(albumsDir, albumUUID, "images");
+      await exportByUuids(osxphotos, albumImages, [...uuidSet]);
+    }
 
     const jsonApiData = PhotoSerializer.serialize(filteredPhotos);
 

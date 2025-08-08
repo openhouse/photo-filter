@@ -5,7 +5,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import exphbs from "express-handlebars";
 import routes from "./routes/index.js";
-import fs from "fs-extra";
 import cors from "cors"; // Import cors
 
 const app = express();
@@ -59,23 +58,16 @@ app.set("views", path.join(__dirname, "views"));
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
-// Dynamic image serving middleware
-app.use("/images/:albumUUID/:imageName", async (req, res) => {
-  const { albumUUID, imageName } = req.params;
-  const imagesDir = path.join(__dirname, "data", "albums", albumUUID, "images");
-
-  try {
-    const imagePath = path.join(imagesDir, imageName);
-    if (await fs.pathExists(imagePath)) {
-      res.sendFile(imagePath);
-    } else {
-      res.status(404).send("Image not found");
-    }
-  } catch (error) {
-    console.error("Error serving image:", error);
-    res.status(500).send("Internal Server Error");
-  }
-});
+// Static image server with caching
+const imagesRoot = path.join(__dirname, "data", "albums");
+app.use(
+  "/images",
+  express.static(imagesRoot, {
+    setHeaders(res) {
+      res.set("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  })
+);
 
 // Use routes
 app.use("/", routes);

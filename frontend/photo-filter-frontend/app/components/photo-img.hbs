@@ -1,0 +1,6 @@
+<img
+  alt={{@photo.originalName}}
+  src={{this.src}}
+  class="max-w-full h-auto"
+  {{on "error" this.retryOnce}}
+/>

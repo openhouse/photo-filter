@@ -18,6 +18,7 @@ import {
 } from "../controllers/api/people-controller.js";
 import { runPythonScript } from "../utils/run-python-script.js";
 import { runOsxphotosExportImages } from "../utils/export-images.js";
+import { getPhotosLibraryLastModified } from "../utils/get-photos-library-last-modified.js";
 
 // === Import our new time controller
 import { getTimeIndex } from "../controllers/api/time-controller.js";
@@ -43,6 +44,20 @@ apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
 apiRouter.get("/people", getAllPeople);
 apiRouter.get("/person/:personName", getPhotosByPersonLibrary);
+
+// Status endpoint
+apiRouter.get("/status", async (_req, res) => {
+  try {
+    const libMtime = await getPhotosLibraryLastModified().catch(() => null);
+    res.json({
+      node: process.version,
+      osxphotosSpec: process.env.OSXPHOTOS_SPEC || "default-fork",
+      photosLibraryMtime: libMtime?.toISOString?.() ?? null,
+    });
+  } catch (e) {
+    res.status(500).json({ errors: [{ detail: e.message }] });
+  }
+});
 
 // ======================
 //   TIME-INDEX ENDPOINT
