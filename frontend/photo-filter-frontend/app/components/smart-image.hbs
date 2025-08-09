@@ -1,0 +1,7 @@
+<img
+  alt={{@photo.originalName}}
+  src={{this.src}}
+  class="max-w-full h-auto"
+  data-exported-filename={{@photo.exportedFilename}}
+  {{on "error" this.handleError}}
+/>

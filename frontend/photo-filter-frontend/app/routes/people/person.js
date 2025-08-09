@@ -1,5 +1,6 @@
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
+import config from 'photo-filter-frontend/config/environment';
 
 export default class PeoplePersonRoute extends Route {
   @service store;
@@ -31,6 +32,29 @@ export default class PeoplePersonRoute extends Route {
       scoreAttributes = photos.meta.scoreAttributes;
     } else if (photos.length > 0 && photos.firstObject.score) {
       scoreAttributes = Object.keys(photos.firstObject.score);
+    }
+
+    const getNested = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+    const primeCount = Math.min(60, photos.length);
+    const fileSet = new Set();
+    scoreAttributes.forEach((attr) => {
+      const sorted = [...photos].sort((a, b) => {
+        const aValue = getNested(a, attr);
+        const bValue = getNested(b, attr);
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
+        return bValue - aValue;
+      });
+      sorted.slice(0, primeCount).forEach((p) => fileSet.add(p.exportedFilename));
+    });
+    try {
+      fetch(`${config.APP.apiHost}/prime`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filenames: Array.from(fileSet) }),
+      });
+    } catch {
+      /* no-op */
     }
 
     this.currentAlbum.isAlbumRoute = true;

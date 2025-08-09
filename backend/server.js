@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import exphbs from "express-handlebars";
 import routes from "./routes/index.js";
 import cors from "cors"; // Import cors
+import { ensureFilenameIndexFresh } from "./utils/index-refresh.js";
 
 const app = express();
 
@@ -15,8 +16,14 @@ app.use(express.urlencoded({ extended: true }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Enable CORS for all routes
-app.use(cors());
+// Enable CORS in development only
+if (process.env.NODE_ENV === "development") {
+  app.use(
+    cors({
+      origin: ["http://localhost:4200", "http://127.0.0.1:4200"],
+    })
+  );
+}
 
 // Set up Handlebars with custom helpers
 const hbs = exphbs.create({
@@ -58,22 +65,16 @@ app.set("views", path.join(__dirname, "views"));
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
-// Static image server with caching
-const imagesRoot = path.join(__dirname, "data", "albums");
-app.use(
-  "/images",
-  express.static(imagesRoot, {
-    setHeaders(res) {
-      res.set("Cache-Control", "public, max-age=31536000, immutable");
-    },
-  })
-);
-
 // Use routes
 app.use("/", routes);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+const HOST = process.env.HOST || "127.0.0.1";
+
+await ensureFilenameIndexFresh();
+setInterval(ensureFilenameIndexFresh, 10 * 60 * 1000);
+
+app.listen(PORT, HOST, () => {
+  console.log(`Server is running on http://${HOST}:${PORT}`);
 });

@@ -4,32 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../utils/export-images.js";
-import plist from "plist";
-import { exec } from "child_process";
-import os from "os";
-import { createRequire } from "module";
 import {
   getNestedProperty,
   capitalizeAttributeName,
 } from "../utils/helpers.js";
-
-const require = createRequire(import.meta.url);
-const tag = require("osx-tag");
-
-async function setFinderTags(filePath, tags) {
-  return new Promise((resolve, reject) => {
-    tag.setTags(filePath, tags, (err) => {
-      if (err) {
-        console.error(`Error setting Finder tags for ${filePath}:`, err);
-        reject(err);
-      } else {
-        console.log(`Tags set successfully for ${filePath}.`);
-        resolve();
-      }
-    });
-  });
-}
 
 export const getPhotosByAlbum = async (req, res) => {
   try {
@@ -43,7 +21,6 @@ export const getPhotosByAlbum = async (req, res) => {
     const dataDir = path.join(__dirname, "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
-    const imagesDir = path.join(photosDir, "images");
     const venvDir = path.join(__dirname, "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -52,21 +29,12 @@ export const getPhotosByAlbum = async (req, res) => {
       "scripts",
       "export_photos_in_album.py"
     );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
     await fs.ensureDir(photosDir);
-    await fs.ensureDir(imagesDir);
 
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
       await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-      // Export images with osxphotos (directly uses date/time prefix)
-      await runOsxphotosExportImages(
-        osxphotosPath,
-        albumUUID,
-        imagesDir,
-        photosPath
-      );
     }
 
     const photosData = await fs.readJson(photosPath);
@@ -150,34 +118,8 @@ export const getPhotosByAlbum = async (req, res) => {
       scoreAttributes,
     });
 
-    // After rendering, set Finder tags on the exported images
-    await setTagsOnExportedImages(imagesDir, photosData);
   } catch (error) {
     console.error("Error fetching photos for album:", error);
     res.status(500).send("Internal Server Error");
   }
 };
-
-async function setTagsOnExportedImages(imagesDir, photosData) {
-  for (const photo of photosData) {
-    const tags = photo.tags || [];
-    if (tags.length === 0) continue;
-
-    const countTag = `${tags.length} Tags`;
-    tags.push(countTag);
-
-    const imageFileName = `${photo.original_name}.jpg`;
-    const imagePath = path.join(imagesDir, imageFileName);
-
-    if (await fs.pathExists(imagePath)) {
-      try {
-        await setFinderTags(imagePath, tags);
-        console.log(`Set tags for ${imageFileName}: ${tags.join(", ")}`);
-      } catch (error) {
-        console.error(`Error setting tags for ${imageFileName}:`, error);
-      }
-    } else {
-      console.warn(`Image not found: ${imageFileName}`);
-    }
-  }
-}

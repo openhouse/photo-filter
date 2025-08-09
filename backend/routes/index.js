@@ -6,6 +6,8 @@ import {
   getPhotosByAlbum,
 } from "../controllers/photo-controller.js";
 import apiRouter from "./api.js";
+import pRouter from "./p.js";
+import primeRouter from "./prime.js";
 import {
   getPeopleInAlbumLegacy,
   getPhotosByPersonLegacy,
@@ -21,7 +23,9 @@ router.get("/album/:albumUUID", getPhotosByAlbum);
 router.get("/album/:albumUUID/persons", getPeopleInAlbumLegacy);
 router.get("/album/:albumUUID/person/:personName", getPhotosByPersonLegacy);
 
-// Mount the API router under '/api'
+// Mount routers
 router.use("/api", apiRouter);
+router.use("/p", pRouter);
+router.use("/prime", primeRouter);
 
 export default router;

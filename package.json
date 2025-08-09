@@ -17,6 +17,7 @@
     "lint:backend": "npm --prefix backend run lint || echo 'No lint script for backend'",
     "lint:frontend": "npm --prefix frontend/photo-filter-frontend run lint",
     "generate-overview": "bash generate-overview.sh",
+    "build:filename-index": "python scripts/build_filename_index.py --output backend/data/library/filename-index.json",
     "super-dev": "concurrently -n BACKEND,FRONTEND,TEST-BE,TEST-FE,OVERVIEW -c cyan,green,yellow,magenta,blue \"/bin/bash -c 'npm run watch:backend'\" \"/bin/bash -c 'npm run watch:frontend'\" \"npm run watch:test:backend\" \"npm run watch:test:frontend\" \"npm run watch:overview\"",
     "watch:backend": "nodemon --watch backend --ignore backend/data --ext js,ts,hbs,sh,md --exec \"npm run start:backend\"",
     "watch:frontend": "npm --prefix frontend/photo-filter-frontend run start",
