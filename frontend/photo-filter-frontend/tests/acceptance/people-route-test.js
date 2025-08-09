@@ -33,8 +33,8 @@ module('Acceptance | people routes', function (hooks) {
     assert.ok(imgs.length > 0, 'renders some images');
     imgs.slice(0, 5).forEach((img) => {
       assert.ok(
-        /\/images\/[A-F0-9-]+\/\d{8}T\d{6}\d{6}Z-/.test(img.src),
-        'img src includes album id & exported filename'
+        /\/p\/\d{8}T\d{6}\d{6}Z-/.test(img.src),
+        'img src uses global media path'
       );
     });
 

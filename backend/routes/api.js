@@ -17,12 +17,12 @@ import {
   getPhotosByPersonLibrary,
 } from "../controllers/api/people-controller.js";
 import { runPythonScript } from "../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../utils/export-images.js";
 import { getPhotosLibraryLastModified } from "../utils/get-photos-library-last-modified.js";
 
 // === Import our new time controller
 import { getTimeIndex } from "../controllers/api/time-controller.js";
 import { getPeopleByFilename } from "../controllers/api/filename-controller.js";
+import { addClient } from "../utils/sse.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,10 +49,23 @@ apiRouter.get("/person/:personName", getPhotosByPersonLibrary);
 apiRouter.get("/status", async (_req, res) => {
   try {
     const libMtime = await getPhotosLibraryLastModified().catch(() => null);
+    const metaPath = path.join(
+      __dirname,
+      "..",
+      "data",
+      "library",
+      "index-meta.json"
+    );
+    let indexGeneratedAt = null;
+    if (await fs.pathExists(metaPath)) {
+      const meta = await fs.readJson(metaPath);
+      indexGeneratedAt = meta.generatedAt || null;
+    }
     res.json({
       node: process.version,
       osxphotosSpec: process.env.OSXPHOTOS_SPEC || "default-fork",
       photosLibraryMtime: libMtime?.toISOString?.() ?? null,
+      indexGeneratedAt,
     });
   } catch (e) {
     res.status(500).json({ errors: [{ detail: e.message }] });
@@ -63,6 +76,20 @@ apiRouter.get("/status", async (_req, res) => {
 //   TIME-INDEX ENDPOINT
 // ======================
 apiRouter.get("/time-index", getTimeIndex);
+
+// ======================
+//   SSE STREAM (optional)
+// ======================
+apiRouter.get("/stream", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  res.write(":ok\n\n");
+  const remove = addClient(res);
+  req.on("close", remove);
+});
 
 // ======================
 //   Export Top‑N Endpoint
@@ -84,7 +111,6 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       albumUUID
     );
     const photosPath = path.join(dataDir, "photos.json");
-    const imagesDir = path.join(dataDir, "images");
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -94,26 +120,16 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       "scripts",
       "export_photos_in_album.py"
     );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
     if (await fs.pathExists(photosPath)) {
       await fs.remove(photosPath);
     }
-    if (await fs.pathExists(imagesDir)) {
-      await fs.remove(imagesDir);
-    }
 
     // Re-run python script
     await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-    await runOsxphotosExportImages(
-      osxphotosPath,
-      albumUUID,
-      imagesDir,
-      photosPath
-    );
 
     return res.json({
-      message: `Album ${albumUUID} metadata and images have been refreshed.`,
+      message: `Album ${albumUUID} metadata has been refreshed.`,
     });
   } catch (error) {
     console.error("Error in refresh endpoint:", error);

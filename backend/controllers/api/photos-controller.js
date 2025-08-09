@@ -11,7 +11,6 @@ import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import {
   formatPreciseTimestamp,
   getNestedProperty,
@@ -59,7 +58,6 @@ export const getPhotosByAlbumData = async (req, res) => {
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumDir = path.join(dataDir, "albums", albumUUID);
     const photosJSON = path.join(albumDir, "photos.json");
-    const imagesDir = path.join(albumDir, "images");
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const python = path.join(venvDir, "bin", "python3");
@@ -70,18 +68,10 @@ export const getPhotosByAlbumData = async (req, res) => {
       "scripts",
       "export_photos_in_album.py"
     );
-    const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    /* (1) Ensure exports exist */
-    await fs.ensureDir(imagesDir);
+    /* (1) Ensure metadata exists */
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
-      await runOsxphotosExportImages(
-        osxphotos,
-        albumUUID,
-        imagesDir,
-        photosJSON
-      );
     }
 
     /* (2) Load data & enrich */
