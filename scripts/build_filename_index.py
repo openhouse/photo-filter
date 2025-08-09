@@ -1,37 +1,44 @@
 #!/usr/bin/env python3
 """Build exported filename -> uuid index for the Photos library."""
+from osxphotos import PhotosDB
+from pathlib import Path
 import argparse
 import json
-from pathlib import Path
-from osxphotos import PhotosDB
-
-TEMPLATE = "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}.jpg"
+from typing import Dict, List
 
 
-def quality_tuple(photo):
-    w = getattr(photo, "width", 0) or 0
-    h = getattr(photo, "height", 0) or 0
-    area = w * h
-    bytes_ = getattr(photo, "original_filesize", 0) or 0
-    non_raw = 0 if getattr(photo, "has_raw", False) else 1
-    return (area, bytes_, non_raw, photo.uuid)
+def _photo_key_names(photo) -> List[str]:
+    """Return canonical names for indexing.
+
+    Prefer original_filename; fall back to filename. Flatten and de-duplicate.
+    """
+    candidates = []
+    if getattr(photo, "original_filename", None):
+        candidates.append(photo.original_filename)
+    if getattr(photo, "filename", None):
+        candidates.append(photo.filename)
+    flat: List[str] = []
+    for c in candidates:
+        if isinstance(c, (list, tuple)):
+            flat.extend([x for x in c if x])
+        elif c:
+            flat.append(c)
+    seen = set()
+    return [x for x in flat if not (x in seen or seen.add(x))]
 
 
 def build_index(db: PhotosDB):
-    winners = {}
-    collisions = {}
-    for p in db.photos():
-        fname = p.render_template(TEMPLATE)[0]
-        cand = (p.uuid, quality_tuple(p))
-        if fname not in winners:
-            winners[fname] = cand
-        else:
-            prev_uuid, prev_q = winners[fname]
-            collisions.setdefault(fname, [])
-            collisions[fname] = list(set([prev_uuid, p.uuid]))
-            if cand[1] > prev_q:
-                winners[fname] = cand
-    index = {fname: uuid for fname, (uuid, _) in winners.items()}
+    winners: Dict[str, dict] = {}
+    collisions: Dict[str, List[str]] = {}
+    for photo in db.photos():
+        for fname in _photo_key_names(photo):
+            if fname not in winners:
+                winners[fname] = {"uuid": photo.uuid}
+            else:
+                collisions.setdefault(fname, [winners[fname]["uuid"]])
+                if photo.uuid not in collisions[fname]:
+                    collisions[fname].append(photo.uuid)
+    index = {fname: data["uuid"] for fname, data in winners.items()}
     return index, collisions
 
 
@@ -40,19 +47,11 @@ def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     parser.add_argument(
         "--output",
-        default=repo_root
-        / "backend"
-        / "data"
-        / "library"
-        / "filename-index.json",
+        default=repo_root / "backend" / "data" / "library" / "filename-index.json",
     )
     parser.add_argument(
         "--collisions",
-        default=repo_root
-        / "backend"
-        / "data"
-        / "library"
-        / "filename-collisions.json",
+        default=repo_root / "backend" / "data" / "library" / "filename-collisions.json",
     )
     args = parser.parse_args()
 
@@ -71,4 +70,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

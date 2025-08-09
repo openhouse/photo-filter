@@ -19,7 +19,7 @@
     "generate-overview": "bash generate-overview.sh",
     "bootstrap:dev": "bash scripts/dev_bootstrap.sh",
     "build:filename-index": "bash -lc 'P=backend/venv/bin/python3; [ -x \"$P\" ] || P=$(command -v python3); \"$P\" scripts/build_filename_index.py --output backend/data/library/filename-index.json'",
-    "super-dev": "npm run bootstrap:dev && concurrently -n BACKEND,FRONTEND,TEST-BE,TEST-FE,OVERVIEW -c cyan,green,yellow,magenta,blue \"env PYTHON_BIN=backend/venv/bin/python3 OSXPHOTOS_BIN=backend/venv/bin/osxphotos npm run watch:backend\" \"npm run watch:frontend\" \"npm run watch:test:backend\" \"npm run watch:test:frontend\" \"npm run watch:overview\"",
+    "super-dev": "npm run bootstrap:dev && concurrently -n BACKEND,FRONTEND,TEST-BE,TEST-FE,OVERVIEW -c cyan,green,yellow,magenta,blue \"bash -lc 'PYTHON_BIN=$(pwd)/backend/venv/bin/python3 OSXPHOTOS_BIN=$(pwd)/backend/venv/bin/osxphotos npm run watch:backend'\" \"npm run watch:frontend\" \"npm run watch:test:backend\" \"npm run watch:test:frontend\" \"npm run watch:overview\"",
     "watch:backend": "nodemon --watch backend --ignore backend/data --ext js,ts,hbs,sh,md --exec \"npm run start:backend\"",
     "watch:frontend": "npm --prefix frontend/photo-filter-frontend run start",
     "watch:test:backend": "npm exec -w backend jest -- --watch || echo 'No watch test script for backend'",
