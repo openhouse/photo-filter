@@ -5,25 +5,19 @@ import path from "path";
 import { fileURLToPath } from "url";
 import exphbs from "express-handlebars";
 import routes from "./routes/index.js";
-import cors from "cors"; // Import cors
+import cors from "cors";
 import { ensureFilenameIndexFresh } from "./utils/index-refresh.js";
 
 const app = express();
+app.use(
+  cors({ origin: ["http://localhost:4200", "http://127.0.0.1:4200"] })
+);
 
 // Basic body parsing for JSON and URL-encoded form data
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Enable CORS in development only
-if (process.env.NODE_ENV === "development") {
-  app.use(
-    cors({
-      origin: ["http://localhost:4200", "http://127.0.0.1:4200"],
-    })
-  );
-}
 
 // Set up Handlebars with custom helpers
 const hbs = exphbs.create({

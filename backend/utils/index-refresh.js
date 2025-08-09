@@ -55,7 +55,15 @@ export async function ensureFilenameIndexFresh() {
 function runIndexBuilder(dest) {
   return new Promise((resolve, reject) => {
     const venvPy = path.join(__dirname, "..", "venv", "bin", "python3");
-    const py = process.env.PYTHON_BIN || (fs.existsSync(venvPy) ? venvPy : "python3");
+    let py = process.env.PYTHON_BIN;
+    if (py && !path.isAbsolute(py)) {
+      // PYTHON_BIN set relative to repo root; normalize
+      py = path.join(__dirname, "..", "..", py);
+    }
+    if (!py) {
+      py = fs.existsSync(venvPy) ? venvPy : "python3";
+    }
+
     const script = path.join(
       __dirname,
       "..",
@@ -63,9 +71,7 @@ function runIndexBuilder(dest) {
       "scripts",
       "build_filename_index.py"
     );
-    const child = spawn(py, [script, "--output", dest], {
-      stdio: "inherit",
-    });
+    const child = spawn(py, [script, "--output", dest], { stdio: "inherit" });
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolve();
