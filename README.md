@@ -13,6 +13,34 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 - **project-guidelines.md**: Collaboration and coding standards.
 - **docs/API_ENDPOINTS.md**: Reference for all available API routes.
 
+## Canonical filename template
+
+**Invariant:** All exported/derived photo filenames MUST follow this template:
+
+```
+{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}{ext}
+```
+
+- `created.utc` – UTC timestamp (not local time)
+- `%Y%m%dT%H%M%S%fZ` – ISO-like, with microseconds and trailing `Z`
+- `{original_name}` – camera/original base name without extension
+- `{ext}` – the original file extension, preserved (HEIC/JPG/etc.)
+
+**Why:** Lexicographic order == chronological order across devices/cameras, which our film/animation tooling depends on.
+
+**Overriding (advanced):**
+- Set `FILENAME_TEMPLATE` in the environment (see `.env.example`).
+- (Optional) set `JPEG_EXT=jpg|jpeg|JPG|JPEG` to normalize JPEG extension casing.
+
+**Collision resolution (deterministic):**
+If multiple assets render to the same filename key, we pick the “winner” via:
+1) larger pixel area (width × height)  
+2) larger original file size  
+3) prefer non-RAW sidecar  
+4) UUID lexical tiebreak
+
+All colliding UUIDs are recorded in `backend/data/library/filename-collisions.json`.
+
 ## Features
 
 - **Album Navigation**: Browse albums via a left-side navigation column.

@@ -14,6 +14,12 @@ const indexPath =
   process.env.LIB_INDEX_PATH || path.join(libDir, "filename-index.json");
 const tmpPath = `${indexPath}.tmp`;
 
+const DEFAULT_TEMPLATE =
+  "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}{ext}";
+const sanitize = (s) => (s ? s.replace(/^['"]|['"]$/g, "") : s);
+const TEMPLATE = sanitize(process.env.FILENAME_TEMPLATE) || DEFAULT_TEMPLATE;
+const JPEG_EXT = sanitize(process.env.JPEG_EXT);
+
 let inflight = null;
 
 export async function ensureFilenameIndexFresh() {
@@ -21,15 +27,27 @@ export async function ensureFilenameIndexFresh() {
   inflight = (async () => {
     await fs.ensureDir(libDir);
     const mtime = await getPhotosLibraryLastModified().catch(() => null);
-    if (!mtime) return;
+    const logTemplate = () => {
+      let msg = `[index] template in use: ${TEMPLATE}`;
+      if (JPEG_EXT) msg += ` (jpeg-ext: ${JPEG_EXT})`;
+      console.log(msg);
+    };
+    if (!mtime) {
+      logTemplate();
+      return;
+    }
     const meta = (await fs.pathExists(metaPath))
       ? await fs.readJson(metaPath)
       : null;
     const current = meta?.photosLibraryMtime
       ? new Date(meta.photosLibraryMtime)
       : null;
-    if (current && current >= mtime) return; // already fresh
+    if (current && current >= mtime) {
+      logTemplate();
+      return; // already fresh
+    }
 
+    logTemplate();
     await runIndexBuilder(tmpPath);
     await fs.move(tmpPath, indexPath, { overwrite: true });
     await fs.writeJson(metaPath, {
@@ -71,7 +89,11 @@ function runIndexBuilder(dest) {
       "scripts",
       "build_filename_index.py"
     );
-    const child = spawn(py, [script, "--output", dest], { stdio: "inherit" });
+    const args = [script, "--output", dest, "--template", TEMPLATE];
+    if (JPEG_EXT) {
+      args.push("--jpeg-ext", JPEG_EXT);
+    }
+    const child = spawn(py, args, { stdio: "inherit" });
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolve();
