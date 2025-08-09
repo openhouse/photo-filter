@@ -8,16 +8,18 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-from osxphotos import PhotosDB
+from osxphotos import PhotosDB, __version__ as osxphotos_version
 
 DEFAULT_TEMPLATE = "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}{ext}"
-JPEG_EXTS = {".jpg", ".JPG", ".jpeg", ".JPEG"}
-
 
 def render_key(photo, template: str, jpeg_ext: str | None) -> str:
-    parts = photo.render_template(template, none_str="")
+    # Older osxphotos versions (e.g., 0.72.1) do not support ``none_str``.
+    try:
+        parts = photo.render_template(template, none_str="")
+    except TypeError:
+        parts = photo.render_template(template)
     key = parts[0] if parts else ""
-    if jpeg_ext and any(key.endswith(ext) for ext in JPEG_EXTS):
+    if jpeg_ext and key.lower().endswith((".jpg", ".jpeg")):
         key = key[: key.rfind(".")] + f".{jpeg_ext}"
     return key
 
@@ -73,6 +75,7 @@ def main() -> None:
     args = parser.parse_args()
 
     db = PhotosDB()
+    print(f"[index] osxphotos {osxphotos_version}, db={db.db_path}")
     index, collisions = build_index(db, args.template, args.jpeg_ext)
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
