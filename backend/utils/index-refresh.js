@@ -28,9 +28,8 @@ export async function ensureFilenameIndexFresh() {
     await fs.ensureDir(libDir);
     const mtime = await getPhotosLibraryLastModified().catch(() => null);
     const logTemplate = () => {
-      let msg = `[index] template in use: ${TEMPLATE}`;
-      if (JPEG_EXT) msg += ` (jpeg-ext: ${JPEG_EXT})`;
-      console.log(msg);
+      console.log("[index] template in use:", TEMPLATE);
+      if (JPEG_EXT) console.log("[index] jpeg extension:", JPEG_EXT);
     };
     if (!mtime) {
       logTemplate();
