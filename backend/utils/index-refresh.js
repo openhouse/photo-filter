@@ -54,7 +54,8 @@ export async function ensureFilenameIndexFresh() {
 
 function runIndexBuilder(dest) {
   return new Promise((resolve, reject) => {
-    const py = process.env.PYTHON_BIN || "python3";
+    const venvPy = path.join(__dirname, "..", "venv", "bin", "python3");
+    const py = process.env.PYTHON_BIN || (fs.existsSync(venvPy) ? venvPy : "python3");
     const script = path.join(
       __dirname,
       "..",
