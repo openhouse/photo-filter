@@ -13,7 +13,7 @@ from osxphotos import PhotosDB, __version__ as osxphotos_version
 DEFAULT_TEMPLATE = "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}{ext}"
 
 def render_key(photo, template: str, jpeg_ext: str | None) -> str:
-    # Older osxphotos versions (e.g., 0.72.1) do not support ``none_str``.
+    # Some upstream versions don't support none_str; fallback cleanly
     try:
         parts = photo.render_template(template, none_str="")
     except TypeError:
