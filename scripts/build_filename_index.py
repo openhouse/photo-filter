@@ -12,13 +12,31 @@ from osxphotos import PhotosDB, __version__ as osxphotos_version
 
 DEFAULT_TEMPLATE = "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}{ext}"
 
+def _first_rendered_string(result) -> str:
+    """
+    Normalize return value from photo.render_template to a single string.
+
+    osxphotos APIs differ by version:
+      - Newer: photo.render_template(...) -> (List[str], unmatched)
+      - Older: photo.render_template(...) -> List[str]
+
+    Returns first string from rendered list or an empty string.
+    """
+    rendered = result[0] if isinstance(result, tuple) else result
+    if not rendered:
+        return ""
+    key = rendered[0]
+    if isinstance(key, (list, tuple)):
+        key = "".join(str(x) for x in key)
+    return str(key)
+
 def render_key(photo, template: str, jpeg_ext: str | None) -> str:
     # Some upstream versions don't support none_str; fallback cleanly
     try:
-        parts = photo.render_template(template, none_str="")
+        result = photo.render_template(template, none_str="")
     except TypeError:
-        parts = photo.render_template(template)
-    key = parts[0] if parts else ""
+        result = photo.render_template(template)
+    key = _first_rendered_string(result)
     if jpeg_ext and key.lower().endswith((".jpg", ".jpeg")):
         key = key[: key.rfind(".")] + f".{jpeg_ext}"
     return key
