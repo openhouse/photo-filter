@@ -1,67 +1,108 @@
-// ./backend/scripts/setup.js
-//
-// Prepares the Python virtual‑env used by the Express backend:
-//
-//   • creates backend/venv with Python 3.11 if it does not exist
-//   • installs (or upgrades) **osxphotos**
-//       – by default pulls Jamie’s fork/branch that adds `.utc/.local`
-//         datetime postfix support for filename templates
-//       – set the env‑var  OSXPHOTOS_SPEC=osxphotos  to fall back to PyPI
-//
-// Run automatically by `npm install` via the “postinstall” script.
-//
+#!/usr/bin/env node
+// Hardened backend setup: self-heal pip and pin osxphotos.
 
-import { exec } from "child_process";
-import { promisify } from "util";
-import fs from "fs-extra";
-import path from "path";
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const execAsync = promisify(exec);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');
+const VENV_DIR = path.join(ROOT, 'venv');
+const PY311 = path.join(VENV_DIR, 'bin', 'python3');
+const PY = fs.existsSync(PY311) ? PY311 : path.join(VENV_DIR, 'bin', 'python');
 
-/** absolute path helpers */
-const venvDir = path.join(process.cwd(), "venv");
-const venvPython = path.join(venvDir, "bin", "python3");
-const venvPip = path.join(venvDir, "bin", "pip");
+const ENV = {
+  ...process.env,
+  PYTHONNOUSERSITE: '1',
+  PIP_DISABLE_PIP_VERSION_CHECK: '1',
+  LC_ALL: process.env.LC_ALL || 'C.UTF-8',
+  LANG: process.env.LANG || 'C.UTF-8',
+};
 
-/** which Python binary to create the venv with */
-const PYTHON_EXE = "python3.11";
+const OSXPHOTOS_SPEC =
+  process.env.OSXPHOTOS_SPEC ||
+  // Commit adding nested .utc/.local postfix support
+  'git+https://github.com/openhouse/osxphotos.git@0a9f561#egg=osxphotos';
 
-/** default pip‑install spec for Jamie’s experimental branch */
-const DEFAULT_FORK_SPEC =
-  "git+https://github.com/openhouse/osxphotos.git" +
-  "@codex/implement-utc-and-local-postfix-for-template-datetime" +
-  "#egg=osxphotos";
-
-/** caller can override with  OSXPHOTOS_SPEC=… */
-const OSXPHOTOS_SPEC = process.env.OSXPHOTOS_SPEC || DEFAULT_FORK_SPEC;
-
-/** tiny helper for console blocks */
-function banner(msg) {
-  console.log("\n" + "─".repeat(72) + `\n${msg}\n` + "─".repeat(72));
+function sh(cmd, args, opts = {}) {
+  const res = spawnSync(cmd, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    env: { ...ENV, ...(opts.env || {}) },
+    ...opts,
+  });
+  if (res.error) throw res.error;
+  if (res.status !== 0) {
+    const msg = [
+      `${cmd} ${args.join(' ')} failed with code ${res.status}`,
+      res.stdout && `stdout:\n${res.stdout}`,
+      res.stderr && `stderr:\n${res.stderr}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const err = new Error(msg);
+    err.stdout = res.stdout;
+    err.stderr = res.stderr;
+    err.status = res.status;
+    throw err;
+  }
+  return res.stdout ? res.stdout.trim() : '';
 }
 
-(async () => {
+function ensureVenv() {
+  if (fs.existsSync(PY)) {
+    console.log('✔ virtual‑env already present – skipping creation');
+    return;
+  }
+  console.log('✔ creating backend/venv');
+  sh('python3', ['-m', 'venv', VENV_DIR], { stdio: 'inherit' });
+}
+
+function pipOk() {
   try {
-    // ---------------------------------------------------------------------
-    // 1 · Ensure virtual‑env exists
-    // ---------------------------------------------------------------------
-    const venvExists = await fs.pathExists(venvPython);
-    if (!venvExists) {
-      banner(`Creating Python virtual‑env   (${PYTHON_EXE})`);
-      await execAsync(`${PYTHON_EXE} -m venv venv`);
-    } else {
-      console.log("✔ virtual‑env already present – skipping creation");
-    }
+    sh(PY, ['-m', 'pip', '--version']);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
-    // ---------------------------------------------------------------------
-    // 2 · Install / upgrade osxphotos from the requested spec
-    // ---------------------------------------------------------------------
-    banner(`Installing osxphotos from:  ${OSXPHOTOS_SPEC}`);
-    await execAsync(`"${venvPip}" install --upgrade "${OSXPHOTOS_SPEC}"`);
+function repairPip() {
+  console.warn('⚠ pip looks broken; attempting repair with ensurepip …');
+  try {
+    sh(PY, ['-m', 'ensurepip', '--upgrade'], { stdio: 'inherit' });
+  } catch {
+    console.warn('⚠ ensurepip failed; recreating venv …');
+    try { fs.rmSync(VENV_DIR, { recursive: true, force: true }); } catch {}
+    sh('python3', ['-m', 'venv', VENV_DIR], { stdio: 'inherit' });
+  }
+  sh(PY, ['-m', 'pip', 'install', '--upgrade', 'pip', 'setuptools', 'wheel'], {
+    stdio: 'inherit',
+  });
+}
 
-    banner("Setup succeeded – backend Python tooling ready.");
+function installOsxphotos() {
+  console.log('───────────────────────────────────────────────────────────────────────');
+  console.log('Installing osxphotos from: ', OSXPHOTOS_SPEC);
+  console.log('───────────────────────────────────────────────────────────────────────');
+  sh(PY, ['-m', 'pip', 'install', '--upgrade', '--force-reinstall', OSXPHOTOS_SPEC], {
+    stdio: 'inherit',
+  });
+}
+
+(function main() {
+  try {
+    ensureVenv();
+    if (!pipOk()) repairPip();
+    installOsxphotos();
+    const ver = sh(PY, ['-c', 'import osxphotos; print(osxphotos.__version__)']);
+    console.log(`[setup] osxphotos version installed: ${ver}`);
+    console.log('✔ backend setup complete');
+    process.exit(0);
   } catch (err) {
-    console.error("❌ backend/scripts/setup.js failed:", err);
-    process.exit(1);
+    console.warn('❌ backend/scripts/setup.js failed:', err.message || err);
+    console.warn('Continuing install; the dev bootstrap will repair this during "npm run super-dev".');
+    process.exit(0);
   }
 })();
