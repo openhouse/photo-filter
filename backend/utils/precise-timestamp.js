@@ -41,18 +41,26 @@ export function formatPreciseTimestamp(dateLike) {
   if (dateLike instanceof Date) {
     dt = DateTime.fromJSDate(dateLike, { zone: "utc" });
   } else if (typeof dateLike === "string") {
+    let src = dateLike.trim();
+    let tzSeconds = 0;
+    const m = src.match(/([+-]\d{2}:\d{2}):(\d{2})$/);
+    if (m) {
+      tzSeconds = Number(m[2]) * (m[1].startsWith("+") ? 1 : -1);
+      src = src.replace(/([+-]\d{2}:\d{2}):(\d{2})$/, m[1]);
+    }
+
     // 2. ISO 8601 -----------------------------------------------------------
-    dt = DateTime.fromISO(dateLike, { setZone: true });
+    dt = DateTime.fromISO(src, { setZone: true });
 
     // 3. SQL format  (Photos DB default)  -----------------------------------
     if (!dt.isValid) {
-      dt = DateTime.fromSQL(dateLike, { setZone: true });
+      dt = DateTime.fromSQL(src, { setZone: true });
     }
 
     // 4. EXIF “YYYY:MM:DD HH:MM:SS”  ----------------------------------------
     if (!dt.isValid) {
       dt = DateTime.fromFormat(
-        dateLike,
+        src,
         "yyyy:MM:dd HH:mm:ss",
         { zone: "local" } // assume local if no offset supplied
       );
@@ -60,10 +68,13 @@ export function formatPreciseTimestamp(dateLike) {
 
     // 5. As a last resort let JS Date try -----------------------------------
     if (!dt.isValid) {
-      const jsDate = new Date(dateLike);
+      const jsDate = new Date(src);
       if (!isNaN(jsDate.getTime())) {
         dt = DateTime.fromJSDate(jsDate, { zone: "utc" });
       }
+    }
+    if (dt.isValid && tzSeconds) {
+      dt = dt.plus({ seconds: -tzSeconds });
     }
 
     // (if still invalid we fall through and raise)
