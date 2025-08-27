@@ -69,6 +69,7 @@ app.use("/images/:albumUUID/:imageName", async (req, res) => {
     if (await fs.pathExists(imagePath)) {
       res.sendFile(imagePath);
     } else {
+      console.warn(`[images] 404 ${albumUUID}/${imageName}`);
       res.status(404).send("Image not found");
     }
   } catch (error) {

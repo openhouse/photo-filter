@@ -87,13 +87,35 @@ export const getPhotosByAlbumData = async (req, res) => {
     /* (2) Load data & enrich */
     let photos = await fs.readJson(photosJSON);
 
+    // Build an index of actual files we exported:
+    // key = lowercased basename (no extension), value = full filename (with extension)
+    const exportedNames = (await fs.pathExists(imagesDir))
+      ? await fs.readdir(imagesDir)
+      : [];
+    const baseToActual = new Map();
+    for (const name of exportedNames) {
+      // strip only the last extension; keep any collision suffixes as part of basename
+      const base = name.replace(/\.[^.]+$/, "");
+      baseToActual.set(base.toLowerCase(), name);
+    }
+
     const personsMap = new Map(); // slug -> {id,name}
 
     photos.forEach((p) => {
       /* derive names & filenames */
       p.originalName = path.parse(p.original_filename).name;
       const tsSegment = formatPreciseTimestamp(p.date);
-      p.exportedFilename = `${tsSegment}-${p.originalName}.jpg`;
+      const base = `${tsSegment}-${p.originalName}`;
+      // Prefer the real file if we already exported it (any extension)
+      let actual = baseToActual.get(base.toLowerCase());
+      // Cheap fallbacks for common collision suffixes if needed:
+      if (!actual) {
+        actual =
+          baseToActual.get(`${base.toLowerCase()}-1`) ||
+          baseToActual.get(`${base.toLowerCase()} (1)`);
+      }
+      // If still not found (e.g., export still running), keep the canonical guess
+      p.exportedFilename = actual || `${base}.jpg`;
 
       /* normalise persons */
       p.persons = Array.isArray(p.persons) ? p.persons : [];
