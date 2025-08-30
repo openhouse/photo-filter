@@ -35,63 +35,47 @@ import { DateTime } from "luxon";
  * @returns {string} e.g. "20250531T174503123000Z"
  */
 export function formatPreciseTimestamp(dateLike) {
-  let dt;
-
-  // 1. Already a Date object ------------------------------------------------
+  // Fast path: Date object (no microseconds beyond ms available)
   if (dateLike instanceof Date) {
-    dt = DateTime.fromJSDate(dateLike, { zone: "utc" });
-  } else if (typeof dateLike === "string") {
-    let src = dateLike.trim();
-    let tzSeconds = 0;
-    const m = src.match(/([+-]\d{2}:\d{2}):(\d{2})$/);
-    if (m) {
-      tzSeconds = Number(m[2]) * (m[1].startsWith("+") ? 1 : -1);
-      src = src.replace(/([+-]\d{2}:\d{2}):(\d{2})$/, m[1]);
-    }
-
-    // 2. ISO 8601 -----------------------------------------------------------
-    dt = DateTime.fromISO(src, { setZone: true });
-
-    // 3. SQL format  (Photos DB default)  -----------------------------------
-    if (!dt.isValid) {
-      dt = DateTime.fromSQL(src, { setZone: true });
-    }
-
-    // 4. EXIF “YYYY:MM:DD HH:MM:SS”  ----------------------------------------
-    if (!dt.isValid) {
-      dt = DateTime.fromFormat(
-        src,
-        "yyyy:MM:dd HH:mm:ss",
-        { zone: "local" } // assume local if no offset supplied
-      );
-    }
-
-    // 5. As a last resort let JS Date try -----------------------------------
-    if (!dt.isValid) {
-      const jsDate = new Date(src);
-      if (!isNaN(jsDate.getTime())) {
-        dt = DateTime.fromJSDate(jsDate, { zone: "utc" });
-      }
-    }
-    if (dt.isValid && tzSeconds) {
-      dt = dt.plus({ seconds: -tzSeconds });
-    }
-
-    // (if still invalid we fall through and raise)
-  } else {
-    throw new TypeError(
-      `formatPreciseTimestamp(): expected Date or string, got ${typeof dateLike}`
+    const dt = DateTime.fromJSDate(dateLike, { zone: "utc" });
+    const micro = String(dateLike.getUTCMilliseconds() * 1000).padStart(
+      6,
+      "0"
     );
+    return dt.toUTC().toFormat("yyyyLLdd'T'HHmmss") + micro + "Z";
   }
 
-  if (!dt.isValid) {
-    throw new Error(
-      `formatPreciseTimestamp(): invalid input (“${dateLike}” – ${dt.invalidReason})`
-    );
+  if (typeof dateLike !== "string") {
+    throw new TypeError(`formatPreciseTimestamp(): expected Date or string`);
   }
 
-  // Luxon gives millisecond precision; multiply to micro‑seconds.
-  const micro = String(dt.millisecond * 1_000).padStart(6, "0");
+  let src = dateLike.trim();
+
+  // 1) Capture fractional seconds (up to 6) before parsing to avoid Luxon rounding
+  let micro = "000000";
+  const frac = src.match(/\.(\d{1,6})/); // e.g. ".924927" or ".160000"
+  if (frac) {
+    micro = (frac[1] + "000000").slice(0, 6); // pad/truncate to 6
+    src = src.replace(/\.(\d{1,6})/, ""); // remove fraction for the parser
+  }
+
+  // 2) Support offsets with seconds, e.g. "+00:09:21"
+  let tzSeconds = 0;
+  const m = src.match(/([+-]\d{2}:\d{2}):(\d{2})$/);
+  if (m) {
+    tzSeconds = (m[1].startsWith("+") ? 1 : -1) * parseInt(m[2], 10);
+    src = src.replace(m[0], m[1]); // strip ":SS" so Luxon can parse
+  }
+
+  // 3) Parse with zone preserved
+  let dt = DateTime.fromISO(src, { setZone: true });
+  if (!dt.isValid) dt = DateTime.fromSQL(src, { setZone: true });
+  if (!dt.isValid)
+    dt = DateTime.fromFormat(src, "yyyy:MM:dd HH:mm:ss", { zone: "local" });
+  if (!dt.isValid)
+    throw new Error(`formatPreciseTimestamp(): invalid input (“${dateLike}”)`);
+
+  if (tzSeconds) dt = dt.plus({ seconds: -tzSeconds });
 
   return dt.toUTC().toFormat("yyyyLLdd'T'HHmmss") + micro + "Z";
 }
