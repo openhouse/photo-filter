@@ -64,7 +64,7 @@ echo "## Project Structure" >> "$OUTPUT_FILE"
 echo "" >> "$OUTPUT_FILE"
 echo "\`\`\`" >> "$OUTPUT_FILE"
 
-EXCLUDE_DIRS='node_modules|.git|venv|dist|build|cache|logs|images|images-source'
+EXCLUDE_DIRS='node_modules|.git|venv|dist|build|cache|logs|images|images-source|exports'
 
 if command -v tree >/dev/null 2>&1; then
   # Use tree if available
