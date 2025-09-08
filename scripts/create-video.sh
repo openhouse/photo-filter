@@ -3,12 +3,13 @@
 # create-video.sh  ── build a ProRes (or other) movie from a folder of JPEGs
 #
 # Usage:
-#   ./create-video.sh [-b COLOR] [-r FPS] [-s] [directory]
+#   ./create-video.sh [-b COLOR] [-r FPS] [-d WxH] [-s] [directory]
 #
 # Options:
 #   -b COLOR   Padding colour; use "transparent" for alpha padding (default).
 #              Any ImageMagick/ffmpeg colour value works, e.g. "#112233", "white".
 #   -r FPS     Frames per second (default: 16).
+#   -d WxH     Output video dimensions (e.g. 1920x1080); defaults to first image size.
 #   -s         Skip the mogrify orientation step.
 #
 # If no directory is provided, the script will default to the current directory.
@@ -22,7 +23,7 @@
 #   2. Reorient all .jpg images
 #   3. Create file listing for ffmpeg
 #   4. Convert listing to ffmpeg concat format
-#   5. Extract image dimensions via ffprobe from the first .jpg
+#   5. Determine output dimensions (from option or first image via ffprobe)
 #   6. Run ffmpeg with scale & pad to preserve aspect ratio
 #   7. Output a ProRes .mov (yuv422p) at 16 fps, ready for editing
 
@@ -32,15 +33,17 @@ IFS=$'\n\t'
 BG_COLOR="transparent"
 FPS=16
 SKIP_MOGRIFY=0
+CUSTOM_DIMS=""
 
 # Parse options
-while getopts ":b:r:hs" opt; do
+while getopts ":b:r:d:hs" opt; do
   case "$opt" in
     b) BG_COLOR="$OPTARG" ;;
     r) FPS="$OPTARG"      ;;
+    d) CUSTOM_DIMS="$OPTARG" ;;
     s) SKIP_MOGRIFY=1      ;;
     h)
-      echo "Usage: $0 [-b COLOR] [-r FPS] [-s] [directory]"
+      echo "Usage: $0 [-b COLOR] [-r FPS] [-d WxH] [-s] [directory]"
       exit 0
       ;;
     *)
@@ -73,16 +76,25 @@ fi
 echo "\u25B6 Building concat list…"
 printf "file '%s'\n" "${jpgs[@]}" > formatted_list.txt
 
-# 5. Determine the dimensions of the first .jpg via ffprobe
-# ffprobe outputs width and height separated by a comma. Temporarily set IFS
-# to comma so both values are parsed correctly, then restore the original IFS
-# (newline/tab) used for handling filenames.
-OLD_IFS=$IFS
-IFS=',' read WIDTH HEIGHT < <(ffprobe -v error -select_streams v:0 \
-  -show_entries stream=width,height -of csv=p=0 "${jpgs[0]}")
-IFS=$OLD_IFS
+# 5. Determine output dimensions
+if [[ -n "$CUSTOM_DIMS" ]]; then
+  IFS='x' read WIDTH HEIGHT <<< "$CUSTOM_DIMS"
+  if [[ -z "$WIDTH" || -z "$HEIGHT" ]]; then
+    echo "Invalid dimensions format. Use WxH (e.g., 1920x1080)." >&2
+    exit 1
+  fi
+  echo "   Custom size: ${WIDTH}×${HEIGHT}"
+else
+  # ffprobe outputs width and height separated by a comma. Temporarily set IFS
+  # to comma so both values are parsed correctly, then restore the original IFS
+  # (newline/tab) used for handling filenames.
+  OLD_IFS=$IFS
+  IFS=',' read WIDTH HEIGHT < <(ffprobe -v error -select_streams v:0 \
+    -show_entries stream=width,height -of csv=p=0 "${jpgs[0]}")
+  IFS=$OLD_IFS
 
-echo "   Reference size: ${WIDTH}×${HEIGHT}"
+  echo "   Reference size: ${WIDTH}×${HEIGHT}"
+fi
 
 OUTPUT="output_preserved_aspect.mov"
 echo "\u25B6 Encoding → $OUTPUT"
