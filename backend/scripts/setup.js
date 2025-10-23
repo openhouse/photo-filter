@@ -35,6 +35,10 @@ const DEFAULT_FORK_SPEC =
 /** caller can override with  OSXPHOTOS_SPEC=… */
 const OSXPHOTOS_SPEC = process.env.OSXPHOTOS_SPEC || DEFAULT_FORK_SPEC;
 
+/** temporary pin: osxphotos still imports whenever.SystemDateTime */
+const DEFAULT_WHENEVER_SPEC = "whenever==0.8.10";
+const WHENEVER_SPEC = process.env.WHENEVER_SPEC || DEFAULT_WHENEVER_SPEC;
+
 /** tiny helper for console blocks */
 function banner(msg) {
   console.log("\n" + "─".repeat(72) + `\n${msg}\n` + "─".repeat(72));
@@ -58,6 +62,12 @@ function banner(msg) {
     // ---------------------------------------------------------------------
     banner(`Installing osxphotos from:  ${OSXPHOTOS_SPEC}`);
     await execAsync(`"${venvPip}" install --upgrade "${OSXPHOTOS_SPEC}"`);
+
+    // ---------------------------------------------------------------------
+    // 3 · Pin "whenever" to a compatible release
+    // ---------------------------------------------------------------------
+    banner(`Ensuring whenever dependency: ${WHENEVER_SPEC}`);
+    await execAsync(`"${venvPip}" install --upgrade "${WHENEVER_SPEC}"`);
 
     banner("Setup succeeded – backend Python tooling ready.");
   } catch (err) {
