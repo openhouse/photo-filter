@@ -35,6 +35,15 @@ const DEFAULT_FORK_SPEC =
 /** caller can override with  OSXPHOTOS_SPEC=… */
 const OSXPHOTOS_SPEC = process.env.OSXPHOTOS_SPEC || DEFAULT_FORK_SPEC;
 
+/**
+ * osxphotos depends on the "whenever" package. Newer releases (≥0.9)
+ * removed the SystemDateTime helper that osxphotos still imports, which
+ * causes the backend to crash when exporting images. Pin the dependency
+ * to a compatible range by default, while allowing overrides.
+ */
+const DEFAULT_WHENEVER_SPEC = "whenever<0.9";
+const WHENEVER_SPEC = process.env.WHENEVER_SPEC || DEFAULT_WHENEVER_SPEC;
+
 /** tiny helper for console blocks */
 function banner(msg) {
   console.log("\n" + "─".repeat(72) + `\n${msg}\n` + "─".repeat(72));
@@ -58,6 +67,9 @@ function banner(msg) {
     // ---------------------------------------------------------------------
     banner(`Installing osxphotos from:  ${OSXPHOTOS_SPEC}`);
     await execAsync(`"${venvPip}" install --upgrade "${OSXPHOTOS_SPEC}"`);
+
+    banner(`Pinning whenever dependency:  ${WHENEVER_SPEC}`);
+    await execAsync(`"${venvPip}" install --upgrade "${WHENEVER_SPEC}"`);
 
     banner("Setup succeeded – backend Python tooling ready.");
   } catch (err) {
