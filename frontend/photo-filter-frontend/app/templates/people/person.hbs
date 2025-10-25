@@ -1,0 +1,11 @@
+<div class="flex justify-center mb-4 gap-2">
+  <button
+    type="button"
+    class="btn btn-xs rounded-full normal-case {{if this.solo 'btn-primary text-white' 'btn-outline text-gray-600'}}"
+    {{on "click" this.toggleSolo}}
+  >
+    Solo
+  </button>
+</div>
+
+<PhotoGrid @photos={{this.model.photos}} @sortAttribute={{this.currentAlbum.sortAttribute}} />

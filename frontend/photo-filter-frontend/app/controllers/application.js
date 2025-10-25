@@ -10,19 +10,26 @@ export default class ApplicationController extends Controller {
   updateSortAttribute(event) {
     const newSort = event.target.value;
     if (this.currentAlbum.isAlbumRoute) {
-      const routeName = 'albums.album';
       const currentRoute = this.router.currentRouteName;
+      let routeName, paramName;
       if (currentRoute.startsWith('albums.album')) {
-        this.router.transitionTo(
-          routeName,
-          this.router.currentRoute.params.album_id,
-          {
-            queryParams: {
-              sort: newSort,
-              order: this.currentAlbum.sortOrder,
-            },
-          },
-        );
+        routeName = 'albums.album';
+        paramName = 'album_id';
+      } else if (currentRoute.startsWith('people.person')) {
+        routeName = 'people.person';
+        paramName = 'person_name';
+      }
+      if (routeName && paramName) {
+        const queryParams = {
+          sort: newSort,
+          order: this.currentAlbum.sortOrder,
+        };
+        if (currentRoute.startsWith('people.person')) {
+          queryParams.solo = this.router.currentRoute.queryParams.solo;
+        }
+        this.router.transitionTo(routeName, this.router.currentRoute.params[paramName], {
+          queryParams,
+        });
       }
     }
   }
@@ -31,19 +38,26 @@ export default class ApplicationController extends Controller {
   updateSortOrder(event) {
     const newOrder = event.target.value;
     if (this.currentAlbum.isAlbumRoute) {
-      const routeName = 'albums.album';
       const currentRoute = this.router.currentRouteName;
+      let routeName, paramName;
       if (currentRoute.startsWith('albums.album')) {
-        this.router.transitionTo(
-          routeName,
-          this.router.currentRoute.params.album_id,
-          {
-            queryParams: {
-              sort: this.currentAlbum.sortAttribute,
-              order: newOrder,
-            },
-          },
-        );
+        routeName = 'albums.album';
+        paramName = 'album_id';
+      } else if (currentRoute.startsWith('people.person')) {
+        routeName = 'people.person';
+        paramName = 'person_name';
+      }
+      if (routeName && paramName) {
+        const queryParams = {
+          sort: this.currentAlbum.sortAttribute,
+          order: newOrder,
+        };
+        if (currentRoute.startsWith('people.person')) {
+          queryParams.solo = this.router.currentRoute.queryParams.solo;
+        }
+        this.router.transitionTo(routeName, this.router.currentRoute.params[paramName], {
+          queryParams,
+        });
       }
     }
   }

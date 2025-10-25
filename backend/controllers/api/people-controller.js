@@ -3,10 +3,11 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
-import { execCommand } from "../../utils/exec-command.js";
 import { Serializer } from "jsonapi-serializer";
-import { getNestedProperty } from "../../utils/helpers.js";
+import {
+  getNestedProperty,
+  formatPreciseTimestamp,
+} from "../../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,6 +18,7 @@ const PhotoSerializer = new Serializer("photo", {
     "originalName",
     "originalFilename",
     "filename",
+    "exportedFilename",
     "score",
     "exifInfo",
     "persons",
@@ -29,6 +31,20 @@ const PhotoSerializer = new Serializer("photo", {
   },
   pluralizeType: false,
 });
+
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: ["name"],
+  keyForAttribute: "camelCase",
+  pluralizeType: false,
+});
+
+function slugifyName(name) {
+  return name
+    .toLowerCase()
+    .replace(/[\s+]/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
 
 // List all people in an album
 export const getPeopleInAlbum = async (req, res) => {
@@ -100,9 +116,12 @@ export const getPhotosByPerson = async (req, res) => {
       });
     }
 
-    // Add originalName property
+    // Add originalName and exportedFilename properties
     filteredPhotos.forEach((photo) => {
-      photo.originalName = path.parse(photo.original_filename).name;
+      const originalName = path.parse(photo.original_filename).name;
+      const ts = formatPreciseTimestamp(photo.date);
+      photo.originalName = originalName;
+      photo.exportedFilename = `${ts}-${originalName}.jpg`;
     });
 
     const scoreAttributes = Object.keys(filteredPhotos[0].score);
@@ -135,6 +154,137 @@ export const getPhotosByPerson = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching photos for person:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+// List all people across the entire library
+export const getAllPeople = async (_req, res) => {
+  try {
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumsDir = path.join(dataDir, "albums");
+
+    if (!(await fs.pathExists(albumsDir))) {
+      return res.status(404).json({
+        errors: [{ detail: "No albums found" }],
+      });
+    }
+
+    const albumEntries = await fs.readdir(albumsDir, { withFileTypes: true });
+    const allPersons = new Set();
+
+    for (const entry of albumEntries) {
+      if (!entry.isDirectory()) continue;
+      const photosPath = path.join(albumsDir, entry.name, "photos.json");
+      if (!(await fs.pathExists(photosPath))) continue;
+
+      const photos = await fs.readJson(photosPath);
+      photos.forEach((photo) => {
+        if (Array.isArray(photo.persons)) {
+          photo.persons.forEach((p) => allPersons.add(p));
+        }
+      });
+    }
+
+    const persons = Array.from(allPersons).map((name) => ({
+      id: slugifyName(name),
+      name,
+    }));
+
+    const jsonApi = PersonSerializer.serialize(persons);
+    res.json(jsonApi);
+  } catch (error) {
+    console.error("Error fetching all people:", error);
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+// Get photos of a specific person across the entire library
+export const getPhotosByPersonLibrary = async (req, res) => {
+  try {
+    const personName = req.params.personName;
+    const sortAttribute = req.query.sort || "score.overall";
+    const sortOrder = req.query.order || "desc";
+    const solo = req.query.solo === "true";
+    const UNKNOWN_PERSON = "_UNKNOWN_";
+
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumsDir = path.join(dataDir, "albums");
+
+    if (!(await fs.pathExists(albumsDir))) {
+      return res.status(404).json({
+        errors: [{ detail: "No albums found" }],
+      });
+    }
+
+    const albumEntries = await fs.readdir(albumsDir, { withFileTypes: true });
+    const filteredPhotos = [];
+
+    for (const entry of albumEntries) {
+      if (!entry.isDirectory()) continue;
+      const albumUUID = entry.name;
+      const photosPath = path.join(albumsDir, albumUUID, "photos.json");
+      if (!(await fs.pathExists(photosPath))) continue;
+
+      const photos = await fs.readJson(photosPath);
+
+      for (const photo of photos) {
+        if (!Array.isArray(photo.persons)) continue;
+        if (!photo.persons.includes(personName)) continue;
+
+        if (solo) {
+          const others = photo.persons.filter((p) => p !== personName);
+          if (others.some((p) => p && p !== UNKNOWN_PERSON)) continue;
+        }
+
+        const originalName = path.parse(photo.original_filename).name;
+        const ts = formatPreciseTimestamp(photo.date);
+        photo.originalName = originalName;
+        photo.exportedFilename = `${ts}-${originalName}.jpg`;
+        photo.album = albumUUID;
+        filteredPhotos.push(photo);
+      }
+    }
+
+    if (filteredPhotos.length === 0) {
+      return res.json({
+        data: [],
+        meta: {
+          personName,
+          sortAttribute,
+          sortOrder,
+          solo,
+          scoreAttributes: [],
+        },
+      });
+    }
+
+    const scoreAttributes = Object.keys(filteredPhotos[0].score);
+
+    filteredPhotos.sort((a, b) => {
+      const aValue = getNestedProperty(a, sortAttribute);
+      const bValue = getNestedProperty(b, sortAttribute);
+
+      if (aValue === undefined || aValue === null) return 1;
+      if (bValue === undefined || bValue === null) return -1;
+
+      return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+    });
+
+    const jsonApiData = PhotoSerializer.serialize(filteredPhotos);
+
+    res.json({
+      ...jsonApiData,
+      meta: {
+        personName,
+        sortAttribute,
+        sortOrder,
+        solo,
+        scoreAttributes,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching photos for person across library:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
