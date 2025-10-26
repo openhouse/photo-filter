@@ -9,6 +9,7 @@ import {
   getAlbumById,
   getPhotosByAlbumData,
   exportTopN,
+  exportAll,
 } from "../controllers/api/index.js";
 import {
   getPeopleInAlbum,
@@ -46,9 +47,10 @@ apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
 apiRouter.get("/time-index", getTimeIndex);
 
 // ======================
-//   Export Top‑N Endpoint
+//   Export Endpoints
 // ======================
 apiRouter.post("/albums/:albumUUID/export-top-n", exportTopN);
+apiRouter.post("/albums/:albumUUID/export-all", exportAll);
 
 // ======================
 //   REFRESH Endpoint
