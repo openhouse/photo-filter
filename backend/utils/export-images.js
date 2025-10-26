@@ -48,7 +48,7 @@ export async function runOsxphotosExportImages(
 
   const cmd = `"${osxphotosPath}" export "${imagesDir}" \
   --uuid-from-file "${uuidsFile}" \
-  --download-missing --use-photokit \
+  --download-missing --use-photokit --ramdb \
   --filename "${filenameTemplate}" \
   --convert-to-jpeg --jpeg-ext jpg`;
 
