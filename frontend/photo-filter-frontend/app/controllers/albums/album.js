@@ -167,6 +167,23 @@ export default class AlbumsAlbumController extends Controller {
     });
   }
 
+  @action
+  async exportAll() {
+    const albumId = this.router.currentRoute.params.album_id;
+    const apiHost = config.APP.apiHost;
+    const body = {
+      persons: this.persons,
+    };
+
+    await fetch(`${apiHost}/api/albums/${albumId}/export-all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
   updateQueryParams() {
     let currentRoute = this.router.currentRouteName;
     let albumId = this.router.currentRoute.params.album_id;
