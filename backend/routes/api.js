@@ -4,6 +4,7 @@ import express from "express";
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
+import { getAlbumImagesDir } from "../config/storage-paths.js";
 import {
   getAlbumsData,
   getAlbumById,
@@ -58,7 +59,7 @@ apiRouter.post("/albums/:albumUUID/export-all", exportAll);
 apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
   try {
     const { albumUUID } = req.params;
-    const dataDir = path.join(
+    const albumDir = path.join(
       __dirname,
       "..",
       "..",
@@ -66,8 +67,9 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       "albums",
       albumUUID
     );
-    const photosPath = path.join(dataDir, "photos.json");
-    const imagesDir = path.join(dataDir, "images");
+    const photosPath = path.join(albumDir, "photos.json");
+    const imagesDir = getAlbumImagesDir(albumUUID);
+    const legacyImagesDir = path.join(albumDir, "images");
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -85,6 +87,9 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
     if (await fs.pathExists(imagesDir)) {
       await fs.remove(imagesDir);
     }
+    if (await fs.pathExists(legacyImagesDir)) {
+      await fs.remove(legacyImagesDir);
+    }
 
     // Re-run python script
     await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
@@ -94,6 +99,20 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       imagesDir,
       photosPath
     );
+
+    try {
+      await fs.ensureDir(path.dirname(legacyImagesDir));
+      const st = await fs.lstat(legacyImagesDir).catch(() => null);
+      if (!st) {
+        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
+      }
+    } catch (e) {
+      console.warn("Could not create legacy images symlink:", {
+        legacyImagesDir,
+        imagesDir,
+        e,
+      });
+    }
 
     return res.json({
       message: `Album ${albumUUID} metadata and images have been refreshed.`,
