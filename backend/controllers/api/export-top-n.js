@@ -50,7 +50,17 @@ export async function exportTopN(req, res) {
     const photosJSON = path.join(albumDir, 'photos.json');
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, 'images');
+    const exportBase = getExportBase(albumUUID);
 
+    console.log('exportTopN paths:', { imagesDir, exportBase });
+
+    const venvDir = path.join(__dirname, '..', '..', 'venv');
+    const python = path.join(venvDir, 'bin', 'python3');
+    const pyExport = path.join(__dirname, '..', '..', 'scripts', 'export_photos_in_album.py');
+    const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
+
+    await fs.ensureDir(albumDir);
+    await fs.ensureDir(imagesDir);
     try {
       await fs.ensureDir(path.dirname(legacyImagesDir));
       const st = await fs.lstat(legacyImagesDir).catch(() => null);
@@ -64,17 +74,6 @@ export async function exportTopN(req, res) {
         e,
       });
     }
-    const exportBase = getExportBase(albumUUID);
-
-    console.log('exportTopN paths:', { imagesDir, exportBase });
-
-    const venvDir = path.join(__dirname, '..', '..', 'venv');
-    const python = path.join(venvDir, 'bin', 'python3');
-    const pyExport = path.join(__dirname, '..', '..', 'scripts', 'export_photos_in_album.py');
-    const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
-
-    await fs.ensureDir(albumDir);
-    await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
       await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON);
