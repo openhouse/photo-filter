@@ -64,20 +64,6 @@ export const getPhotosByAlbumData = async (req, res) => {
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
 
-    try {
-      await fs.ensureDir(path.dirname(legacyImagesDir));
-      const st = await fs.lstat(legacyImagesDir).catch(() => null);
-      if (!st) {
-        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
-      }
-    } catch (e) {
-      console.warn("Could not create legacy images symlink:", {
-        legacyImagesDir,
-        imagesDir,
-        e,
-      });
-    }
-
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const python = path.join(venvDir, "bin", "python3");
     const pyExport = path.join(
@@ -92,6 +78,19 @@ export const getPhotosByAlbumData = async (req, res) => {
     /* (1) Ensure exports exist */
     await fs.ensureDir(albumDir);
     await fs.ensureDir(imagesDir);
+    try {
+      await fs.ensureDir(path.dirname(legacyImagesDir));
+      const st = await fs.lstat(legacyImagesDir).catch(() => null);
+      if (!st) {
+        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
+      }
+    } catch (e) {
+      console.warn("Could not create legacy images symlink:", {
+        legacyImagesDir,
+        imagesDir,
+        e,
+      });
+    }
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
       await runOsxphotosExportImages(

@@ -47,7 +47,6 @@ export async function runOsxphotosExportImages(
     "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
 
   const args = [
-    osxphotosPath,
     "export",
     imagesDir,
     "--uuid-from-file",
@@ -66,17 +65,5 @@ export async function runOsxphotosExportImages(
     "jpg",
   ];
 
-  const cmd = args.map(quoteForShell).join(" ");
-  await execCommand(cmd, "osxphotos image export failed:");
-}
-
-function quoteForShell(value) {
-  const stringValue = String(value);
-
-  if (/^[A-Za-z0-9_\/:=+.,-]+$/.test(stringValue) && stringValue.length > 0) {
-    return stringValue;
-  }
-
-  const escaped = stringValue.replace(/(["$`\\])/g, "\\$1");
-  return `"${escaped}"`;
+  await execCommand([osxphotosPath, ...args], "osxphotos image export failed:");
 }
