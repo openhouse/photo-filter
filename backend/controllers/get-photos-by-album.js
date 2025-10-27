@@ -13,6 +13,7 @@ import {
   getNestedProperty,
   capitalizeAttributeName,
 } from "../utils/helpers.js";
+import { getAlbumImagesDir } from "../config/storage-paths.js";
 
 const require = createRequire(import.meta.url);
 const tag = require("osx-tag");
@@ -43,7 +44,8 @@ export const getPhotosByAlbum = async (req, res) => {
     const dataDir = path.join(__dirname, "..", "data");
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
-    const imagesDir = path.join(photosDir, "images");
+    const imagesDir = getAlbumImagesDir(albumUUID);
+    const legacyImagesDir = path.join(photosDir, "images");
     const venvDir = path.join(__dirname, "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -56,6 +58,19 @@ export const getPhotosByAlbum = async (req, res) => {
 
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
+    try {
+      await fs.ensureDir(path.dirname(legacyImagesDir));
+      const st = await fs.lstat(legacyImagesDir).catch(() => null);
+      if (!st) {
+        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
+      }
+    } catch (e) {
+      console.warn("Could not create legacy images symlink:", {
+        legacyImagesDir,
+        imagesDir,
+        e,
+      });
+    }
 
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata

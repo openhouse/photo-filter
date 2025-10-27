@@ -23,6 +23,7 @@ import fg from "fast-glob";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getAlbumImagesDir } from "../config/storage-paths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -68,15 +69,7 @@ async function main() {
   }
   const asJson = rest.includes("--json");
 
-  // images live under backend/data/albums/<uuid>/images/…
-  const imagesDir = path.join(
-    __dirname,
-    "..",
-    "data",
-    "albums",
-    albumUuid,
-    "images"
-  );
+  const imagesDir = getAlbumImagesDir(albumUuid);
   const patterns = ["**/*.{jpg,jpeg,JPG,JPEG,png,PNG,heic,HEIC}"];
   const imagePaths = await fg(patterns, {
     cwd: imagesDir,

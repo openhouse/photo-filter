@@ -11,6 +11,7 @@ import {
   ensureRoots,
   getLocalRoot,
   getExportRoot,
+  getAlbumImagesDir,
 } from "./config/storage-paths.js";
 
 const app = express();
@@ -70,10 +71,13 @@ app.set("views", path.join(__dirname, "views"));
 // Serve static files
 app.use(express.static(path.join(__dirname, "public")));
 
+// Back-compat: expose legacy /data/albums URLs from new local root
+app.use("/data/albums", express.static(path.join(getLocalRoot(), "albums")));
+
 // Dynamic image serving middleware with fuzzy fallback
 app.use("/images/:albumUUID/:imageName", async (req, res) => {
   const { albumUUID, imageName } = req.params;
-  const imagesDir = path.join(__dirname, "data", "albums", albumUUID, "images");
+  const imagesDir = getAlbumImagesDir(albumUUID);
 
   try {
     const exact = path.join(imagesDir, imageName);
@@ -85,6 +89,11 @@ app.use("/images/:albumUUID/:imageName", async (req, res) => {
     if (dash > 0) {
       const wantSeconds = want.slice(0, dash).slice(0, 15); // YYYYMMDDTHHMMSS
       const wantTail = want.slice(dash + 1); // "IMG_1079" / "IMG_1079-1" / "IMG_1079 (1)"
+
+      if (!(await fs.pathExists(imagesDir))) {
+        console.warn(`[images] missing dir ${albumUUID}`);
+        return res.status(404).send("Image not found");
+      }
 
       const files = await fs.readdir(imagesDir);
       const candidate = files.find((f) => {

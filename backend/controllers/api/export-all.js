@@ -23,6 +23,21 @@ export async function exportAll(req, res) {
     const albumDir = path.join(dataDir, 'albums', albumUUID);
     const photosJSON = path.join(albumDir, 'photos.json');
     const imagesDir = getAlbumImagesDir(albumUUID);
+    const legacyImagesDir = path.join(albumDir, 'images');
+
+    try {
+      await fs.ensureDir(path.dirname(legacyImagesDir));
+      const st = await fs.lstat(legacyImagesDir).catch(() => null);
+      if (!st) {
+        await fs.ensureSymlink(imagesDir, legacyImagesDir, 'dir');
+      }
+    } catch (e) {
+      console.warn('Could not create legacy images symlink:', {
+        legacyImagesDir,
+        imagesDir,
+        e,
+      });
+    }
     const exportBase = getExportBase(albumUUID);
 
     console.log('exportAll paths:', { imagesDir, exportBase });
