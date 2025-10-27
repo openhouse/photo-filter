@@ -66,8 +66,17 @@ export async function runOsxphotosExportImages(
     "jpg",
   ];
 
-  const cmd = args
-    .map((a) => (/(\s|\\)/.test(String(a)) ? `"${a}"` : a))
-    .join(" ");
+  const cmd = args.map(quoteForShell).join(" ");
   await execCommand(cmd, "osxphotos image export failed:");
+}
+
+function quoteForShell(value) {
+  const stringValue = String(value);
+
+  if (/^[A-Za-z0-9_\/:=+.,-]+$/.test(stringValue) && stringValue.length > 0) {
+    return stringValue;
+  }
+
+  const escaped = stringValue.replace(/(["$`\\])/g, "\\$1");
+  return `"${escaped}"`;
 }
