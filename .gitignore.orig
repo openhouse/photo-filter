@@ -43,7 +43,10 @@ backend/cache/
 .idea/
 .vscode/
 project-overview.txt
+<<<<<<< HEAD
+=======
 backend/exports/
+>>>>>>> 86a9ecdc57f9e4f6a63b29b1a9287abb344dfc42
 
 # Local export roots (non-synced)
 /photo-filter-local/

@@ -24,8 +24,12 @@ export function isICloudPath(p) {
       : fs.realpathSync(parent);
   }
 
+<<<<<<< HEAD
+  return real.startsWith(icloudRoot);
+=======
   const rel = path.relative(icloudRoot, real);
   return !rel || (!rel.startsWith("..") && !path.isAbsolute(rel));
+>>>>>>> 86a9ecdc57f9e4f6a63b29b1a9287abb344dfc42
 }
 
 function resolveSafeRoot(envVar, defaultAbs) {
@@ -40,6 +44,10 @@ function resolveSafeRoot(envVar, defaultAbs) {
 
 // Defaults: safe local, not synced
 const DEFAULT_LOCAL_ROOT = "/Users/Shared/photo-filter-local";
+<<<<<<< HEAD
+const DEFAULT_EXPORT_ROOT = "/Users/Shared/photo-filter-exports";
+=======
+>>>>>>> 86a9ecdc57f9e4f6a63b29b1a9287abb344dfc42
 
 export function getLocalRoot() {
   return resolveSafeRoot("PF_LOCAL_ROOT", DEFAULT_LOCAL_ROOT);

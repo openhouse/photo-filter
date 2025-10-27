@@ -58,6 +58,7 @@ export async function exportTopN(req, res) {
     const pyExport = path.join(__dirname, '..', '..', 'scripts', 'export_photos_in_album.py');
     const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
 
+    await fs.ensureDir(albumDir);
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);

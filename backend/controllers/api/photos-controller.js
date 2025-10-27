@@ -75,6 +75,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
     /* (1) Ensure exports exist */
+    await fs.ensureDir(albumDir);
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);

@@ -38,6 +38,7 @@ export async function exportAll(req, res) {
     );
     const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
 
+    await fs.ensureDir(albumDir);
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);
