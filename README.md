@@ -13,6 +13,13 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 - **project-guidelines.md**: Collaboration and coding standards.
 - **docs/API_ENDPOINTS.md**: Reference for all available API routes.
 
+## Storage
+
+- `PF_LOCAL_ROOT`  (default: `/Users/Shared/photo-filter-local`)
+- `PF_EXPORT_ROOT` (default: `<PF_LOCAL_ROOT>/exports`)
+
+These must **not** point inside iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs`).
+
 ## Features
 
 - **Album Navigation**: Browse albums via a left-side navigation column.
