@@ -4,6 +4,11 @@ import { fileURLToPath } from 'url';
 import { runPythonScript } from '../../utils/run-python-script.js';
 import { runOsxphotosExportImages } from '../../utils/export-images.js';
 import { formatPreciseTimestamp, getNestedProperty } from '../../utils/helpers.js';
+import {
+  getAlbumImagesDir,
+  getExportBase,
+  ensureRoots,
+} from '../../config/storage-paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,11 +44,14 @@ export async function exportTopN(req, res) {
     const { n, persons = [] } = req.body || {};
     const topN = Math.max(parseInt(n, 10) || 1, 1);
 
+    await ensureRoots();
     const dataDir = path.join(__dirname, '..', '..', 'data');
     const albumDir = path.join(dataDir, 'albums', albumUUID);
     const photosJSON = path.join(albumDir, 'photos.json');
-    const imagesDir = path.join(albumDir, 'images');
-    const exportBase = path.join(__dirname, '..', '..', 'exports', albumUUID);
+    const imagesDir = getAlbumImagesDir(albumUUID);
+    const exportBase = getExportBase(albumUUID);
+
+    console.log('exportTopN paths:', { imagesDir, exportBase });
 
     const venvDir = path.join(__dirname, '..', '..', 'venv');
     const python = path.join(venvDir, 'bin', 'python3');
