@@ -17,6 +17,7 @@ import {
   getNestedProperty,
 } from "../../utils/helpers.js";
 import { Serializer } from "jsonapi-serializer";
+import { getAlbumImagesDir, ensureRoots } from "../../config/storage-paths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,10 +57,11 @@ export const getPhotosByAlbumData = async (req, res) => {
     const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
+    await ensureRoots();
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumDir = path.join(dataDir, "albums", albumUUID);
     const photosJSON = path.join(albumDir, "photos.json");
-    const imagesDir = path.join(albumDir, "images");
+    const imagesDir = getAlbumImagesDir(albumUUID);
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const python = path.join(venvDir, "bin", "python3");
@@ -73,6 +75,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
     /* (1) Ensure exports exist */
+    await fs.ensureDir(albumDir);
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);

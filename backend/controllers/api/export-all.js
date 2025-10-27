@@ -3,6 +3,11 @@ import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
 import { runPythonScript } from '../../utils/run-python-script.js';
 import { runOsxphotosExportImages } from '../../utils/export-images.js';
+import {
+  getAlbumImagesDir,
+  getExportBase,
+  ensureRoots,
+} from '../../config/storage-paths.js';
 import { formatPreciseTimestamp } from '../../utils/helpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,11 +18,14 @@ export async function exportAll(req, res) {
     const albumUUID = req.params.albumUUID;
     const { persons = [] } = req.body || {};
 
+    await ensureRoots();
     const dataDir = path.join(__dirname, '..', '..', 'data');
     const albumDir = path.join(dataDir, 'albums', albumUUID);
     const photosJSON = path.join(albumDir, 'photos.json');
-    const imagesDir = path.join(albumDir, 'images');
-    const exportBase = path.join(__dirname, '..', '..', 'exports', albumUUID);
+    const imagesDir = getAlbumImagesDir(albumUUID);
+    const exportBase = getExportBase(albumUUID);
+
+    console.log('exportAll paths:', { imagesDir, exportBase });
 
     const venvDir = path.join(__dirname, '..', '..', 'venv');
     const python = path.join(venvDir, 'bin', 'python3');
@@ -30,6 +38,7 @@ export async function exportAll(req, res) {
     );
     const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
 
+    await fs.ensureDir(albumDir);
     await fs.ensureDir(imagesDir);
     if (!(await fs.pathExists(photosJSON))) {
       await runPythonScript(python, pyExport, [albumUUID], photosJSON);

@@ -46,12 +46,28 @@ export async function runOsxphotosExportImages(
   const filenameTemplate =
     "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
 
-  const cmd = `"${osxphotosPath}" export "${imagesDir}" \
-  --uuid-from-file "${uuidsFile}" \
-  --download-missing --use-photokit --ramdb \
-  --only-photos --skip-live --skip-raw \
-  --filename "${filenameTemplate}" \
-  --convert-to-jpeg --jpeg-ext jpg`;
+  const args = [
+    osxphotosPath,
+    "export",
+    imagesDir,
+    "--uuid-from-file",
+    uuidsFile,
+    "--download-missing",
+    "--use-photokit",
+    "--ramdb",
+    "--update",
+    "--only-photos",
+    "--skip-live",
+    "--skip-raw",
+    "--filename",
+    filenameTemplate,
+    "--convert-to-jpeg",
+    "--jpeg-ext",
+    "jpg",
+  ];
 
+  const cmd = args
+    .map((a) => (/(\s|\\)/.test(String(a)) ? `"${a}"` : a))
+    .join(" ");
   await execCommand(cmd, "osxphotos image export failed:");
 }

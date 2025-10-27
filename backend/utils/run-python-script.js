@@ -2,6 +2,7 @@
 
 import { exec } from "child_process";
 import fs from "fs-extra";
+import path from "path";
 
 export async function runPythonScript(
   pythonPath,
@@ -26,6 +27,7 @@ export async function runPythonScript(
         }
         // Write stdout to the outputPath
         try {
+          await fs.ensureDir(path.dirname(outputPath));
           await fs.writeFile(outputPath, stdout, "utf-8");
           console.log(`Output written to ${outputPath}`);
           resolve();
