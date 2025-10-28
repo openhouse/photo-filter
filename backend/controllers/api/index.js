@@ -7,3 +7,4 @@ export { getPeopleByFilename } from "./filename-controller.js";
 export { getTimeIndex } from "./time-controller.js";
 export { exportTopN } from "./export-top-n.js";
 export { exportAll } from "./export-all.js";
+export { getAlbumExportStatus } from "./export-status.js";

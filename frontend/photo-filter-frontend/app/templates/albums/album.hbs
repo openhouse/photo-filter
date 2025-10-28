@@ -33,9 +33,24 @@
 
 <!-- Remove the did-update modifier -->
 <div>
-  <PhotoGrid
-    @photos={{this.visiblePhotos}}
-    @albumUUID={{this.model.albumUUID}}
-    @sortAttribute={{this.sort}}
-  />
+  {{#if (eq this.exportStatus.status "error")}}
+    <div class="alert alert-error shadow-lg my-8">
+      <div>
+        <span>{{this.exportStatusMessage}}</span>
+      </div>
+    </div>
+  {{else if this.isExportReady}}
+    <PhotoGrid
+      @photos={{this.visiblePhotos}}
+      @albumUUID={{this.model.albumUUID}}
+      @sortAttribute={{this.sort}}
+    />
+  {{else}}
+    <div
+      class="flex flex-col items-center gap-4 py-16 text-center text-sm text-base-content/70"
+    >
+      <span class="loading loading-spinner loading-lg text-primary"></span>
+      <span>{{this.exportStatusMessage}}</span>
+    </div>
+  {{/if}}
 </div>

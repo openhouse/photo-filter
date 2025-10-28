@@ -4,20 +4,20 @@ import express from "express";
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { getAlbumImagesDir } from "../config/storage-paths.js";
+import { getAlbumImagesDir, getExportBase } from "../config/storage-paths.js";
 import {
   getAlbumsData,
   getAlbumById,
   getPhotosByAlbumData,
   exportTopN,
   exportAll,
+  getAlbumExportStatus,
 } from "../controllers/api/index.js";
 import {
   getPeopleInAlbum,
   getPhotosByPerson,
 } from "../controllers/api/people-controller.js";
-import { runPythonScript } from "../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../utils/export-images.js";
+import { ensureAlbumPrepared } from "../utils/prepare-album.js";
 
 // === Import our new time controller
 import { getTimeIndex } from "../controllers/api/time-controller.js";
@@ -36,6 +36,7 @@ const apiRouter = express.Router();
 apiRouter.get("/albums", getAlbumsData);
 apiRouter.get("/albums/:albumUUID", getAlbumById);
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
+apiRouter.get("/albums/:albumUUID/status", getAlbumExportStatus);
 
 // People
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
@@ -65,11 +66,12 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       "..",
       "data",
       "albums",
-      albumUUID
+      albumUUID,
     );
     const photosPath = path.join(albumDir, "photos.json");
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
+    const exportBase = getExportBase(albumUUID);
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -77,7 +79,7 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       "..",
       "..",
       "scripts",
-      "export_photos_in_album.py"
+      "export_photos_in_album.py",
     );
     const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
 
@@ -91,28 +93,17 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       await fs.remove(legacyImagesDir);
     }
 
-    // Re-run python script
-    await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
-    await runOsxphotosExportImages(
-      osxphotosPath,
+    await ensureAlbumPrepared({
       albumUUID,
+      albumDir,
+      photosJSON: photosPath,
       imagesDir,
-      photosPath
-    );
-
-    try {
-      await fs.ensureDir(path.dirname(legacyImagesDir));
-      const st = await fs.lstat(legacyImagesDir).catch(() => null);
-      if (!st) {
-        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
-      }
-    } catch (e) {
-      console.warn("Could not create legacy images symlink:", {
-        legacyImagesDir,
-        imagesDir,
-        e,
-      });
-    }
+      legacyImagesDir,
+      exportBase,
+      python: pythonPath,
+      pyExport: scriptPath,
+      osxphotos: osxphotosPath,
+    });
 
     return res.json({
       message: `Album ${albumUUID} metadata and images have been refreshed.`,
