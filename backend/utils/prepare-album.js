@@ -64,7 +64,28 @@ async function prepareAlbumInternal(context) {
     logPath: path.join(exportBase, "logs", `export-${albumUUID}.log`),
   });
 
+  await fs.ensureDir(path.dirname(runningStatus.logPath));
+  const logStream = fs.createWriteStream(runningStatus.logPath, { flags: "a" });
+
+  const closeLogStream = async () => {
+    if (!logStream || logStream.destroyed || logStream.writableEnded) {
+      return;
+    }
+    await new Promise((resolve) => {
+      logStream.end(() => resolve());
+    });
+  };
+
+  const logMessage = (message) => {
+    if (!logStream || logStream.destroyed || logStream.writableEnded) {
+      return;
+    }
+    logStream.write(`[${new Date().toISOString()}] ${message}\n`);
+  };
+
   try {
+    logMessage(`Starting export for album ${albumUUID}`);
+
     const { logPath } = await runPythonScript(
       python,
       pyExport,
@@ -74,9 +95,16 @@ async function prepareAlbumInternal(context) {
         albumUUID,
         exportBase,
         logPath: runningStatus.logPath,
+        logStream,
+        appendLog: true,
       },
     );
-    await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON);
+    logMessage(`Starting osxphotos export for album ${albumUUID}`);
+
+    await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON, {
+      logStream,
+    });
+    logMessage(`Finished export for album ${albumUUID}`);
     return await writeStatus(albumUUID, exportBase, {
       status: "ready",
       finishedAt: new Date().toISOString(),
@@ -84,12 +112,18 @@ async function prepareAlbumInternal(context) {
       logPath: logPath || runningStatus.logPath,
     });
   } catch (err) {
+    logMessage(`Export failed for album ${albumUUID}: ${err.message}`);
     await writeStatus(albumUUID, exportBase, {
       status: "error",
       finishedAt: new Date().toISOString(),
       errorMessage: err.message,
+      logPath: runningStatus.logPath,
     });
+    await closeLogStream().catch(() => {});
     throw err;
+  }
+  finally {
+    await closeLogStream().catch(() => {});
   }
 }
 

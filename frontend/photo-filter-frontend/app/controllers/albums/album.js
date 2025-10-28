@@ -212,10 +212,10 @@ export default class AlbumsAlbumController extends Controller {
     this.startStatusWatcher(albumId);
   }
 
-  startStatusWatcher(albumUUID) {
+  startStatusWatcher(albumUUID, initialStatus = null) {
     this.#statusAlbumUUID = albumUUID;
     this.stopStatusWatcher();
-    this.exportStatus = null;
+    this.exportStatus = initialStatus || null;
     this.fetchStatus();
   }
 

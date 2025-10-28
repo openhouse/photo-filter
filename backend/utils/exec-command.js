@@ -8,9 +8,17 @@ import { spawn } from "child_process";
  *
  * @param {string|string[]} cmdOrArgs
  * @param {string} errorMessage
- * @param {{cwd?: string, env?: NodeJS.ProcessEnv}} options
+ * @param {{
+ *   cwd?: string,
+ *   env?: NodeJS.ProcessEnv,
+ *   logStream?: import("stream").Writable,
+ * }} options
  */
-export function execCommand(cmdOrArgs, errorMessage = "Command failed:", options = {}) {
+export function execCommand(
+  cmdOrArgs,
+  errorMessage = "Command failed:",
+  options = {},
+) {
   return new Promise((resolve, reject) => {
     let command;
     let args = [];
@@ -23,7 +31,7 @@ export function execCommand(cmdOrArgs, errorMessage = "Command failed:", options
       useShell = true;
     }
 
-    const { cwd, env } = options;
+    const { cwd, env, logStream } = options;
     const child = spawn(command, args, {
       shell: useShell,
       cwd,
@@ -36,6 +44,17 @@ export function execCommand(cmdOrArgs, errorMessage = "Command failed:", options
       : command;
     console.log(`Executing command:\n${printable}`);
 
+    const logMessage = (message) => {
+      if (!logStream || logStream.destroyed || logStream.writableEnded) {
+        return;
+      }
+      logStream.write(`[${new Date().toISOString()}] ${message}\n`);
+    };
+
+    if (logStream) {
+      logMessage(`Running ${printable}`);
+    }
+
     let stderrBuf = Buffer.alloc(0);
 
     const appendStderr = (chunk) => {
@@ -47,19 +66,33 @@ export function execCommand(cmdOrArgs, errorMessage = "Command failed:", options
 
     child.stdout.on("data", (data) => {
       process.stdout.write(data);
+      if (logStream && !logStream.destroyed && !logStream.writableEnded) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        logStream.write(buf);
+      }
     });
 
     child.stderr.on("data", (data) => {
       process.stderr.write(data);
       appendStderr(data);
+      if (logStream && !logStream.destroyed && !logStream.writableEnded) {
+        const buf = Buffer.isBuffer(data) ? data : Buffer.from(data);
+        logStream.write(buf);
+      }
     });
 
     child.on("error", (err) => {
+      if (logStream) {
+        logMessage(`error: ${err.message}`);
+      }
       reject(err);
     });
 
     child.on("close", (code, signal) => {
       if (code === 0) {
+        if (logStream) {
+          logMessage(`command exited with code ${code}`);
+        }
         resolve();
         return;
       }
@@ -68,6 +101,13 @@ export function execCommand(cmdOrArgs, errorMessage = "Command failed:", options
       const error = new Error(message);
       error.code = code;
       error.signal = signal;
+      if (logStream) {
+        logMessage(
+          `command failed with code ${code}${
+            signal ? ` (signal ${signal})` : ""
+          }`,
+        );
+      }
       reject(error);
     });
   });

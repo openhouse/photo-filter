@@ -90,6 +90,8 @@ export default class AlbumsAlbumRoute extends Route {
     this.currentAlbum.sortOrder = order;
 
     const isDataReady = true;
+    const exportStatus = allPhotos.meta?.exportStatus || null;
+
     return {
       album,
       photos: allPhotos,
@@ -101,13 +103,14 @@ export default class AlbumsAlbumRoute extends Route {
       selectedPersons: persons,
       selectedDates: dates,
       isDataReady,
+      exportStatus,
     };
   }
 
   setupController(controller, model) {
     super.setupController(controller, model);
     if (model?.albumUUID) {
-      controller.startStatusWatcher(model.albumUUID);
+      controller.startStatusWatcher(model.albumUUID, model.exportStatus);
     }
   }
 
