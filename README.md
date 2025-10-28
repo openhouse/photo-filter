@@ -15,7 +15,11 @@ This monorepo contains both the Ember.js frontend and the Express.js backend of 
 
 ## Storage
 
-- `PF_LOCAL_ROOT`  (default: `/Users/Shared/photo-filter-local`)
+You can configure storage paths via environment variables defined in `backend/.env` (see
+`backend/.env.example`):
+
+- `DEFAULT_LOCAL_ROOT` (default: `/Users/Shared/photo-filter-local`)
+- `PF_LOCAL_ROOT` (default: `DEFAULT_LOCAL_ROOT`)
 - `PF_EXPORT_ROOT` (default: `<PF_LOCAL_ROOT>/exports`)
 
 These must **not** point inside iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs`).

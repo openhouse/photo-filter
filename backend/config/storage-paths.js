@@ -1,3 +1,4 @@
+import "./load-env.js";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
@@ -39,7 +40,9 @@ function resolveSafeRoot(envVar, defaultAbs) {
 }
 
 // Defaults: safe local, not synced
-const DEFAULT_LOCAL_ROOT = "/Users/Shared/photo-filter-local";
+const DEFAULT_LOCAL_ROOT = process.env.DEFAULT_LOCAL_ROOT
+  ? path.resolve(process.env.DEFAULT_LOCAL_ROOT)
+  : "/Users/Shared/photo-filter-local";
 
 export function getLocalRoot() {
   return resolveSafeRoot("PF_LOCAL_ROOT", DEFAULT_LOCAL_ROOT);
