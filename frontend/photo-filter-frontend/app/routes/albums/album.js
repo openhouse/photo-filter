@@ -104,6 +104,13 @@ export default class AlbumsAlbumRoute extends Route {
     };
   }
 
+  setupController(controller, model) {
+    super.setupController(controller, model);
+    if (model?.albumUUID) {
+      controller.startStatusWatcher(model.albumUUID);
+    }
+  }
+
   resetController(controller, isExiting) {
     super.resetController(...arguments);
     if (isExiting) {

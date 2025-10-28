@@ -1,41 +1,43 @@
-import path from 'path';
-import fs from 'fs-extra';
-import { fileURLToPath } from 'url';
-import { runPythonScript } from '../../utils/run-python-script.js';
-import { runOsxphotosExportImages } from '../../utils/export-images.js';
-import { formatPreciseTimestamp, getNestedProperty } from '../../utils/helpers.js';
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
+import {
+  formatPreciseTimestamp,
+  getNestedProperty,
+} from "../../utils/helpers.js";
 import {
   getAlbumImagesDir,
   getExportBase,
   ensureRoots,
-} from '../../config/storage-paths.js';
+} from "../../config/storage-paths.js";
+import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Aesthetic score attributes to process
 export const AESTHETIC_ATTRIBUTES = [
-  'overall',
-  'curation',
-  'highlight_visibility',
-  'behavioral',
-  'harmonious_color',
-  'immersiveness',
-  'interaction',
-  'interesting_subject',
-  'pleasant_camera_tilt',
-  'pleasant_composition',
-  'pleasant_lighting',
-  'pleasant_pattern',
-  'pleasant_perspective',
-  'pleasant_post_processing',
-  'pleasant_reflection',
-  'pleasant_symmetry',
-  'sharply_focused_subject',
-  'tastefully_blurred',
-  'well_chosen_subject',
-  'well_framed_subject',
-  'well_timed_shot',
+  "overall",
+  "curation",
+  "highlight_visibility",
+  "behavioral",
+  "harmonious_color",
+  "immersiveness",
+  "interaction",
+  "interesting_subject",
+  "pleasant_camera_tilt",
+  "pleasant_composition",
+  "pleasant_lighting",
+  "pleasant_pattern",
+  "pleasant_perspective",
+  "pleasant_post_processing",
+  "pleasant_reflection",
+  "pleasant_symmetry",
+  "sharply_focused_subject",
+  "tastefully_blurred",
+  "well_chosen_subject",
+  "well_framed_subject",
+  "well_timed_shot",
 ];
 
 export async function exportTopN(req, res) {
@@ -45,39 +47,37 @@ export async function exportTopN(req, res) {
     const topN = Math.max(parseInt(n, 10) || 1, 1);
 
     await ensureRoots();
-    const dataDir = path.join(__dirname, '..', '..', 'data');
-    const albumDir = path.join(dataDir, 'albums', albumUUID);
-    const photosJSON = path.join(albumDir, 'photos.json');
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumDir = path.join(dataDir, "albums", albumUUID);
+    const photosJSON = path.join(albumDir, "photos.json");
     const imagesDir = getAlbumImagesDir(albumUUID);
-    const legacyImagesDir = path.join(albumDir, 'images');
+    const legacyImagesDir = path.join(albumDir, "images");
     const exportBase = getExportBase(albumUUID);
 
-    console.log('exportTopN paths:', { imagesDir, exportBase });
+    console.log("exportTopN paths:", { imagesDir, exportBase });
 
-    const venvDir = path.join(__dirname, '..', '..', 'venv');
-    const python = path.join(venvDir, 'bin', 'python3');
-    const pyExport = path.join(__dirname, '..', '..', 'scripts', 'export_photos_in_album.py');
-    const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
+    const venvDir = path.join(__dirname, "..", "..", "venv");
+    const python = path.join(venvDir, "bin", "python3");
+    const pyExport = path.join(
+      __dirname,
+      "..",
+      "..",
+      "scripts",
+      "export_photos_in_album.py",
+    );
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    await fs.ensureDir(albumDir);
-    await fs.ensureDir(imagesDir);
-    try {
-      await fs.ensureDir(path.dirname(legacyImagesDir));
-      const st = await fs.lstat(legacyImagesDir).catch(() => null);
-      if (!st) {
-        await fs.ensureSymlink(imagesDir, legacyImagesDir, 'dir');
-      }
-    } catch (e) {
-      console.warn('Could not create legacy images symlink:', {
-        legacyImagesDir,
-        imagesDir,
-        e,
-      });
-    }
-    if (!(await fs.pathExists(photosJSON))) {
-      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
-      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON);
-    }
+    await ensureAlbumPrepared({
+      albumUUID,
+      albumDir,
+      photosJSON,
+      imagesDir,
+      legacyImagesDir,
+      exportBase,
+      python,
+      pyExport,
+      osxphotos,
+    });
 
     const photos = await fs.readJson(photosJSON);
     photos.forEach((p) => {
@@ -94,7 +94,7 @@ export async function exportTopN(req, res) {
       });
     }
 
-    const personKey = persons.length > 0 ? persons.join('_') : 'all';
+    const personKey = persons.length > 0 ? persons.join("_") : "all";
     const personDir = path.join(exportBase, personKey);
     await fs.ensureDir(personDir);
 
@@ -125,7 +125,7 @@ export async function exportTopN(req, res) {
     }
 
     // Save all unique photos for this person
-    const personAllDir = path.join(personDir, '_all');
+    const personAllDir = path.join(personDir, "_all");
     await fs.ensureDir(personAllDir);
     for (const [filename, src] of uniqueMap.entries()) {
       const dest = path.join(personAllDir, filename);
@@ -135,7 +135,7 @@ export async function exportTopN(req, res) {
     }
 
     // Maintain album-wide _all directory with uniques from every person
-    const albumAllDir = path.join(exportBase, '_all');
+    const albumAllDir = path.join(exportBase, "_all");
     await fs.ensureDir(albumAllDir);
     for (const [filename, src] of uniqueMap.entries()) {
       const dest = path.join(albumAllDir, filename);
@@ -146,7 +146,9 @@ export async function exportTopN(req, res) {
 
     return res.json({ message: `Exported top ${topN} photos to ${personDir}` });
   } catch (err) {
-    console.error('exportTopN error:', err);
-    return res.status(500).json({ errors: [{ detail: 'Internal Server Error' }] });
+    console.error("exportTopN error:", err);
+    return res
+      .status(500)
+      .json({ errors: [{ detail: "Internal Server Error" }] });
   }
 }

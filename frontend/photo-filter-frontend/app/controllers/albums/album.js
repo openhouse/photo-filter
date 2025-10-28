@@ -18,12 +18,38 @@ export default class AlbumsAlbumController extends Controller {
   // Export Top-N
   @tracked exportN = 5;
 
+  // Export status tracking
+  @tracked exportStatus = null;
+  #statusTimer = null;
+  #statusAlbumUUID = null;
+
   // Pagination
   @tracked page = 1;
   pageSize = 50;
 
+  get isExportReady() {
+    return this.exportStatus?.status === 'ready';
+  }
+
+  get isExportRunning() {
+    return this.exportStatus?.status === 'running';
+  }
+
+  get exportStatusMessage() {
+    if (!this.exportStatus) {
+      return 'Preparing album…';
+    }
+    if (this.isExportReady) {
+      return 'Album is ready.';
+    }
+    if (this.exportStatus.status === 'error') {
+      return this.exportStatus.errorMessage || 'Album export failed.';
+    }
+    return 'Preparing album…';
+  }
+
   get allPhotos() {
-    if (!this.model.isDataReady || !Array.isArray(this.model.photos)) {
+    if (!this.isExportReady || !Array.isArray(this.model.photos)) {
       return [];
     }
     return this.model.photos;
@@ -165,6 +191,7 @@ export default class AlbumsAlbumController extends Controller {
       },
       body: JSON.stringify(body),
     });
+    this.startStatusWatcher(albumId);
   }
 
   @action
@@ -182,6 +209,69 @@ export default class AlbumsAlbumController extends Controller {
       },
       body: JSON.stringify(body),
     });
+    this.startStatusWatcher(albumId);
+  }
+
+  startStatusWatcher(albumUUID) {
+    this.#statusAlbumUUID = albumUUID;
+    this.stopStatusWatcher();
+    this.exportStatus = null;
+    this.fetchStatus();
+  }
+
+  stopStatusWatcher() {
+    if (this.#statusTimer) {
+      const clearFn =
+        typeof globalThis.clearTimeout === 'function'
+          ? globalThis.clearTimeout
+          : null;
+      if (clearFn) {
+        clearFn(this.#statusTimer);
+      }
+      this.#statusTimer = null;
+    }
+  }
+
+  async fetchStatus() {
+    if (!this.#statusAlbumUUID) {
+      return;
+    }
+
+    const apiHost = config.APP.apiHost;
+    try {
+      const response = await fetch(
+        `${apiHost}/api/albums/${this.#statusAlbumUUID}/status`,
+      );
+      if (response.ok) {
+        const json = await response.json();
+        this.exportStatus = json;
+      } else {
+        this.exportStatus = {
+          status: 'error',
+          errorMessage: `Status request failed (${response.status})`,
+        };
+      }
+    } catch (error) {
+      this.exportStatus = {
+        status: 'error',
+        errorMessage: error.message,
+      };
+    }
+
+    if (!this.isExportReady && this.exportStatus?.status !== 'error') {
+      const setFn =
+        typeof globalThis.setTimeout === 'function'
+          ? globalThis.setTimeout
+          : null;
+      if (setFn) {
+        this.#statusTimer = setFn(() => this.fetchStatus(), 2000);
+      }
+    }
+  }
+
+  willDestroy() {
+    super.willDestroy(...arguments);
+    this.stopStatusWatcher();
   }
 
   updateQueryParams() {

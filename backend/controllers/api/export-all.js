@@ -1,14 +1,13 @@
-import path from 'path';
-import fs from 'fs-extra';
-import { fileURLToPath } from 'url';
-import { runPythonScript } from '../../utils/run-python-script.js';
-import { runOsxphotosExportImages } from '../../utils/export-images.js';
+import path from "path";
+import fs from "fs-extra";
+import { fileURLToPath } from "url";
 import {
   getAlbumImagesDir,
   getExportBase,
   ensureRoots,
-} from '../../config/storage-paths.js';
-import { formatPreciseTimestamp } from '../../utils/helpers.js';
+} from "../../config/storage-paths.js";
+import { formatPreciseTimestamp } from "../../utils/helpers.js";
+import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,45 +18,37 @@ export async function exportAll(req, res) {
     const { persons = [] } = req.body || {};
 
     await ensureRoots();
-    const dataDir = path.join(__dirname, '..', '..', 'data');
-    const albumDir = path.join(dataDir, 'albums', albumUUID);
-    const photosJSON = path.join(albumDir, 'photos.json');
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumDir = path.join(dataDir, "albums", albumUUID);
+    const photosJSON = path.join(albumDir, "photos.json");
     const imagesDir = getAlbumImagesDir(albumUUID);
-    const legacyImagesDir = path.join(albumDir, 'images');
+    const legacyImagesDir = path.join(albumDir, "images");
     const exportBase = getExportBase(albumUUID);
 
-    console.log('exportAll paths:', { imagesDir, exportBase });
+    console.log("exportAll paths:", { imagesDir, exportBase });
 
-    const venvDir = path.join(__dirname, '..', '..', 'venv');
-    const python = path.join(venvDir, 'bin', 'python3');
+    const venvDir = path.join(__dirname, "..", "..", "venv");
+    const python = path.join(venvDir, "bin", "python3");
     const pyExport = path.join(
       __dirname,
-      '..',
-      '..',
-      'scripts',
-      'export_photos_in_album.py'
+      "..",
+      "..",
+      "scripts",
+      "export_photos_in_album.py",
     );
-    const osxphotos = path.join(venvDir, 'bin', 'osxphotos');
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    await fs.ensureDir(albumDir);
-    await fs.ensureDir(imagesDir);
-    try {
-      await fs.ensureDir(path.dirname(legacyImagesDir));
-      const st = await fs.lstat(legacyImagesDir).catch(() => null);
-      if (!st) {
-        await fs.ensureSymlink(imagesDir, legacyImagesDir, 'dir');
-      }
-    } catch (e) {
-      console.warn('Could not create legacy images symlink:', {
-        legacyImagesDir,
-        imagesDir,
-        e,
-      });
-    }
-    if (!(await fs.pathExists(photosJSON))) {
-      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
-      await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON);
-    }
+    await ensureAlbumPrepared({
+      albumUUID,
+      albumDir,
+      photosJSON,
+      imagesDir,
+      legacyImagesDir,
+      exportBase,
+      python,
+      pyExport,
+      osxphotos,
+    });
 
     const photos = await fs.readJson(photosJSON);
     photos.forEach((photo) => {
@@ -75,7 +66,7 @@ export async function exportAll(req, res) {
     }
 
     await fs.ensureDir(exportBase);
-    const albumAllDir = path.join(exportBase, '_all');
+    const albumAllDir = path.join(exportBase, "_all");
     await fs.ensureDir(albumAllDir);
 
     for (const photo of filtered) {
@@ -93,7 +84,9 @@ export async function exportAll(req, res) {
       message: `Exported ${filtered.length} photos to ${albumAllDir}`,
     });
   } catch (err) {
-    console.error('exportAll error:', err);
-    return res.status(500).json({ errors: [{ detail: 'Internal Server Error' }] });
+    console.error("exportAll error:", err);
+    return res
+      .status(500)
+      .json({ errors: [{ detail: "Internal Server Error" }] });
   }
 }

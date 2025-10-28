@@ -10,14 +10,17 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../../utils/export-images.js";
 import {
   formatPreciseTimestamp,
   getNestedProperty,
 } from "../../utils/helpers.js";
 import { Serializer } from "jsonapi-serializer";
-import { getAlbumImagesDir, ensureRoots } from "../../config/storage-paths.js";
+import {
+  getAlbumImagesDir,
+  ensureRoots,
+  getExportBase,
+} from "../../config/storage-paths.js";
+import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +66,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     const photosJSON = path.join(albumDir, "photos.json");
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
+    const exportBase = getExportBase(albumUUID);
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const python = path.join(venvDir, "bin", "python3");
@@ -71,35 +75,21 @@ export const getPhotosByAlbumData = async (req, res) => {
       "..",
       "..",
       "scripts",
-      "export_photos_in_album.py"
+      "export_photos_in_album.py",
     );
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    /* (1) Ensure exports exist */
-    await fs.ensureDir(albumDir);
-    await fs.ensureDir(imagesDir);
-    try {
-      await fs.ensureDir(path.dirname(legacyImagesDir));
-      const st = await fs.lstat(legacyImagesDir).catch(() => null);
-      if (!st) {
-        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
-      }
-    } catch (e) {
-      console.warn("Could not create legacy images symlink:", {
-        legacyImagesDir,
-        imagesDir,
-        e,
-      });
-    }
-    if (!(await fs.pathExists(photosJSON))) {
-      await runPythonScript(python, pyExport, [albumUUID], photosJSON);
-      await runOsxphotosExportImages(
-        osxphotos,
-        albumUUID,
-        imagesDir,
-        photosJSON
-      );
-    }
+    const albumStatus = await ensureAlbumPrepared({
+      albumUUID,
+      albumDir,
+      photosJSON,
+      imagesDir,
+      legacyImagesDir,
+      exportBase,
+      python,
+      pyExport,
+      osxphotos,
+    });
 
     /* (2) Load data & enrich */
     let photos = await fs.readJson(photosJSON);
@@ -175,6 +165,7 @@ export const getPhotosByAlbumData = async (req, res) => {
         sortOrder,
         scoreAttributes:
           photos.length && photos[0].score ? Object.keys(photos[0].score) : [],
+        exportStatus: albumStatus,
       },
     });
   } catch (err) {
