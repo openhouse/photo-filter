@@ -45,6 +45,7 @@ export const getPhotosByAlbum = async (req, res) => {
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = getAlbumImagesDir(albumUUID);
+    const uuidsFilePath = path.join(imagesDir, "uuids.txt");
     const legacyImagesDir = path.join(photosDir, "images");
     const venvDir = path.join(__dirname, "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
@@ -74,13 +75,18 @@ export const getPhotosByAlbum = async (req, res) => {
 
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
-      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      await runPythonScript(
+        pythonPath,
+        scriptPath,
+        [albumUUID, uuidsFilePath],
+        photosPath,
+      );
       // Export images with osxphotos (directly uses date/time prefix)
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
         imagesDir,
-        photosPath
+        uuidsFilePath
       );
     }
 

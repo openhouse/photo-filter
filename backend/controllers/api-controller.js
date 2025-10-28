@@ -40,6 +40,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = path.join(photosDir, "images");
+    const uuidsFilePath = path.join(imagesDir, "uuids.txt");
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -58,13 +59,18 @@ export const getPhotosByAlbumData = async (req, res) => {
     // Check if photos.json exists
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
-      await runPythonScript(pythonPath, scriptPath, [albumUUID], photosPath);
+      await runPythonScript(
+        pythonPath,
+        scriptPath,
+        [albumUUID, uuidsFilePath],
+        photosPath,
+      );
       // Export images
       await runOsxphotosExportImages(
         osxphotosPath,
         albumUUID,
         imagesDir,
-        photosPath
+        uuidsFilePath
       );
 
       // After exporting, rename files to prepend the photo's capture date
@@ -126,18 +132,15 @@ async function runOsxphotosExportImages(
   osxphotosPath,
   albumUUID,
   imagesDir,
-  photosPath
+  uuidsFilePath
 ) {
-  // Read photo UUIDs from photos.json
-  const photosData = await fs.readJson(photosPath);
-  const uuids = photosData.map((photo) => photo.uuid).join("\n");
-  const uuidsFilePath = path.join(imagesDir, "uuids.txt");
-
-  // Ensure imagesDir exists
   await fs.ensureDir(imagesDir);
 
-  // Write UUIDs to uuids.txt
-  await fs.writeFile(uuidsFilePath, uuids, "utf-8");
+  if (!(await fs.pathExists(uuidsFilePath))) {
+    throw new Error(
+      `UUID list not found for album ${albumUUID} at ${uuidsFilePath}`,
+    );
+  }
 
   // Use {original_name} template to avoid double extensions
   const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
