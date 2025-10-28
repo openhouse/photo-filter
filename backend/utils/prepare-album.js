@@ -37,6 +37,8 @@ async function prepareAlbumInternal(context) {
     osxphotos,
   } = context;
 
+  const uuidsFile = path.join(imagesDir, "uuids.txt");
+
   await fs.ensureDir(albumDir);
   await fs.ensureDir(imagesDir);
   await ensureLegacySymlink(imagesDir, legacyImagesDir);
@@ -86,10 +88,12 @@ async function prepareAlbumInternal(context) {
   try {
     logMessage(`Starting export for album ${albumUUID}`);
 
+    await fs.remove(uuidsFile).catch(() => {});
+
     const { logPath } = await runPythonScript(
       python,
       pyExport,
-      [albumUUID],
+      [albumUUID, uuidsFile],
       photosJSON,
       {
         albumUUID,
@@ -101,9 +105,15 @@ async function prepareAlbumInternal(context) {
     );
     logMessage(`Starting osxphotos export for album ${albumUUID}`);
 
-    await runOsxphotosExportImages(osxphotos, albumUUID, imagesDir, photosJSON, {
-      logStream,
-    });
+    await runOsxphotosExportImages(
+      osxphotos,
+      albumUUID,
+      imagesDir,
+      uuidsFile,
+      {
+        logStream,
+      },
+    );
     logMessage(`Finished export for album ${albumUUID}`);
     return await writeStatus(albumUUID, exportBase, {
       status: "ready",

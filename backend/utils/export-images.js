@@ -23,28 +23,25 @@ import { execCommand } from "./exec-command.js";
  * @param {string} osxphotosPath absolute path to the `osxphotos` binary
  * @param {string} albumUUID     Photos album UUID
  * @param {string} imagesDir     destination directory
- * @param {string} photosPath    path to the album’s photos.json
+ * @param {string} uuidsFile     path to the album’s uuid list file
  * @param {{ logStream?: import("stream").Writable }} [options]
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
   albumUUID,
   imagesDir,
-  photosPath,
+  uuidsFile,
   options = {},
 ) {
-  // ------------------------------------------------------------------
-  // 1 · Write the list of UUIDs that belong to this album
-  // ------------------------------------------------------------------
-  const photos = await fs.readJson(photosPath);
-  const uuidsFile = path.join(imagesDir, "uuids.txt");
+  const resolvedUuidsFile = uuidsFile || path.join(imagesDir, "uuids.txt");
 
   await fs.ensureDir(imagesDir);
-  await fs.writeFile(uuidsFile, photos.map((p) => p.uuid).join("\n"), "utf8");
+  if (!(await fs.pathExists(resolvedUuidsFile))) {
+    throw new Error(
+      `UUID list not found for album ${albumUUID} at ${resolvedUuidsFile}`,
+    );
+  }
 
-  // ------------------------------------------------------------------
-  // 2 · Export the actual images
-  // ------------------------------------------------------------------
   const filenameTemplate =
     "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
 
@@ -52,7 +49,7 @@ export async function runOsxphotosExportImages(
     "export",
     imagesDir,
     "--uuid-from-file",
-    uuidsFile,
+    resolvedUuidsFile,
     "--download-missing",
     "--use-photokit",
     "--ramdb",
