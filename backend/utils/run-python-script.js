@@ -3,6 +3,7 @@
 import { spawn } from "child_process";
 import fs from "fs-extra";
 import path from "path";
+import { finished } from "stream/promises";
 
 const STDERR_TAIL_MAX = 256 * 1024; // 256 KiB
 
@@ -13,8 +14,13 @@ const STDERR_TAIL_MAX = 256 * 1024; // 256 KiB
  * @param {string} scriptPath path to the Python script
  * @param {string[]} args arguments passed to the script
  * @param {string} outputPath file path that will receive streamed stdout
- * @param {{ albumUUID?: string, exportBase?: string, logPath?: string }} options
- *   Optional metadata so we can persist logs alongside album exports.
+ * @param {{
+ *   albumUUID?: string,
+ *   exportBase?: string,
+ *   logPath?: string,
+ *   logStream?: import("stream").Writable,
+ *   appendLog?: boolean,
+ * }} options Optional metadata so we can persist logs alongside album exports.
  */
 export async function runPythonScript(
   pythonPath,
@@ -34,9 +40,17 @@ export async function runPythonScript(
 
   await fs.remove(tmpPath).catch(() => {});
 
-  const { albumUUID, exportBase, logPath: explicitLogPath } = options;
-  let logStream = null;
+  const {
+    albumUUID,
+    exportBase,
+    logPath: explicitLogPath,
+    logStream: providedLogStream,
+    appendLog = true,
+  } = options;
+
+  let logStream = providedLogStream || null;
   let logPath = explicitLogPath;
+  let ownsLogStream = false;
 
   if (!logPath && albumUUID && exportBase) {
     const logDir = path.join(exportBase, "logs");
@@ -44,29 +58,46 @@ export async function runPythonScript(
     logPath = path.join(logDir, `export-${albumUUID}.log`);
   }
 
-  if (logPath) {
+  if (!logStream && logPath) {
     await fs.ensureDir(path.dirname(logPath));
-    logStream = fs.createWriteStream(logPath, { flags: "a" });
-    logStream.write(
-      `[${new Date().toISOString()}] Running ${path.basename(scriptPath)} ${args.join(
-        " ",
-      )}\n`,
+    logStream = fs.createWriteStream(logPath, { flags: appendLog ? "a" : "w" });
+    ownsLogStream = true;
+  }
+
+  const logMessage = (message) => {
+    if (!logStream || logStream.destroyed || logStream.writableEnded) {
+      return;
+    }
+    logStream.write(`[${new Date().toISOString()}] ${message}\n`);
+  };
+
+  if (logStream) {
+    logMessage(
+      `Running ${path.basename(scriptPath)}${
+        args.length ? ` ${args.join(" ")}` : ""
+      }`,
     );
   }
 
-  const child = spawn(pythonPath, [scriptPath, ...args], {
+  const spawnArgs = ["-u", scriptPath, ...args];
+
+  const child = spawn(pythonPath, spawnArgs, {
     stdio: ["ignore", "pipe", "pipe"],
     env: process.env,
   });
 
-  console.log(
-    `Executing command:\n"${pythonPath}" "${scriptPath}"${
-      args.length ? " " + args.join(" ") : ""
-    }`,
-  );
+  const printableCommand = [pythonPath, ...spawnArgs]
+    .map((segment) => `"${segment}"`)
+    .join(" ");
+  console.log(`Executing command:\n${printableCommand}`);
 
-  const out = fs.createWriteStream(tmpPath, { flags: "w" });
-  child.stdout.pipe(out);
+  const stdoutStream = fs.createWriteStream(tmpPath, { flags: "w" });
+  child.stdout.pipe(stdoutStream);
+
+  let stdoutStreamError = null;
+  const stdoutFinished = finished(stdoutStream).catch((err) => {
+    stdoutStreamError = err;
+  });
 
   let errTail = Buffer.alloc(0);
 
@@ -81,62 +112,81 @@ export async function runPythonScript(
   child.stderr.on("data", (chunk) => {
     process.stderr.write(chunk);
     appendErrorTail(chunk);
-    if (logStream) {
-      logStream.write(chunk);
+    if (logStream && !logStream.destroyed && !logStream.writableEnded) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      logStream.write(buf);
     }
   });
 
   return new Promise((resolve, reject) => {
-    child.on("error", (error) => {
-      out.destroy();
-      fs.remove(tmpPath).catch(() => {});
-      if (logStream) {
-        logStream.write(
-          `[${new Date().toISOString()}] error: ${error.message}\n`,
-        );
-        logStream.end();
-      }
+    let settled = false;
+    const resolveOnce = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    const rejectOnce = (error) => {
+      if (settled) return;
+      settled = true;
       reject(error);
+    };
+
+    const closeOwnedLogStream = async () => {
+      if (!ownsLogStream || !logStream) {
+        return;
+      }
+      if (logStream.destroyed || logStream.writableEnded) {
+        return;
+      }
+      await new Promise((resolveClose) => {
+        logStream.end(() => resolveClose());
+      });
+    };
+
+    child.on("error", async (error) => {
+      if (!stdoutStream.destroyed) {
+        stdoutStream.destroy(error);
+      }
+      await stdoutFinished.catch(() => {});
+      await fs.remove(tmpPath).catch(() => {});
+      if (logStream) {
+        logMessage(`error: ${error.message}`);
+      }
+      await closeOwnedLogStream().catch(() => {});
+      rejectOnce(error);
     });
 
     child.on("close", async (code, signal) => {
-      try {
-        await new Promise((resolveClose, rejectClose) => {
-          out.end((err) => {
-            if (err) {
-              rejectClose(err);
-            } else {
-              resolveClose();
-            }
-          });
-        });
-      } catch (streamErr) {
+      await stdoutFinished;
+
+      if (stdoutStreamError) {
         if (logStream) {
-          logStream.write(
-            `[${new Date().toISOString()}] error closing stdout stream: ${streamErr.message}\n`,
+          logMessage(
+            `error closing stdout stream: ${stdoutStreamError.message}`,
           );
-          logStream.end();
         }
         await fs.remove(tmpPath).catch(() => {});
-        reject(streamErr);
+        await closeOwnedLogStream().catch(() => {});
+        rejectOnce(stdoutStreamError);
         return;
       }
 
       if (logStream) {
-        logStream.write(
-          `[${new Date().toISOString()}] exited with code ${code}${
+        logMessage(
+          `python exited with code ${code}${
             signal ? ` (signal ${signal})` : ""
-          }\n`,
+          }`,
         );
-        logStream.end();
       }
 
       if (code === 0) {
         try {
           await fs.move(tmpPath, outputPath, { overwrite: true });
-          resolve({ logPath });
+          await closeOwnedLogStream().catch(() => {});
+          resolveOnce({ logPath });
         } catch (mvErr) {
-          reject(mvErr);
+          await closeOwnedLogStream().catch(() => {});
+          rejectOnce(mvErr);
         }
         return;
       }
@@ -146,7 +196,8 @@ export async function runPythonScript(
       const err = new Error(`Python export failed${tail ? `:\n${tail}` : ""}`);
       err.code = code;
       err.signal = signal;
-      reject(err);
+      await closeOwnedLogStream().catch(() => {});
+      rejectOnce(err);
     });
   });
 }

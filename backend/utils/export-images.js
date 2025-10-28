@@ -24,12 +24,14 @@ import { execCommand } from "./exec-command.js";
  * @param {string} albumUUID     Photos album UUID
  * @param {string} imagesDir     destination directory
  * @param {string} photosPath    path to the album’s photos.json
+ * @param {{ logStream?: import("stream").Writable }} [options]
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
   albumUUID,
   imagesDir,
-  photosPath
+  photosPath,
+  options = {},
 ) {
   // ------------------------------------------------------------------
   // 1 · Write the list of UUIDs that belong to this album
@@ -65,5 +67,19 @@ export async function runOsxphotosExportImages(
     "jpg",
   ];
 
-  await execCommand([osxphotosPath, ...args], "osxphotos image export failed:");
+  if (
+    options.logStream &&
+    !options.logStream.destroyed &&
+    !options.logStream.writableEnded
+  ) {
+    options.logStream.write(
+      `[${new Date().toISOString()}] Running osxphotos export for ${albumUUID}\n`,
+    );
+  }
+
+  await execCommand(
+    [osxphotosPath, ...args],
+    "osxphotos image export failed:",
+    options,
+  );
 }

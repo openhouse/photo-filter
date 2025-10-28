@@ -18,6 +18,8 @@
     "lint:frontend": "npm --prefix frontend/photo-filter-frontend run lint",
     "generate-overview": "bash generate-overview.sh",
     "super-dev": "concurrently -n BACKEND,FRONTEND,TEST-BE,TEST-FE,OVERVIEW -c cyan,green,yellow,magenta,blue \"/bin/bash -c 'npm run watch:backend'\" \"/bin/bash -c 'npm run watch:frontend'\" \"npm run watch:test:backend\" \"npm run watch:test:frontend\" \"npm run watch:overview\"",
+    "super-dev:lite": "concurrently -n BACKEND,FRONTEND -c cyan,green \"npm run watch:backend\" \"npm run watch:frontend\"",
+    "browserslist:update": "npx update-browserslist-db@latest",
     "watch:backend": "nodemon --watch backend --ignore backend/data --ext js,ts,hbs,sh,md --exec \"npm run start:backend\"",
     "watch:frontend": "npm --prefix frontend/photo-filter-frontend run start",
     "watch:test:backend": "npm --prefix backend run test:watch || echo 'No watch test script for backend'",
