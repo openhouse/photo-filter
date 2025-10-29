@@ -20,10 +20,10 @@ This project exposes a small JSON API for the Ember frontend. All routes are ser
 - `GET /api/photos/by-filename/:filename/persons`
   - **New.** Returns the people detected in a photo by its exported filename (e.g. `20250530T233513160000Z-_DSF7004.jpg`). Searches across all album data.
 
-## Time Index
+## Time Index (retired)
 
 - `GET /api/time-index`
-  - Hierarchical JSON of available years/months/weeks/days for the photo library.
+  - **Retired.** The backend now responds with HTTP 410 and a short error payload to signal that the feature has been removed.
 
 ## Exporting
 

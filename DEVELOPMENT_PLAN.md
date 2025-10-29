@@ -118,6 +118,8 @@ This alignment of photography with micro-cinema underscores our commitment to br
 
 **Date:** January 12, 2025
 
+> **Status update (January 2025):** The time index feature has been retired from the application. The notes below are preserved for historical context should we revisit the idea in the future.
+
 **Overview:**
 We will implement a **time-based hierarchy** in the left nav, similar to how we list people or albums. The system will only show Year → Month → Week → Day nodes if photos exist for those nodes. Clicking them filters the photo grid accordingly.
 

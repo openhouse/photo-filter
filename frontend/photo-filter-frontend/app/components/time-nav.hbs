@@ -4,6 +4,8 @@
 
   {{#if this.isLoading}}
     <p>Loading time index...</p>
+  {{else if this.statusMessage}}
+    <p class="text-sm italic">{{this.statusMessage}}</p>
   {{else if this.timeIndex}}
     {{#if (and (eq (type-of this.timeIndex) "object") this.timeIndex.years)}}
       {{#if (is-array this.timeIndex.years)}}
