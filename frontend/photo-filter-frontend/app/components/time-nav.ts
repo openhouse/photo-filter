@@ -34,18 +34,32 @@ interface MonthObject {
 export default class TimeNavComponent extends Component {
   @service declare router: RouterService;
 
+  /** Whether the time index feature is enabled. */
+  private readonly timeIndexEnabled =
+    config.APP.timeIndexEnabled === true ||
+    config.APP.timeIndexEnabled === 'true';
+
   /** Raw time index data from the server. We default to null until loaded. */
   @tracked timeIndex: TimeIndexData | null = null;
 
   /** Flag to show “Loading…” while fetching data. */
   @tracked isLoading = true;
 
+  /** Optional message to surface when the feature is disabled or unavailable. */
+  @tracked statusMessage: string | null = null;
+
   /** The array of date-keys (like "2024", "2024-12", "2024-12-07") the user has selected. */
   @tracked selectedDates: string[] = [];
 
   constructor(owner: unknown, args: Record<string, unknown>) {
     super(owner, args);
-    this.loadTimeIndex();
+    if (this.timeIndexEnabled) {
+      this.loadTimeIndex();
+    } else {
+      this.statusMessage =
+        'Time-based navigation is currently disabled while the feature is retired.';
+      this.isLoading = false;
+    }
   }
 
   /**
@@ -63,6 +77,18 @@ export default class TimeNavComponent extends Component {
   async loadTimeIndex(): Promise<void> {
     try {
       const response = await fetch(`${config.APP.apiHost}/api/time-index`);
+
+      if (!response.ok) {
+        console.info(
+          'Time index request returned a non-success status:',
+          response.status,
+        );
+        this.statusMessage =
+          'Time-based navigation data is unavailable at the moment.';
+        this.timeIndex = { years: [] };
+        return;
+      }
+
       const data: unknown = await response.json();
 
       if (!data || typeof data !== 'object') {
@@ -80,6 +106,8 @@ export default class TimeNavComponent extends Component {
     } catch (err) {
       console.error('Error loading time index:', err);
       this.timeIndex = { years: [] };
+      this.statusMessage =
+        'Time-based navigation data is unavailable at the moment.';
     } finally {
       this.isLoading = false;
     }

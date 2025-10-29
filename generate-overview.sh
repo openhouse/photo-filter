@@ -161,29 +161,16 @@ echo "" >> "$OUTPUT_FILE"
 list_files "./frontend/photo-filter-frontend" "$OUTPUT_FILE"
 
 #####################################
-# 9) Attempt to fetch /api/time-index
+# 9) Time index endpoint status
 #####################################
 {
-  echo "## Time Index from /api/time-index"
+  echo "## Time Index Endpoint"
+  echo ""
+  echo "The time index feature has been retired; the backend now responds with HTTP 410."
+  echo ""
+  echo "---"
   echo ""
 } >> "$OUTPUT_FILE"
-
-if command -v curl >/dev/null 2>&1; then
-  echo "Fetching http://localhost:3000/api/time-index ..." >> "$OUTPUT_FILE"
-  echo "" >> "$OUTPUT_FILE"
-
-  # Attempt silent fetch
-  # If it fails, note that
-  if ! curl -s http://localhost:3000/api/time-index >> "$OUTPUT_FILE"; then
-    echo "Could not fetch /api/time-index. Is the server running?" >> "$OUTPUT_FILE"
-  fi
-else
-  echo "curl not found, cannot fetch /api/time-index" >> "$OUTPUT_FILE"
-fi
-
-echo "" >> "$OUTPUT_FILE"
-echo "---" >> "$OUTPUT_FILE"
-echo "" >> "$OUTPUT_FILE"
 
 #####################################
 # 10) Summaries of each photos.json

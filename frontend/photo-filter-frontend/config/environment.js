@@ -14,6 +14,7 @@ module.exports = function (environment) {
 
     APP: {
       apiHost: 'http://localhost:3000',
+      timeIndexEnabled: false,
     },
 
     // Add routerScroll configuration here
