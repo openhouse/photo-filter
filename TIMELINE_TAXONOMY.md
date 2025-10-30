@@ -1,5 +1,7 @@
 # TIMELINE_TAXONOMY.md
 
+> **Status:** The time-index feature has been retired. The notes below remain for archival purposes should we decide to revive the idea.
+
 ## Purpose
 
 This document describes our upcoming feature for a time-based navigation tree in the Photo Filter Application. We aim to let the user drill into Years → Months → Weeks → Days, but **only** for nodes that actually contain photos. This dynamic approach ensures we don’t clutter the UI with empty categories.

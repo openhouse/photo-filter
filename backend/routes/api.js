@@ -19,8 +19,6 @@ import {
 } from "../controllers/api/people-controller.js";
 import { ensureAlbumPrepared } from "../utils/prepare-album.js";
 
-// === Import our new time controller
-import { getTimeIndex } from "../controllers/api/time-controller.js";
 import { getPeopleByFilename } from "../controllers/api/filename-controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,11 +40,6 @@ apiRouter.get("/albums/:albumUUID/status", getAlbumExportStatus);
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
-
-// ======================
-//   TIME-INDEX ENDPOINT
-// ======================
-apiRouter.get("/time-index", getTimeIndex);
 
 // ======================
 //   Export Endpoints
