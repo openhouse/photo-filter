@@ -2,8 +2,7 @@ import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { createReadStream } from "node:fs";
-import { parser } from "stream-json";
-import { streamArray } from "stream-json/streamers/StreamArray.js";
+import StreamArray from "stream-json/streamers/StreamArray.js";
 import { formatPreciseTimestamp } from "../../utils/helpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,9 +100,7 @@ async function buildPeopleIndexStreaming(photosPath) {
     return index;
   }
 
-  const stream = createReadStream(photosPath)
-    .pipe(parser())
-    .pipe(streamArray());
+  const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
 
   for await (const { value: photo } of stream) {
     if (!photo) continue;
