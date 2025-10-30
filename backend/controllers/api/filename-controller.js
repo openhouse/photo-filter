@@ -9,8 +9,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const FILENAME_TO_ALBUM = new Map();
-const ALBUM_PEOPLE_INDEX = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const FILENAME_TO_ALBUM_TTL_MS = 5 * 60 * 1000;
+const FILENAME_TO_ALBUM_MAX_ENTRIES = 10_000;
+
+const PERSONS_CACHE = new Map();
+const PERSONS_CACHE_TTL_MS = 10 * 60 * 1000;
+const PERSONS_CACHE_MAX_ENTRIES = 2_000;
+
+const ALBUM_LOCKS = new Map();
 
 export async function getPeopleByFilename(req, res) {
   try {
@@ -39,18 +45,30 @@ export async function getPeopleByFilename(req, res) {
       cacheAlbumUUID(filename, albumUUID);
     }
 
-    let index = getAlbumIndex(albumUUID);
-    if (!index) {
-      const photosPath = path.join(albumsDir, albumUUID, "photos.json");
-      index = await buildPeopleIndexStreaming(photosPath);
-      setAlbumIndex(albumUUID, index);
+    const cacheKey = `${albumUUID}:${filename}`;
+    const cachedPersons = getCachedPersons(cacheKey);
+    if (cachedPersons) {
+      return res.json({ data: cachedPersons });
     }
 
-    if (!index.has(filename)) {
+    const photosPath = path.join(albumsDir, albumUUID, "photos.json");
+    const persons = await runWithAlbumLock(albumUUID, async () => {
+      const inLockCached = getCachedPersons(cacheKey);
+      if (inLockCached) {
+        return inLockCached;
+      }
+
+      const result = await findPersonsByFilenameStreaming(photosPath, filename);
+      if (result !== null) {
+        cachePersons(cacheKey, result);
+      }
+      return result;
+    });
+
+    if (persons === null) {
       return res.status(404).json({ errors: [{ detail: "Photo not found" }] });
     }
 
-    const persons = index.get(filename) || [];
     return res.json({ data: persons });
   } catch (error) {
     console.error("Error looking up persons by filename:", error);
@@ -61,14 +79,74 @@ export async function getPeopleByFilename(req, res) {
 }
 
 function getCachedAlbumUUID(name) {
-  const v = FILENAME_TO_ALBUM.get(name);
-  if (v && Date.now() - v.ts < CACHE_TTL_MS) return v.uuid;
-  if (v) FILENAME_TO_ALBUM.delete(name);
-  return null;
+  const entry = FILENAME_TO_ALBUM.get(name);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    FILENAME_TO_ALBUM.delete(name);
+    return null;
+  }
+  // refresh recency for simple LRU behaviour
+  FILENAME_TO_ALBUM.delete(name);
+  FILENAME_TO_ALBUM.set(name, entry);
+  return entry.uuid;
 }
 
 function cacheAlbumUUID(name, uuid) {
-  FILENAME_TO_ALBUM.set(name, { uuid, ts: Date.now() });
+  if (FILENAME_TO_ALBUM.has(name)) {
+    FILENAME_TO_ALBUM.delete(name);
+  }
+  FILENAME_TO_ALBUM.set(name, {
+    uuid,
+    expiresAt: Date.now() + FILENAME_TO_ALBUM_TTL_MS,
+  });
+
+  if (FILENAME_TO_ALBUM.size > FILENAME_TO_ALBUM_MAX_ENTRIES) {
+    const firstKey = FILENAME_TO_ALBUM.keys().next().value;
+    if (firstKey !== undefined) {
+      FILENAME_TO_ALBUM.delete(firstKey);
+    }
+  }
+}
+
+function getCachedPersons(key) {
+  const entry = PERSONS_CACHE.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    PERSONS_CACHE.delete(key);
+    return null;
+  }
+  PERSONS_CACHE.delete(key);
+  PERSONS_CACHE.set(key, entry);
+  return entry.value;
+}
+
+function cachePersons(key, persons) {
+  if (PERSONS_CACHE.has(key)) {
+    PERSONS_CACHE.delete(key);
+  }
+  PERSONS_CACHE.set(key, {
+    value: persons,
+    expiresAt: Date.now() + PERSONS_CACHE_TTL_MS,
+  });
+
+  if (PERSONS_CACHE.size > PERSONS_CACHE_MAX_ENTRIES) {
+    const firstKey = PERSONS_CACHE.keys().next().value;
+    if (firstKey !== undefined) {
+      PERSONS_CACHE.delete(firstKey);
+    }
+  }
+}
+
+async function runWithAlbumLock(albumUUID, fn) {
+  const previous = ALBUM_LOCKS.get(albumUUID) ?? Promise.resolve();
+  const runPromise = previous.then(() => fn());
+  const queuePromise = runPromise.finally(() => {
+    if (ALBUM_LOCKS.get(albumUUID) === queuePromise) {
+      ALBUM_LOCKS.delete(albumUUID);
+    }
+  });
+  ALBUM_LOCKS.set(albumUUID, queuePromise);
+  return runPromise;
 }
 
 async function findAlbumUUIDByFilename(albumsDir, filename) {
@@ -83,36 +161,28 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
   return null;
 }
 
-function getAlbumIndex(albumUUID) {
-  const v = ALBUM_PEOPLE_INDEX.get(albumUUID);
-  if (v && Date.now() - v.ts < CACHE_TTL_MS) return v.map;
-  if (v) ALBUM_PEOPLE_INDEX.delete(albumUUID);
-  return null;
-}
-
-function setAlbumIndex(albumUUID, map) {
-  ALBUM_PEOPLE_INDEX.set(albumUUID, { map, ts: Date.now() });
-}
-
-async function buildPeopleIndexStreaming(photosPath) {
-  const index = new Map();
+async function findPersonsByFilenameStreaming(photosPath, targetFilename) {
   if (!(await fs.pathExists(photosPath))) {
-    return index;
+    return null;
   }
 
   const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
-
-  for await (const { value: photo } of stream) {
-    if (!photo) continue;
-
-    const exported = buildExportedName(photo);
-    if (!exported) continue;
-
-    const persons = extractPersons(photo);
-    index.set(exported, persons);
+  try {
+    for await (const { value: photo } of stream) {
+      if (!photo) continue;
+      const exported = buildExportedName(photo);
+      if (!exported || exported !== targetFilename) {
+        continue;
+      }
+      return extractPersons(photo);
+    }
+  } finally {
+    if (typeof stream.destroy === "function") {
+      stream.destroy();
+    }
   }
 
-  return index;
+  return null;
 }
 
 function buildExportedName(photo) {
