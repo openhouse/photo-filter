@@ -1,11 +1,44 @@
 import { jest } from "@jest/globals";
-import { getPeopleByFilename } from "../../../controllers/api/filename-controller.js";
 import httpMocks from "node-mocks-http";
 import fs from "fs-extra";
-import { formatPreciseTimestamp } from "../../../utils/helpers.js";
 import path from "path";
+import { formatPreciseTimestamp } from "../../../utils/helpers.js";
+
+const mockCreateReadStream = jest.fn();
+const mockWithParser = jest.fn();
+
+jest.unstable_mockModule("node:fs", () => ({
+  createReadStream: mockCreateReadStream,
+}));
+
+jest.unstable_mockModule("stream-json/streamers/StreamArray.js", () => ({
+  __esModule: true,
+  default: {
+    withParser: mockWithParser,
+  },
+}));
+
+const { getPeopleByFilename } = await import(
+  "../../../controllers/api/filename-controller.js"
+);
+
+function createAsyncStream(items) {
+  return {
+    destroy: jest.fn(),
+    async *[Symbol.asyncIterator]() {
+      for (const value of items) {
+        yield { value };
+      }
+    },
+  };
+}
 
 describe("getPeopleByFilename", () => {
+  beforeEach(() => {
+    mockCreateReadStream.mockReset();
+    mockWithParser.mockReset();
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -18,37 +51,80 @@ describe("getPeopleByFilename", () => {
     const req = httpMocks.createRequest({ params: { filename: exported } });
     const res = httpMocks.createResponse();
 
-    jest.spyOn(fs, "pathExists").mockResolvedValue(true);
-    jest.spyOn(fs, "readdir").mockResolvedValue([
-      { name: "album1", isDirectory: () => true },
-    ]);
-    jest.spyOn(fs, "readJson").mockResolvedValue([
+    jest.spyOn(fs, "pathExists").mockImplementation(async (targetPath) => {
+      if (targetPath.endsWith(path.join("data", "albums"))) {
+        return true;
+      }
+      if (targetPath.includes(path.join("images", exported))) {
+        return true;
+      }
+      if (targetPath.endsWith(path.join("album1", "photos.json"))) {
+        return true;
+      }
+      return false;
+    });
+
+    jest
+      .spyOn(fs, "readdir")
+      .mockResolvedValue([{ name: "album1", isDirectory: () => true }]);
+
+    const streamItems = [
       {
         original_filename: "_DSF7004.jpg",
         date,
         persons: ["Alice", "Bob"],
       },
-    ]);
+    ];
+
+    const parserToken = {};
+    mockWithParser.mockReturnValue(parserToken);
+    const stream = createAsyncStream(streamItems);
+    mockCreateReadStream.mockReturnValue({
+      pipe(transform) {
+        expect(transform).toBe(parserToken);
+        return stream;
+      },
+    });
 
     await getPeopleByFilename(req, res);
 
     expect(res.statusCode).toBe(200);
     const data = res._getJSONData();
     expect(data.data).toEqual(["Alice", "Bob"]);
+    expect(stream.destroy).toHaveBeenCalled();
   });
 
   it("returns 404 when no photo matches", async () => {
     const req = httpMocks.createRequest({ params: { filename: "notfound.jpg" } });
     const res = httpMocks.createResponse();
 
-    jest.spyOn(fs, "pathExists").mockResolvedValue(true);
-    jest.spyOn(fs, "readdir").mockResolvedValue([
-      { name: "album1", isDirectory: () => true },
-    ]);
-    jest.spyOn(fs, "readJson").mockResolvedValue([]);
+    jest.spyOn(fs, "pathExists").mockImplementation(async (targetPath) => {
+      if (targetPath.endsWith(path.join("data", "albums"))) {
+        return true;
+      }
+      if (targetPath.endsWith(path.join("album1", "photos.json"))) {
+        return true;
+      }
+      return false;
+    });
+
+    jest
+      .spyOn(fs, "readdir")
+      .mockResolvedValue([{ name: "album1", isDirectory: () => true }]);
+
+    const parserToken = {};
+    mockWithParser.mockReturnValue(parserToken);
+    const stream = createAsyncStream([]);
+    mockCreateReadStream.mockReturnValue({
+      pipe(transform) {
+        expect(transform).toBe(parserToken);
+        return stream;
+      },
+    });
 
     await getPeopleByFilename(req, res);
 
     expect(res.statusCode).toBe(404);
+    expect(stream.destroy).toHaveBeenCalled();
   });
 });
