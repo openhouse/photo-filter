@@ -3,11 +3,6 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
-import { runPythonScript } from "../utils/run-python-script.js";
-import {
-  loadUuidsFromFile,
-  runOsxphotosExportImages,
-} from "../utils/export-images.js";
 import plist from "plist";
 import { exec } from "child_process";
 import os from "os";
@@ -16,7 +11,14 @@ import {
   getNestedProperty,
   capitalizeAttributeName,
 } from "../utils/helpers.js";
-import { getAlbumImagesDir } from "../config/storage-paths.js";
+import {
+  ensureRoots,
+  getAlbumImagesDir,
+  getExportBase,
+  getLibraryRoot,
+} from "../config/storage-paths.js";
+import { ensureAlbumPrepared } from "../utils/prepare-album.js";
+import { loadStatus } from "../utils/export-status.js";
 
 const require = createRequire(import.meta.url);
 let tag;
@@ -50,6 +52,8 @@ async function setFinderTags(filePath, tags) {
   });
 }
 
+const PREP_ON_RENDER = process.env.PF_PREP_ON_RENDER === "1";
+
 export const getPhotosByAlbum = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
@@ -63,61 +67,62 @@ export const getPhotosByAlbum = async (req, res) => {
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = getAlbumImagesDir(albumUUID);
-    const uuidsFilePath = path.join(imagesDir, "uuids.txt");
     const legacyImagesDir = path.join(photosDir, "images");
     const skippedMarkerPath = path.join(imagesDir, ".skipped-empty");
-    const venvDir = path.join(__dirname, "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "scripts",
-      "export_photos_in_album.py"
-    );
-    const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+    const exportBase = getExportBase(albumUUID);
+    const libraryRoot = getLibraryRoot();
 
-    await fs.ensureDir(photosDir);
-    await fs.ensureDir(imagesDir);
-    try {
-      await fs.ensureDir(path.dirname(legacyImagesDir));
-      const st = await fs.lstat(legacyImagesDir).catch(() => null);
-      if (!st) {
-        await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
-      }
-    } catch (e) {
-      console.warn("Could not create legacy images symlink:", {
-        legacyImagesDir,
+    await ensureRoots();
+
+    const hasPhotos = await fs.pathExists(photosPath);
+    const wantsPrepare = PREP_ON_RENDER || req.query.prepare === "1";
+
+    if (!hasPhotos && !wantsPrepare) {
+      res
+        .status(202)
+        .set("X-PF-Export-Status", "needs-prep")
+        .render("index", {
+          photos: [],
+          albumUUID,
+          sortAttribute,
+          sortOrder,
+          scoreAttributes: [],
+        });
+      return;
+    }
+
+    if (!hasPhotos && wantsPrepare) {
+      const venvDir = path.join(__dirname, "..", "venv");
+      const pythonPath = path.join(venvDir, "bin", "python3");
+      const scriptPath = path.join(
+        __dirname,
+        "..",
+        "scripts",
+        "export_photos_in_album.py"
+      );
+      const osxphotosPath = path.join(venvDir, "bin", "osxphotos");
+
+      await ensureAlbumPrepared({
+        albumUUID,
+        albumDir: photosDir,
+        photosJSON: photosPath,
         imagesDir,
-        e,
+        legacyImagesDir,
+        exportBase,
+        libraryRoot,
+        python: pythonPath,
+        pyExport: scriptPath,
+        osxphotos: osxphotosPath,
       });
     }
 
-    let exportStatus = null;
+    const albumStatus = await loadStatus(albumUUID, {
+      exportBase,
+      photosJSON: photosPath,
+    });
 
-    if (!(await fs.pathExists(photosPath))) {
-      // Export photos metadata
-      await runPythonScript(
-        pythonPath,
-        scriptPath,
-        [albumUUID, uuidsFilePath],
-        photosPath,
-      );
-      const uuids = await loadUuidsFromFile(uuidsFilePath);
-      if (uuids.length === 0) {
-        await fs.ensureFile(skippedMarkerPath);
-        exportStatus = "skipped-empty";
-      } else {
-        const result = await runOsxphotosExportImages(
-          osxphotosPath,
-          albumUUID,
-          imagesDir,
-          uuidsFilePath,
-        );
-        if (result?.skippedReason === "empty-album") {
-          exportStatus = "skipped-empty";
-        }
-      }
-    } else if (await fs.pathExists(skippedMarkerPath)) {
+    let exportStatus = null;
+    if (await fs.pathExists(skippedMarkerPath)) {
       exportStatus = "skipped-empty";
     }
 
@@ -133,8 +138,12 @@ export const getPhotosByAlbum = async (req, res) => {
     }
 
     res.set("X-PF-Album-Count", String(albumCount));
-    if (exportStatus) {
-      res.set("X-PF-Export-Status", exportStatus);
+    const statusHeader =
+      exportStatus || albumStatus?.status || albumStatus?.status === "ready"
+        ? exportStatus || albumStatus?.status
+        : null;
+    if (statusHeader) {
+      res.set("X-PF-Export-Status", statusHeader);
     }
 
     // Add 'original_name' property

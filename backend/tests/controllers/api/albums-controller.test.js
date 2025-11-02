@@ -5,6 +5,7 @@ import { getAlbumsData } from "../../../controllers/api/albums-controller.js";
 import httpMocks from "node-mocks-http";
 import fs from "fs-extra";
 import path from "path";
+import * as albumsStore from "../../../utils/albums-store.js";
 
 describe("getAlbumsData", () => {
   afterEach(() => {
@@ -22,9 +23,18 @@ describe("getAlbumsData", () => {
       { uuid: "album-2", title: "Album 2" },
     ];
 
-    jest.spyOn(fs, "readJson").mockResolvedValue(sampleData);
-
-    // Mock fs.pathExists to return true
+    jest.spyOn(albumsStore, "ensureAlbumsExported").mockResolvedValue();
+    jest.spyOn(albumsStore, "readExportStatus").mockResolvedValue({ status: "ready" });
+    jest
+      .spyOn(albumsStore, "readJsonWithRetry")
+      .mockResolvedValue(sampleData);
+    jest
+      .spyOn(albumsStore.albumsPaths, "albumsPath", "get")
+      .mockReturnValue(path.join("/tmp", "albums.json"));
+    jest
+      .spyOn(albumsStore.albumsPaths, "dataDir", "get")
+      .mockReturnValue(path.join("/tmp", "data"));
+    jest.spyOn(fs, "readJson").mockResolvedValue([]);
     jest.spyOn(fs, "pathExists").mockResolvedValue(true);
 
     await getAlbumsData(req, res);

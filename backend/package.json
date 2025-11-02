@@ -13,6 +13,7 @@
     "fs-extra": "^11.2.0",
     "jsonapi-serializer": "^3.6.7",
     "osx-tag": "^0.4.9",
+    "p-limit": "^4.0.0",
     "plist": "^3.1.0",
     "stream-json": "^1.9.1"
   },

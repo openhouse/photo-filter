@@ -22,22 +22,23 @@ describe("images middleware", () => {
   function buildApp() {
     const app = express();
     app.set("etag", "strong");
+    const logger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
     app.get(
       "/images/:albumUUID/:imageName",
       createImagesMiddleware({
         getImagesDir: (albumUUID) => path.join(tmpDir, albumUUID),
-        logger: {
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-        },
+        logger,
       }),
     );
-    return app;
+    return { app, logger };
   }
 
   test("rejects traversal attempts", async () => {
-    const app = buildApp();
+    const { app } = buildApp();
 
     const res = await request(app).get(
       "/images/ALBUM/..%2F..%2Fetc%2Fpasswd",
@@ -53,7 +54,7 @@ describe("images middleware", () => {
     const exported = "20240101T010203000000Z-My Photo (1).jpg";
     await fs.writeFile(path.join(albumDir, exported), "image-bytes");
 
-    const app = buildApp();
+    const { app, logger } = buildApp();
 
     const res = await request(app)
       .get("/images/ALBUM1/20240101T010203000000Z-My%20Photo.jpg")
@@ -66,6 +67,15 @@ describe("images middleware", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers["cache-control"]).toContain("immutable");
+    expect(res.headers).toHaveProperty("etag");
     expect(res.body.toString()).toBe("image-bytes");
+    expect(logger.info).toHaveBeenCalledWith(
+      "images: using fallback filename match",
+      {
+        albumUUID: "ALBUM1",
+        requested: "20240101T010203000000Z-My Photo.jpg",
+        resolved: "20240101T010203000000Z-My Photo (1).jpg",
+      },
+    );
   });
 });

@@ -16,6 +16,7 @@
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
+import { getLibraryDirTemplate } from "../config/storage-paths.js";
 
 export async function loadUuidsFromFile(filePath) {
   const raw = await fs.readFile(filePath, "utf8").catch(() => "");
@@ -33,20 +34,21 @@ export async function loadUuidsFromFile(filePath) {
  *
  * @param {string} osxphotosPath absolute path to the `osxphotos` binary
  * @param {string} albumUUID     Photos album UUID
- * @param {string} imagesDir     destination directory
+ * @param {string} destinationDir destination directory
  * @param {string} uuidsFile     path to the album’s uuid list file
  * @param {{ logStream?: import("stream").Writable }} [options]
  */
 export async function runOsxphotosExportImages(
   osxphotosPath,
   albumUUID,
-  imagesDir,
+  destinationDir,
   uuidsFile,
   options = {}
 ) {
-  const resolvedUuidsFile = uuidsFile || path.join(imagesDir, "uuids.txt");
+  const resolvedUuidsFile =
+    uuidsFile || path.join(destinationDir, "uuids.txt");
 
-  await fs.ensureDir(imagesDir);
+  await fs.ensureDir(destinationDir);
   if (!(await fs.pathExists(resolvedUuidsFile))) {
     throw new Error(
       `UUID list not found for album ${albumUUID} at ${resolvedUuidsFile}`
@@ -54,7 +56,7 @@ export async function runOsxphotosExportImages(
   }
 
   const uuids = await loadUuidsFromFile(resolvedUuidsFile);
-  const markerPath = path.join(imagesDir, ".skipped-empty");
+  const markerPath = path.join(destinationDir, ".skipped-empty");
 
   const logMessage = (message) => {
     if (
@@ -87,7 +89,7 @@ export async function runOsxphotosExportImages(
 
   const args = [
     "export",
-    imagesDir,
+    destinationDir,
     "--uuid-from-file",
     resolvedUuidsFile,
     "--download-missing",
@@ -103,6 +105,12 @@ export async function runOsxphotosExportImages(
     "--jpeg-ext",
     "jpg",
   ];
+
+  const directoryTemplate =
+    options.directoryTemplate || getLibraryDirTemplate();
+  if (directoryTemplate) {
+    args.push("--directory", directoryTemplate);
+  }
 
   if (
     options.logStream &&
