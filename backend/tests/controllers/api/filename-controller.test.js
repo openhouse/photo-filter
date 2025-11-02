@@ -89,6 +89,59 @@ describe("getPeopleByFilename", () => {
     await getPeopleByFilename(req, res);
 
     expect(res.statusCode).toBe(200);
+    expect(res.getHeader("X-PF-Resolve")).toBe("json");
+    const data = res._getJSONData();
+    expect(data.data).toEqual(["Alice", "Bob"]);
+    expect(stream.destroy).toHaveBeenCalled();
+  });
+
+  it("returns person names when found via photos.json fallback", async () => {
+    const date = "2025-05-30T23:36:13.160Z";
+    const ts = formatPreciseTimestamp(date);
+    const exported = `${ts}-_DSF7004.jpg`;
+
+    const req = httpMocks.createRequest({ params: { filename: exported } });
+    const res = httpMocks.createResponse();
+
+    jest.spyOn(fs, "pathExists").mockImplementation(async (targetPath) => {
+      if (targetPath.endsWith(path.join("data", "albums"))) {
+        return true;
+      }
+      if (targetPath.includes(path.join("images", exported))) {
+        return false;
+      }
+      if (targetPath.endsWith(path.join("album1", "photos.json"))) {
+        return true;
+      }
+      return false;
+    });
+
+    jest
+      .spyOn(fs, "readdir")
+      .mockResolvedValue([{ name: "album1", isDirectory: () => true }]);
+
+    const streamItems = [
+      {
+        original_filename: "_DSF7004.jpg",
+        date,
+        persons: ["Alice", "Bob"],
+      },
+    ];
+
+    const parserToken = {};
+    mockWithParser.mockReturnValue(parserToken);
+    const stream = createAsyncStream(streamItems);
+    mockCreateReadStream.mockReturnValue({
+      pipe(transform) {
+        expect(transform).toBe(parserToken);
+        return stream;
+      },
+    });
+
+    await getPeopleByFilename(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.getHeader("X-PF-Resolve")).toBe("json");
     const data = res._getJSONData();
     expect(data.data).toEqual(["Alice", "Bob"]);
     expect(stream.destroy).toHaveBeenCalled();
@@ -126,5 +179,15 @@ describe("getPeopleByFilename", () => {
 
     expect(res.statusCode).toBe(404);
     expect(stream.destroy).toHaveBeenCalled();
+  });
+
+  it("rejects unsafe filenames", async () => {
+    const req = httpMocks.createRequest({ params: { filename: "../evil.jpg" } });
+    const res = httpMocks.createResponse();
+
+    await getPeopleByFilename(req, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res._getJSONData().errors[0].detail).toBe("Invalid filename");
   });
 });

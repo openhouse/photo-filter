@@ -14,3 +14,27 @@ The backend builds a filename → UUID index from the system Photos library:
 **JPEG extension normalization:** If `JPEG_EXT` is set, we replace `.jpg/.jpeg/.JPG/.JPEG` with the requested suffix.
 
 **Collision tiebreak:** area → size → prefer non-RAW → UUID.
+
+## GET /api/people/by-filename/:filename
+
+- `:filename` — URL-encoded exported basename (e.g. `20100208T174405000000Z-005_3A.jpg`).
+- **200**: `{ "data": ["Alice", "Bob"] }`
+- **400**: `{ "errors": [{ "detail": "Filename is required" }] }`
+- **400**: `{ "errors": [{ "detail": "Invalid filename" }] }`
+- **404**: `{ "errors": [{ "detail": "Photo not found" }] }`
+- **500**: `{ "errors": [{ "detail": "Internal Server Error" }] }`
+
+Notes:
+
+- Query variant supported: `GET /api/people/by-filename?filename=...`.
+- Filenames must be percent-encoded in the URL; Express decodes automatically.
+- Responses report `X-PF-Resolve: cache|disk|json|miss|invalid` for debugging and to surface cache hits.
+- Lookups stream `<album>/photos.json` to rebuild filenames and merge Apple Photos person fields (no ML scene labels) when exported images are missing.
+- Cache TTLs and sizes can be tuned with `PF_FILENAME_CACHE_TTL_MS`, `PF_FILENAME_CACHE_MAX`, `PF_PERSONS_CACHE_TTL_MS`, and `PF_PERSONS_CACHE_MAX`.
+- Legacy compatibility: `/api/photos/by-filename/:filename/persons` continues to resolve to the same controller.
+
+Example:
+
+```bash
+backend/scripts/smoke-people-by-filename.sh "20100208T174405000000Z-005_3A.jpg"
+```

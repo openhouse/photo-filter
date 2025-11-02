@@ -16,7 +16,22 @@ import {
 import { getAlbumImagesDir } from "../config/storage-paths.js";
 
 const require = createRequire(import.meta.url);
-const tag = require("osx-tag");
+let tag;
+try {
+  tag = require("osx-tag");
+} catch (error) {
+  console.warn(
+    "[get-photos-by-album] osx-tag not available; Finder tags disabled",
+    error,
+  );
+  tag = {
+    setTags: (_filePath, _tags, callback) => {
+      if (typeof callback === "function") {
+        callback(null);
+      }
+    },
+  };
+}
 
 async function setFinderTags(filePath, tags) {
   return new Promise((resolve, reject) => {
