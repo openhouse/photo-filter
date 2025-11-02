@@ -17,14 +17,17 @@
     "lint:backend": "npm --prefix backend run lint || echo 'No lint script for backend'",
     "lint:frontend": "npm --prefix frontend/photo-filter-frontend run lint",
     "generate-overview": "bash generate-overview.sh",
-    "super-dev": "concurrently -n BACKEND,FRONTEND,TEST-BE,TEST-FE,OVERVIEW -c cyan,green,yellow,magenta,blue \"/bin/bash -c 'npm run watch:backend'\" \"/bin/bash -c 'npm run watch:frontend'\" \"npm run watch:test:backend\" \"npm run watch:test:frontend\" \"npm run watch:overview\"",
-    "super-dev:lite": "concurrently -n BACKEND,FRONTEND -c cyan,green \"npm run watch:backend\" \"npm run watch:frontend\"",
+    "super-dev": "concurrently -n BACKEND,FRONTEND,OVERVIEW -c cyan,green,blue \"npm run dev:be\" \"npm run dev:ui\" \"npm run watch:overview\"",
+    "super-dev:lite": "concurrently -n BACKEND,FRONTEND -c cyan,green \"npm run dev:be\" \"npm run dev:ui\"",
     "browserslist:update": "npx update-browserslist-db@latest --no-update-notifier",
-    "watch:backend": "nodemon --watch backend --ignore backend/data --ext js,ts,hbs,sh,md --exec \"npm run start:backend\"",
+    "watch:backend": "npm --prefix backend run dev",
     "watch:frontend": "npm --prefix frontend/photo-filter-frontend run start",
     "watch:test:backend": "npm --prefix backend run test:watch || echo 'No watch test script for backend'",
     "watch:test:frontend": "npm --prefix frontend/photo-filter-frontend run test:ember -- --server",
-    "watch:overview": "nodemon --watch backend --watch frontend --ext js,ts,hbs,sh,md --ignore project-overview.txt --exec \"npm run generate-overview\""
+    "watch:overview": "nodemon --delay 2000ms --watch backend --watch frontend/photo-filter-frontend/app --ext js,ts,hbs,md --ignore project-overview.txt --ignore '**/dist/**' --ignore '**/tmp/**' --ignore '**/node_modules/**' --exec \"npm run generate-overview\"",
+    "dev:be": "concurrently -n BACKEND,TEST-BE -c cyan,yellow \"npm run watch:backend\" \"npm run watch:test:backend\"",
+    "dev:ui": "npm --prefix frontend/photo-filter-frontend run start",
+    "dev:tests": "npm --prefix frontend/photo-filter-frontend run test:ember -- --server"
   },
   "workspaces": [
     "backend",

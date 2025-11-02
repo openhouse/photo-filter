@@ -63,7 +63,22 @@ export function getExportBase(albumUUID) {
   return path.join(getExportRoot(), albumUUID);
 }
 
+async function ensureWritable(dir, label) {
+  try {
+    await fs.ensureDir(dir);
+    await fs.access(dir, fs.constants.R_OK | fs.constants.W_OK);
+  } catch (err) {
+    console.error(`Storage root '${label}' is not accessible`, {
+      path: dir,
+      code: err?.code,
+      errno: err?.errno,
+      message: err?.message,
+    });
+    process.exit(1);
+  }
+}
+
 export async function ensureRoots() {
-  await fs.ensureDir(getLocalRoot());
-  await fs.ensureDir(getExportRoot());
+  await ensureWritable(getLocalRoot(), "localRoot");
+  await ensureWritable(getExportRoot(), "exportRoot");
 }
