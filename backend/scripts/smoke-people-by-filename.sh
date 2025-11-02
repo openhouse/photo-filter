@@ -1,48 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="http://localhost:3000"
-FILES=(
-  "20100208T174405000000Z-005_3A.jpg"
-  "20221201T174242329834Z-IMG_5899.jpg"
-)
-
-if [[ $# -gt 0 ]]; then
-  if [[ "$1" == http://* || "$1" == https://* ]]; then
-    BASE_URL="$1"
-    shift
-  fi
-  if [[ $# -gt 0 ]]; then
-    FILES=()
-    while [[ $# -gt 0 ]]; do
-      FILES+=("$1")
-      shift
-    done
-  fi
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 <exported-filename>" >&2
+  exit 1
 fi
 
-cleanup() {
-  [[ -n "${TMP_HEADERS:-}" && -f "$TMP_HEADERS" ]] && rm -f "$TMP_HEADERS"
-  [[ -n "${TMP_BODY:-}" && -f "$TMP_BODY" ]] && rm -f "$TMP_BODY"
-}
-trap cleanup EXIT
+FILENAME="$1"
+ENCODED=$(python3 - <<'PY'
+import sys, urllib.parse
+print(urllib.parse.quote(sys.argv[1], safe=''))
+PY
+"$FILENAME")
 
-for FILE in "${FILES[@]}"; do
-  ENC="$(printf '%s' "$FILE" | jq -sRr @uri)"
-  for URL in \
-    "${BASE_URL}/api/people/by-filename/${ENC}" \
-    "${BASE_URL}/api/people/by-filename?filename=${ENC}"; do
-    echo "→ GET ${URL}"
-    TMP_HEADERS="$(mktemp)"
-    TMP_BODY="$(mktemp)"
-    curl -sS -H 'Accept: application/json' -D "$TMP_HEADERS" "$URL" -o "$TMP_BODY" || true
-    STATUS_LINE="$(head -n 1 "$TMP_HEADERS")"
-    echo "  ${STATUS_LINE}"
-    sed 's/^/  /' "$TMP_HEADERS" | tail -n +2
-    jq . "$TMP_BODY" | sed 's/^/  /'
-    echo
-    rm -f "$TMP_HEADERS" "$TMP_BODY"
-    TMP_HEADERS=""
-    TMP_BODY=""
-  done
-done
+BASE_URL=${PF_API_HOST:-${PF_API_BASE:-http://localhost:${PORT:-3000}}}
+
+curl_and_assert() {
+  local url="$1"
+  local label="$2"
+  echo "\n>>> $label: $url"
+  local body_file
+  local header_file
+  body_file=$(mktemp)
+  header_file=$(mktemp)
+  local status
+  status=$(curl -sS -o "$body_file" -D "$header_file" "$url" -w "%{http_code}")
+  if [[ "$status" != "200" ]]; then
+    echo "Request failed with status $status" >&2
+    echo "Response body:" >&2
+    cat "$body_file" >&2
+    exit 1
+  fi
+  local resolve
+  resolve=$(grep -i "^X-PF-Resolve:" "$header_file" | awk '{print $2}' | tr -d '\r')
+  echo "Status: $status"
+  echo "X-PF-Resolve: ${resolve:-<missing>}"
+  echo "Body:"
+  cat "$body_file"
+  rm -f "$body_file" "$header_file"
+}
+
+curl_and_assert "$BASE_URL/api/people/by-filename/$ENCODED" "Path variant"
+curl_and_assert "$BASE_URL/api/people/by-filename?filename=$ENCODED" "Query variant"

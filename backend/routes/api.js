@@ -4,11 +4,16 @@ import express from "express";
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { getAlbumImagesDir, getExportBase } from "../config/storage-paths.js";
+import {
+  getAlbumImagesDir,
+  getExportBase,
+  getLibraryRoot,
+} from "../config/storage-paths.js";
 import {
   getAlbumsData,
   getAlbumById,
   getPhotosByAlbumData,
+  prepareAlbumForExport,
   exportTopN,
   exportAll,
   getAlbumExportStatus,
@@ -35,6 +40,7 @@ apiRouter.get("/albums", getAlbumsData);
 apiRouter.get("/albums/:albumUUID", getAlbumById);
 apiRouter.get("/albums/:albumUUID/photos", getPhotosByAlbumData);
 apiRouter.get("/albums/:albumUUID/status", getAlbumExportStatus);
+apiRouter.post("/albums/:albumUUID/prepare", prepareAlbumForExport);
 
 // People
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
@@ -69,6 +75,7 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
     const exportBase = getExportBase(albumUUID);
+    const libraryRoot = getLibraryRoot();
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -97,6 +104,7 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
       imagesDir,
       legacyImagesDir,
       exportBase,
+      libraryRoot,
       python: pythonPath,
       pyExport: scriptPath,
       osxphotos: osxphotosPath,

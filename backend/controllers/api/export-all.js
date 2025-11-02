@@ -5,8 +5,9 @@ import {
   getAlbumImagesDir,
   getExportBase,
   ensureRoots,
+  getLibraryRoot,
 } from "../../config/storage-paths.js";
-import { formatPreciseTimestamp } from "../../utils/helpers.js";
+import { buildExportedFilename } from "../../utils/exported-filename.js";
 import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -24,6 +25,7 @@ export async function exportAll(req, res) {
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
     const exportBase = getExportBase(albumUUID);
+    const libraryRoot = getLibraryRoot();
 
     console.log("exportAll paths:", { imagesDir, exportBase });
 
@@ -45,6 +47,7 @@ export async function exportAll(req, res) {
       imagesDir,
       legacyImagesDir,
       exportBase,
+      libraryRoot,
       python,
       pyExport,
       osxphotos,
@@ -52,9 +55,7 @@ export async function exportAll(req, res) {
 
     const photos = await fs.readJson(photosJSON);
     photos.forEach((photo) => {
-      const originalName = path.parse(photo.original_filename).name;
-      const ts = formatPreciseTimestamp(photo.date);
-      photo.exportedFilename = `${ts}-${originalName}.jpg`;
+      photo.exportedFilename = buildExportedFilename(photo);
     });
 
     let filtered = photos;

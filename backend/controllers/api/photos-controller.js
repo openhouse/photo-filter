@@ -19,8 +19,11 @@ import {
   getAlbumImagesDir,
   ensureRoots,
   getExportBase,
+  getLibraryRoot,
 } from "../../config/storage-paths.js";
 import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
+import { loadStatus } from "../../utils/export-status.js";
+import { buildExportedFilename } from "../../utils/exported-filename.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,12 +54,14 @@ const PhotoSerializer = new Serializer("photo", {
   pluralizeType: false,
 });
 
+const PREP_ON_RENDER = process.env.PF_PREP_ON_RENDER === "1";
+
 /* ---------- main controller ---------- */
 
 export const getPhotosByAlbumData = async (req, res) => {
+  const albumUUID = req.params.albumUUID;
   try {
     /* paths & params */
-    const albumUUID = req.params.albumUUID;
     const sortAttr = req.query.sort || "score.overall";
     const sortOrder = req.query.order || "desc";
 
@@ -67,6 +72,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
     const exportBase = getExportBase(albumUUID);
+    const libraryRoot = getLibraryRoot();
 
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const python = path.join(venvDir, "bin", "python3");
@@ -79,17 +85,68 @@ export const getPhotosByAlbumData = async (req, res) => {
     );
     const osxphotos = path.join(venvDir, "bin", "osxphotos");
 
-    const albumStatus = await ensureAlbumPrepared({
-      albumUUID,
-      albumDir,
-      photosJSON,
-      imagesDir,
-      legacyImagesDir,
-      exportBase,
-      python,
-      pyExport,
-      osxphotos,
-    });
+    let albumStatus = await loadStatus(albumUUID, { exportBase, photosJSON });
+
+    const hasPhotos = await fs.pathExists(photosJSON);
+    const wantsPrepare = PREP_ON_RENDER || req.query.prepare === "1";
+
+    if (!hasPhotos && !wantsPrepare) {
+      const status = albumStatus?.status || "needs-prep";
+      res
+        .status(202)
+        .set("X-PF-Export-Status", status)
+        .set("X-PF-Album-Count", "0")
+        .set("Link", `</api/albums/${albumUUID}/status>; rel="status"`)
+        .json({
+          data: [],
+          included: [],
+          meta: {
+            albumUUID,
+            sortAttribute: sortAttr,
+            sortOrder,
+            scoreAttributes: [],
+            exportStatus: albumStatus || { status },
+            nextSteps: {
+              prepareQuery: `/api/albums/${albumUUID}/photos?prepare=1`,
+              prepareEndpoint: `/api/albums/${albumUUID}/prepare`,
+              statusEndpoint: `/api/albums/${albumUUID}/status`,
+            },
+            message:
+              "Album is not prepared. Use ?prepare=1 or POST /api/albums/:albumUUID/prepare to start export.",
+          },
+        });
+      return;
+    }
+
+    if (!hasPhotos && wantsPrepare) {
+      albumStatus = await ensureAlbumPrepared({
+        albumUUID,
+        albumDir,
+        photosJSON,
+        imagesDir,
+        legacyImagesDir,
+        exportBase,
+        libraryRoot,
+        python,
+        pyExport,
+        osxphotos,
+      });
+    }
+
+    if (hasPhotos && wantsPrepare && albumStatus?.status !== "ready") {
+      albumStatus = await ensureAlbumPrepared({
+        albumUUID,
+        albumDir,
+        photosJSON,
+        imagesDir,
+        legacyImagesDir,
+        exportBase,
+        libraryRoot,
+        python,
+        pyExport,
+        osxphotos,
+      });
+    }
 
     /* (2) Load data & enrich */
     let photos = await fs.readJson(photosJSON);
@@ -111,8 +168,10 @@ export const getPhotosByAlbumData = async (req, res) => {
     photos.forEach((p) => {
       /* derive names & filenames */
       p.originalName = path.parse(p.original_filename).name;
-      const tsSegment = formatPreciseTimestamp(p.date);
-      const base = `${tsSegment}-${p.originalName}`;
+      const exportedGuess = buildExportedFilename(p);
+      const base = exportedGuess
+        ? exportedGuess.replace(/\.[^.]+$/, "")
+        : `${formatPreciseTimestamp(p.date)}-${p.originalName}`;
       // Prefer the real file if we already exported it (any extension)
       let actual = baseToActual.get(base.toLowerCase());
       // Cheap fallbacks for common collision suffixes if needed:
@@ -122,7 +181,7 @@ export const getPhotosByAlbumData = async (req, res) => {
           baseToActual.get(`${base.toLowerCase()} (1)`);
       }
       // If still not found (e.g., export still running), keep the canonical guess
-      p.exportedFilename = actual || `${base}.jpg`;
+      p.exportedFilename = actual || exportedGuess || `${base}.jpg`;
 
       /* normalise persons */
       p.persons = Array.isArray(p.persons) ? p.persons : [];
@@ -156,6 +215,18 @@ export const getPhotosByAlbumData = async (req, res) => {
       d.relationships.persons = { data: src.personsData };
     });
 
+    const statusHeader =
+      (albumStatus && albumStatus.status) ||
+      (await fs.pathExists(path.join(imagesDir, ".skipped-empty"))
+        ? "skipped-empty"
+        : null);
+    if (statusHeader) {
+      res.set("X-PF-Export-Status", statusHeader);
+    }
+
+    res.set("X-PF-Album-Count", String(photos.length));
+    res.set("Link", `</api/albums/${albumUUID}/status>; rel="status"`);
+
     res.json({
       data: jsonPhotos.data,
       included: jsonPersons.data,
@@ -169,7 +240,61 @@ export const getPhotosByAlbumData = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("photos-controller:", err);
+    console.error("photos-controller error", { albumUUID, err });
+    res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+export const prepareAlbumForExport = async (req, res) => {
+  const albumUUID = req.params.albumUUID;
+  try {
+    await ensureRoots();
+    const dataDir = path.join(__dirname, "..", "..", "data");
+    const albumDir = path.join(dataDir, "albums", albumUUID);
+    const photosJSON = path.join(albumDir, "photos.json");
+    const imagesDir = getAlbumImagesDir(albumUUID);
+    const legacyImagesDir = path.join(albumDir, "images");
+    const exportBase = getExportBase(albumUUID);
+    const libraryRoot = getLibraryRoot();
+
+    const venvDir = path.join(__dirname, "..", "..", "venv");
+    const python = path.join(venvDir, "bin", "python3");
+    const pyExport = path.join(
+      __dirname,
+      "..",
+      "..",
+      "scripts",
+      "export_photos_in_album.py",
+    );
+    const osxphotos = path.join(venvDir, "bin", "osxphotos");
+
+    const context = {
+      albumUUID,
+      albumDir,
+      photosJSON,
+      imagesDir,
+      legacyImagesDir,
+      exportBase,
+      libraryRoot,
+      python,
+      pyExport,
+      osxphotos,
+    };
+
+    const job = ensureAlbumPrepared(context);
+    job.catch((err) => {
+      console.error("prepareAlbumForExport error:", err);
+    });
+
+    const status = await loadStatus(albumUUID, { exportBase, photosJSON });
+    const httpStatus = status?.status === "ready" ? 200 : 202;
+    res
+      .status(httpStatus)
+      .set("X-PF-Export-Status", status?.status || "running")
+      .set("Link", `</api/albums/${albumUUID}/status>; rel="status"`)
+      .json(status);
+  } catch (err) {
+    console.error("prepareAlbumForExport error", { albumUUID, err });
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };

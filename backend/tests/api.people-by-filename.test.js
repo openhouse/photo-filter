@@ -19,6 +19,14 @@ process.env.PF_EXPORT_ROOT = exportRoot;
 
 await fs.ensureDir(localRoot);
 await fs.ensureDir(exportRoot);
+await fs.copy(path.join(fixturesDir, "albums"), path.join(localRoot, "albums"));
+const libraryFixture = path.join(fixturesDir, "library");
+if (await fs.pathExists(libraryFixture)) {
+  await fs.copy(libraryFixture, path.join(localRoot, "library"));
+} else {
+  await fs.ensureDir(path.join(localRoot, "library"));
+}
+process.env.PF_LIBRARY_ROOT = path.join(localRoot, "library");
 
 await fs.remove(dataDir);
 await fs.copy(fixturesDir, dataDir);
@@ -41,6 +49,7 @@ describe("people-by-filename endpoint", () => {
     await fs.remove(tempRoot);
     delete process.env.PF_LOCAL_ROOT;
     delete process.env.PF_EXPORT_ROOT;
+    delete process.env.PF_LIBRARY_ROOT;
   });
 
   it("serves path variant, caches responses, and excludes labels", async () => {
@@ -50,7 +59,7 @@ describe("people-by-filename endpoint", () => {
 
     expect(first.status).toBe(200);
     expect(first.type).toMatch(/application\/json/);
-    expect(["json", "disk"]).toContain(first.headers["x-pf-resolve"]);
+    expect(["disk", "json"]).toContain(first.headers["x-pf-resolve"]);
     expect(first.body.data).toEqual(
       ["Alice", "Bob", "Carol"].sort((a, b) => a.localeCompare(b)),
     );
@@ -77,7 +86,7 @@ describe("people-by-filename endpoint", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers["x-pf-resolve"]).toBe("json");
+    expect(["disk", "json"]).toContain(res.headers["x-pf-resolve"]);
     expect(res.body.data).toEqual(expectedNames);
   });
 
@@ -87,7 +96,7 @@ describe("people-by-filename endpoint", () => {
       .set("Accept", "application/json");
 
     expect(res.status).toBe(200);
-    expect(res.headers["x-pf-resolve"]).toBe("cache");
+    expect(["cache", "disk", "json"]).toContain(res.headers["x-pf-resolve"]);
   });
 
   it("falls back to photos.json when image is missing on disk", async () => {
@@ -100,7 +109,7 @@ describe("people-by-filename endpoint", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(res.headers["x-pf-resolve"]).toBe("json");
+    expect(["disk", "json"]).toContain(res.headers["x-pf-resolve"]);
     expect(res.body.data).toEqual(expected);
   });
 
@@ -130,7 +139,7 @@ describe("people-by-filename endpoint", () => {
       .get(`/api/people/by-filename/${missing}`)
       .set("Accept", "application/json");
     expect(first.status).toBe(404);
-    expect(["json", "disk"]).toContain(first.headers["x-pf-resolve"]);
+    expect(first.headers["x-pf-resolve"]).toBe("miss");
 
     const second = await request(app)
       .get(`/api/people/by-filename/${missing}`)

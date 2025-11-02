@@ -2,6 +2,7 @@ import "./load-env.js";
 import path from "path";
 import fs from "fs-extra";
 import os from "os";
+import { libraryRelativePath } from "../utils/exported-filename.js";
 
 /**
  * Return true if the realpath of `p` resolves inside iCloud Drive.
@@ -44,6 +45,8 @@ const DEFAULT_LOCAL_ROOT = process.env.DEFAULT_LOCAL_ROOT
   ? path.resolve(process.env.DEFAULT_LOCAL_ROOT)
   : "/Users/Shared/photo-filter-local";
 
+export const LIBRARY_DIR_TEMPLATE_DEFAULT = "{created.utc.strftime,%Y/%m/%d}";
+
 export function getLocalRoot() {
   return resolveSafeRoot("PF_LOCAL_ROOT", DEFAULT_LOCAL_ROOT);
 }
@@ -61,6 +64,28 @@ export function getAlbumImagesDir(albumUUID) {
 
 export function getExportBase(albumUUID) {
   return path.join(getExportRoot(), albumUUID);
+}
+
+export function getLibraryRoot() {
+  const explicit = process.env.PF_LIBRARY_ROOT;
+  if (explicit) return resolveSafeRoot("PF_LIBRARY_ROOT", explicit);
+  return path.join(getLocalRoot(), "library");
+}
+
+export function getLibraryDirTemplate() {
+  const raw = process.env.PF_LIBRARY_DIR_TEMPLATE;
+  if (!raw) return LIBRARY_DIR_TEMPLATE_DEFAULT;
+  const trimmed = raw.trim();
+  return trimmed || LIBRARY_DIR_TEMPLATE_DEFAULT;
+}
+
+export function getLibraryPathForExportedName(exportedName) {
+  if (!exportedName) return null;
+  const relative = libraryRelativePath(exportedName, getLibraryDirTemplate());
+  if (relative) {
+    return path.join(getLibraryRoot(), relative, exportedName);
+  }
+  return path.join(getLibraryRoot(), exportedName);
 }
 
 async function ensureWritable(dir, label) {
@@ -81,4 +106,5 @@ async function ensureWritable(dir, label) {
 export async function ensureRoots() {
   await ensureWritable(getLocalRoot(), "localRoot");
   await ensureWritable(getExportRoot(), "exportRoot");
+  await ensureWritable(getLibraryRoot(), "libraryRoot");
 }

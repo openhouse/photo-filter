@@ -1,16 +1,15 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import {
-  formatPreciseTimestamp,
-  getNestedProperty,
-} from "../../utils/helpers.js";
+import { getNestedProperty } from "../../utils/helpers.js";
 import {
   getAlbumImagesDir,
   getExportBase,
   ensureRoots,
+  getLibraryRoot,
 } from "../../config/storage-paths.js";
 import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
+import { buildExportedFilename } from "../../utils/exported-filename.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +52,7 @@ export async function exportTopN(req, res) {
     const imagesDir = getAlbumImagesDir(albumUUID);
     const legacyImagesDir = path.join(albumDir, "images");
     const exportBase = getExportBase(albumUUID);
+    const libraryRoot = getLibraryRoot();
 
     console.log("exportTopN paths:", { imagesDir, exportBase });
 
@@ -74,6 +74,7 @@ export async function exportTopN(req, res) {
       imagesDir,
       legacyImagesDir,
       exportBase,
+      libraryRoot,
       python,
       pyExport,
       osxphotos,
@@ -82,8 +83,7 @@ export async function exportTopN(req, res) {
     const photos = await fs.readJson(photosJSON);
     photos.forEach((p) => {
       p.originalName = path.parse(p.original_filename).name;
-      const ts = formatPreciseTimestamp(p.date);
-      p.exportedFilename = `${ts}-${p.originalName}.jpg`;
+      p.exportedFilename = buildExportedFilename(p);
     });
 
     let filtered = photos;

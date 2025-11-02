@@ -3,8 +3,6 @@ import path from "path";
 import { getAlbumImagesDir } from "../config/storage-paths.js";
 import { findExportedImageMatch } from "../utils/match-exported-image.js";
 
-const fallbackLogged = new Set();
-
 function isSafeAlbum(albumUUID) {
   return /^[A-Za-z0-9_-]+$/.test(albumUUID);
 }
@@ -41,7 +39,7 @@ export function createImagesMiddleware({
     try {
       const exists = await fsClient.pathExists(candidatePath);
       if (exists) {
-        res.set("Cache-Control", "public, max-age=31536000, immutable");
+        await applyCachingHeaders(res, fsClient, candidatePath);
         return res.sendFile(candidatePath, { cacheControl: false });
       }
 
@@ -56,15 +54,12 @@ export function createImagesMiddleware({
       if (fallback) {
         const fallbackPath = path.resolve(imagesDir, fallback);
         if (!isTraversalAttempt(imagesDir, fallbackPath)) {
-          if (!fallbackLogged.has(albumUUID)) {
-            fallbackLogged.add(albumUUID);
-            logger.info?.("images: using fallback filename match", {
-              albumUUID,
-              requestedName,
-              fallback,
-            });
-          }
-          res.set("Cache-Control", "public, max-age=31536000, immutable");
+          logger.info?.("images: using fallback filename match", {
+            albumUUID,
+            requested: requestedName,
+            resolved: fallback,
+          });
+          await applyCachingHeaders(res, fsClient, fallbackPath);
           return res.sendFile(fallbackPath, { cacheControl: false });
         }
       }
@@ -83,3 +78,16 @@ export function createImagesMiddleware({
 }
 
 export default createImagesMiddleware;
+
+async function applyCachingHeaders(res, fsClient, filePath) {
+  let stats;
+  try {
+    stats = await fsClient.stat(filePath);
+  } catch (err) {
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    return;
+  }
+  res.set("Cache-Control", "public, max-age=31536000, immutable");
+  const etag = `"${stats.size}-${Math.floor(stats.mtimeMs)}"`;
+  res.set("ETag", etag);
+}

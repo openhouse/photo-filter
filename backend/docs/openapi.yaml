@@ -19,6 +19,8 @@ paths:
           headers:
             X-PF-Resolve:
               $ref: "#/components/headers/XPFResolve"
+            X-PF-Miss-Reason:
+              $ref: "#/components/headers/XPFMissReason"
           content:
             application/json:
               schema:
@@ -81,6 +83,11 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+      headers:
+        X-PF-Resolve:
+          $ref: "#/components/headers/XPFResolve"
+        X-PF-Miss-Reason:
+          $ref: "#/components/headers/XPFMissReason"
     InternalError:
       description: Internal server error
       content:
@@ -92,4 +99,8 @@ components:
       description: Indicates where the people data was sourced from.
       schema:
         type: string
-        enum: [cache, disk, json, miss, invalid]
+        enum: [cache, disk, json, miss, invalid, error]
+    XPFMissReason:
+      description: Provides additional context when a filename could not be resolved.
+      schema:
+        type: string

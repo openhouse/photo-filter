@@ -3,7 +3,12 @@ import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { createReadStream } from "node:fs";
 import StreamArray from "stream-json/streamers/StreamArray.js";
-import { formatPreciseTimestamp } from "../../utils/helpers.js";
+import {
+  getAlbumImagesDir,
+  getLocalRoot,
+  getLibraryPathForExportedName,
+} from "../../config/storage-paths.js";
+import { buildExportedFilename } from "../../utils/exported-filename.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +53,7 @@ const RESOLVE_SOURCES = {
   JSON: "json",
   MISS: "miss",
   INVALID: "invalid",
+  ERROR: "error",
 };
 
 function readEnvInt(name, fallback) {
@@ -83,17 +89,21 @@ export async function getPeopleByFilename(req, res) {
 
     const cachedMiss = getCachedMiss(filename);
     if (cachedMiss) {
-      res.set("X-PF-Resolve", cachedMiss);
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
+      if (cachedMiss.reason) {
+        res.set("X-PF-Miss-Reason", cachedMiss.reason);
+      }
       return res
         .status(404)
         .json({ errors: [{ detail: "Photo not found" }] });
     }
 
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const albumsDir = path.join(dataDir, "albums");
+    const albumsDir = path.join(getLocalRoot(), "albums");
 
     if (!(await fs.pathExists(albumsDir))) {
-      res.set("X-PF-Resolve", RESOLVE_SOURCES.JSON);
+      cacheMiss(filename, "uninitialized");
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
+      res.set("X-PF-Miss-Reason", "uninitialized");
       return res
         .status(404)
         .json({ errors: [{ detail: "Photo not found" }] });
@@ -103,15 +113,18 @@ export async function getPeopleByFilename(req, res) {
     let resolveSource = albumUUID ? RESOLVE_SOURCES.CACHE : null;
     if (!albumUUID) {
       const lookupResult = await findAlbumUUIDByFilename(albumsDir, filename);
-      if (!lookupResult) {
-        cacheMiss(filename);
-        res.set("X-PF-Resolve", RESOLVE_SOURCES.JSON);
+      if (!lookupResult?.match) {
+        cacheMiss(filename, lookupResult?.missReason ?? RESOLVE_SOURCES.JSON);
+        res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
+        if (lookupResult?.missReason) {
+          res.set("X-PF-Miss-Reason", lookupResult.missReason);
+        }
         return res
           .status(404)
           .json({ errors: [{ detail: "Photo not found" }] });
       }
-      albumUUID = lookupResult.uuid;
-      resolveSource = lookupResult.source;
+      albumUUID = lookupResult.match.uuid;
+      resolveSource = lookupResult.match.source;
       cacheAlbumUUID(filename, albumUUID);
     }
 
@@ -129,7 +142,9 @@ export async function getPeopleByFilename(req, res) {
         return { persons: inLockCached, source: RESOLVE_SOURCES.CACHE };
       }
 
-      const result = await findPersonsByFilenameStreaming(photosPath, filename);
+      const result = await findPersonsByFilenameStreaming(photosPath, filename, {
+        preferDisk: resolveSource === RESOLVE_SOURCES.DISK,
+      });
       if (result.persons !== null) {
         cachePersons(cacheKey, result.persons);
       }
@@ -137,8 +152,9 @@ export async function getPeopleByFilename(req, res) {
     });
 
     if (persons === null) {
-      cacheMiss(filename);
-      res.set("X-PF-Resolve", source ?? resolveSource ?? RESOLVE_SOURCES.JSON);
+      cacheMiss(filename, RESOLVE_SOURCES.JSON);
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
+      res.set("X-PF-Miss-Reason", RESOLVE_SOURCES.JSON);
       return res.status(404).json({ errors: [{ detail: "Photo not found" }] });
     }
 
@@ -147,7 +163,7 @@ export async function getPeopleByFilename(req, res) {
     return res.json({ data: persons });
   } catch (error) {
     console.error("Error looking up persons by filename:", error);
-    res.set("X-PF-Resolve", RESOLVE_SOURCES.JSON);
+    res.set("X-PF-Resolve", RESOLVE_SOURCES.ERROR);
     return res
       .status(500)
       .json({ errors: [{ detail: "Internal Server Error" }] });
@@ -234,12 +250,13 @@ function getCachedMiss(name) {
     MISS_CACHE.delete(name);
     return null;
   }
-  return entry.source;
+  return entry;
 }
 
-function cacheMiss(name, source = RESOLVE_SOURCES.MISS) {
+function cacheMiss(name, reason = RESOLVE_SOURCES.MISS) {
   MISS_CACHE.set(name, {
-    source,
+    source: RESOLVE_SOURCES.MISS,
+    reason,
     expiresAt: Date.now() + MISS_CACHE_TTL_MS,
   });
   if (MISS_CACHE.size > MISS_CACHE_MAX) {
@@ -269,12 +286,18 @@ async function runWithAlbumLock(albumUUID, fn) {
 async function findAlbumUUIDByFilename(albumsDir, filename) {
   const entries = await fs.readdir(albumsDir, { withFileTypes: true });
   const directories = entries.filter((entry) => entry.isDirectory());
+  const libraryCandidate = getLibraryPathForExportedName(filename);
+  const libraryExists = libraryCandidate
+    ? await fs.pathExists(libraryCandidate)
+    : false;
+  let missReason = RESOLVE_SOURCES.DISK;
 
   for (let i = 0; i < directories.length; i += DISK_PROBE_CONCURRENCY) {
     const batch = directories.slice(i, i + DISK_PROBE_CONCURRENCY);
     const results = await Promise.all(
       batch.map(async (entry) => {
-        const candidate = path.join(albumsDir, entry.name, "images", filename);
+        const imagesDir = getAlbumImagesDir(entry.name);
+        const candidate = path.join(imagesDir, filename);
         if (await fs.pathExists(candidate)) {
           return entry.name;
         }
@@ -283,7 +306,7 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
     );
     const match = results.find((value) => value !== null);
     if (match) {
-      return { uuid: match, source: RESOLVE_SOURCES.DISK };
+      return { match: { uuid: match, source: RESOLVE_SOURCES.DISK } };
     }
   }
 
@@ -292,13 +315,17 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
     if (!(await fs.pathExists(photosPath))) {
       continue;
     }
+    missReason = RESOLVE_SOURCES.JSON;
     const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
     try {
       for await (const { value: photo } of stream) {
         if (!photo) continue;
-        const exported = buildExportedName(photo);
+        const exported = buildExportedFilename(photo);
         if (exported && exported === filename) {
-          return { uuid: entry.name, source: RESOLVE_SOURCES.JSON };
+          const source = libraryExists
+            ? RESOLVE_SOURCES.DISK
+            : RESOLVE_SOURCES.JSON;
+          return { match: { uuid: entry.name, source } };
         }
       }
     } catch (error) {
@@ -310,23 +337,30 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
     }
   }
 
-  return null;
+  const missDetails = libraryExists ? RESOLVE_SOURCES.JSON : missReason;
+  return { match: null, missReason: missDetails };
 }
 
-async function findPersonsByFilenameStreaming(photosPath, targetFilename) {
+async function findPersonsByFilenameStreaming(
+  photosPath,
+  targetFilename,
+  { preferDisk = false } = {},
+) {
   if (!(await fs.pathExists(photosPath))) {
-    return { persons: null, source: RESOLVE_SOURCES.JSON };
+    const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
+    return { persons: null, source };
   }
 
   const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
   try {
     for await (const { value: photo } of stream) {
       if (!photo) continue;
-      const exported = buildExportedName(photo);
+      const exported = buildExportedFilename(photo);
       if (!exported || exported !== targetFilename) {
         continue;
       }
-      return { persons: extractPersons(photo), source: RESOLVE_SOURCES.JSON };
+      const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
+      return { persons: extractPersons(photo), source };
     }
   } catch (error) {
     throw error;
@@ -336,22 +370,8 @@ async function findPersonsByFilenameStreaming(photosPath, targetFilename) {
     }
   }
 
-  return { persons: null, source: RESOLVE_SOURCES.JSON };
-}
-
-function buildExportedName(photo) {
-  try {
-    const originalSource = photo.original_filename || photo.originalFilename;
-    if (!originalSource) return null;
-    const originalName = path.parse(originalSource).name;
-    if (!originalName) return null;
-    const rawDate = photo.date ?? photo.creation_date ?? photo.creationDate;
-    if (!rawDate) return null;
-    const timestamp = formatPreciseTimestamp(rawDate);
-    return `${timestamp}-${originalName}.jpg`;
-  } catch (err) {
-    return null;
-  }
+  const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
+  return { persons: null, source };
 }
 
 function extractPersons(photo) {
