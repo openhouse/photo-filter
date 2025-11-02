@@ -4,7 +4,10 @@ import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
 import { runPythonScript } from "../../utils/run-python-script.js";
-import { execCommand } from "../../utils/exec-command.js";
+import {
+  loadUuidsFromFile,
+  runOsxphotosExportImages,
+} from "../../utils/export-images.js";
 import { Serializer } from "jsonapi-serializer";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +44,7 @@ export const getPhotosByAlbumData = async (req, res) => {
     const photosPath = path.join(photosDir, "photos.json");
     const imagesDir = path.join(photosDir, "images");
     const uuidsFilePath = path.join(imagesDir, "uuids.txt");
+    const skippedMarkerPath = path.join(imagesDir, ".skipped-empty");
     const venvDir = path.join(__dirname, "..", "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -56,6 +60,8 @@ export const getPhotosByAlbumData = async (req, res) => {
     await fs.ensureDir(photosDir);
     await fs.ensureDir(imagesDir);
 
+    let exportStatus = null;
+
     // Check if photos.json exists
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
@@ -65,13 +71,21 @@ export const getPhotosByAlbumData = async (req, res) => {
         [albumUUID, uuidsFilePath],
         photosPath,
       );
-      // Export images
-      await runOsxphotosExportImages(
-        osxphotosPath,
-        albumUUID,
-        imagesDir,
-        uuidsFilePath
-      );
+      const uuids = await loadUuidsFromFile(uuidsFilePath);
+      if (uuids.length === 0) {
+        await fs.ensureFile(skippedMarkerPath);
+        exportStatus = "skipped-empty";
+      } else {
+        const result = await runOsxphotosExportImages(
+          osxphotosPath,
+          albumUUID,
+          imagesDir,
+          uuidsFilePath,
+        );
+        if (result?.skippedReason === "empty-album") {
+          exportStatus = "skipped-empty";
+        }
+      }
 
       // After exporting, rename files to prepend the photo's capture date
       await renameExportedImages(imagesDir, photosPath);
@@ -79,6 +93,20 @@ export const getPhotosByAlbumData = async (req, res) => {
 
     // Read photos data
     const photosData = await fs.readJson(photosPath);
+    const albumCount = Array.isArray(photosData) ? photosData.length : 0;
+
+    if (
+      !exportStatus &&
+      albumCount === 0 &&
+      (await fs.pathExists(skippedMarkerPath))
+    ) {
+      exportStatus = "skipped-empty";
+    }
+
+    res.set("X-PF-Album-Count", String(albumCount));
+    if (exportStatus) {
+      res.set("X-PF-Export-Status", exportStatus);
+    }
 
     // Add 'originalName' property to each photo
     photosData.forEach((photo) => {
@@ -86,7 +114,10 @@ export const getPhotosByAlbumData = async (req, res) => {
     });
 
     // Extract the list of score attributes
-    const scoreAttributes = Object.keys(photosData[0].score);
+    const scoreAttributes =
+      photosData.length > 0 && photosData[0].score
+        ? Object.keys(photosData[0].score)
+        : [];
 
     // Sort photos based on the requested attribute
     photosData.sort((a, b) => {
@@ -126,28 +157,6 @@ export const getPhotosByAlbumData = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
-
-// Helper function to export images using osxphotos
-async function runOsxphotosExportImages(
-  osxphotosPath,
-  albumUUID,
-  imagesDir,
-  uuidsFilePath
-) {
-  await fs.ensureDir(imagesDir);
-
-  if (!(await fs.pathExists(uuidsFilePath))) {
-    throw new Error(
-      `UUID list not found for album ${albumUUID} at ${uuidsFilePath}`,
-    );
-  }
-
-  // Use {original_name} template to avoid double extensions
-  const commandImages = `"${osxphotosPath}" export "${imagesDir}" --uuid-from-file "${uuidsFilePath}" --filename "{original_name}" --convert-to-jpeg --jpeg-ext jpg`;
-
-  console.log(`Executing command:\n${commandImages}`);
-  await execCommand(commandImages, "Error exporting album images:");
-}
 
 // Rename exported images with date-based filenames
 async function renameExportedImages(imagesDir, photosPath) {
