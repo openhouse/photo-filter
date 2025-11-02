@@ -177,28 +177,28 @@ list_files "./frontend/photo-filter-frontend" "$OUTPUT_FILE"
 #     in backend/data/albums
 #####################################
 ALBUMS_DIR="./backend/data/albums"
+ALBUMS_JSON="$ALBUMS_DIR/albums.json"
+DEFAULT_PORT=${PORT:-3000}
+API_BASE=${PF_OVERVIEW_API_BASE:-${PF_API_HOST:-"http://localhost:${DEFAULT_PORT}"}}
+
 {
-  echo "## Photos.json Summaries in $ALBUMS_DIR"
+  echo "## Photos.json Summaries"
   echo ""
 } >> "$OUTPUT_FILE"
 
-if [ -d "$ALBUMS_DIR" ]; then
+if [ -f "$ALBUMS_JSON" ]; then
   find "$ALBUMS_DIR" -name "photos.json" | while read -r PHOTOS_JSON; do
     ALBUM_PATH="$(dirname "$PHOTOS_JSON")"
     ALBUM_UUID="$(basename "$ALBUM_PATH")"
     PHOTO_COUNT="??"
 
-    # Attempt to parse length with jq
     if command -v jq >/dev/null 2>&1; then
       PHOTO_COUNT=$(jq '. | length' "$PHOTOS_JSON" 2>/dev/null || echo "??")
-    fi
-
-    # Attempt earliest & latest date
-    EARLIEST="unknown"
-    LATEST="unknown"
-    if command -v jq >/dev/null 2>&1; then
       EARLIEST=$(jq -r 'map(.date) | sort | first // "unknown"' "$PHOTOS_JSON" 2>/dev/null || echo "unknown")
       LATEST=$(jq -r 'map(.date) | sort | last // "unknown"' "$PHOTOS_JSON" 2>/dev/null || echo "unknown")
+    else
+      EARLIEST="unknown"
+      LATEST="unknown"
     fi
 
     echo "### Album UUID: $ALBUM_UUID" >> "$OUTPUT_FILE"
@@ -209,7 +209,43 @@ if [ -d "$ALBUMS_DIR" ]; then
     echo "" >> "$OUTPUT_FILE"
   done
 else
-  echo "No directory found at $ALBUMS_DIR" >> "$OUTPUT_FILE"
+  echo "overview: no ./backend/data/albums.json; attempting API fetch from $API_BASE" >> "$OUTPUT_FILE"
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "overview: curl not available; skipping API fetch." >> "$OUTPUT_FILE"
+  else
+    ALBUMS_RESPONSE=$(curl -sf "$API_BASE/api/albums" || true)
+
+    if [ -z "$ALBUMS_RESPONSE" ]; then
+      echo "overview: failed to fetch albums from $API_BASE/api/albums" >> "$OUTPUT_FILE"
+    else
+      {
+        echo "### Albums (via API)"
+        echo "\`\`\`json"
+        echo "$ALBUMS_RESPONSE"
+        echo "\`\`\`"
+        echo ""
+      } >> "$OUTPUT_FILE"
+
+      if command -v jq >/dev/null 2>&1; then
+        echo "### Album photo counts (via API)" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+        echo "$ALBUMS_RESPONSE" | jq -r '.data[]?.id' | while read -r ALBUM_ID; do
+          if [ -z "$ALBUM_ID" ]; then
+            continue
+          fi
+          PHOTOS_RESPONSE=$(curl -sf "$API_BASE/api/albums/${ALBUM_ID}/photos" || true)
+          if [ -z "$PHOTOS_RESPONSE" ]; then
+            echo "- $ALBUM_ID: failed to fetch photos" >> "$OUTPUT_FILE"
+            continue
+          fi
+          COUNT=$(echo "$PHOTOS_RESPONSE" | jq '.data | length' 2>/dev/null || echo "??")
+          echo "- $ALBUM_ID: $COUNT photos" >> "$OUTPUT_FILE"
+        done
+        echo "" >> "$OUTPUT_FILE"
+      fi
+    fi
+  fi
 fi
 
 #####################################

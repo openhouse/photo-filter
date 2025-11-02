@@ -5,24 +5,9 @@ import path from "path";
 import { runPythonScript } from "./run-python-script.js";
 import { runOsxphotosExportImages } from "./export-images.js";
 import { loadStatus, writeStatus, clearStatus } from "./export-status.js";
+import { ensureLegacySymlink } from "./symlinks.js";
 
 const inFlight = new Map();
-
-async function ensureLegacySymlink(imagesDir, legacyImagesDir) {
-  try {
-    await fs.ensureDir(path.dirname(legacyImagesDir));
-    const st = await fs.lstat(legacyImagesDir).catch(() => null);
-    if (!st) {
-      await fs.ensureSymlink(imagesDir, legacyImagesDir, "dir");
-    }
-  } catch (e) {
-    console.warn("Could not create legacy images symlink:", {
-      legacyImagesDir,
-      imagesDir,
-      e,
-    });
-  }
-}
 
 async function prepareAlbumInternal(context) {
   const {
@@ -41,7 +26,7 @@ async function prepareAlbumInternal(context) {
 
   await fs.ensureDir(albumDir);
   await fs.ensureDir(imagesDir);
-  await ensureLegacySymlink(imagesDir, legacyImagesDir);
+  await ensureLegacySymlink(imagesDir, legacyImagesDir, { logger: console });
 
   const status = await loadStatus(albumUUID, { exportBase, photosJSON });
   const hasPhotos = await fs.pathExists(photosJSON);
