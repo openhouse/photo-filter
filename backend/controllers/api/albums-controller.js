@@ -2,12 +2,15 @@
 
 import path from "path";
 import fs from "fs-extra";
-import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
 import { Serializer } from "jsonapi-serializer";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import {
+  albumsPaths,
+  ensureAlbumsExported,
+  EXPORT_RETRY_AFTER_SECONDS,
+  isTransientJsonError,
+  readExportStatus,
+  readJsonWithRetry,
+} from "../../utils/albums-store.js";
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -29,30 +32,60 @@ const AlbumSerializer = new Serializer("album", {
 });
 
 export const getAlbumsData = async (req, res) => {
+  let exportStatus = null;
   try {
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const albumsPath = path.join(dataDir, "albums.json");
-    const venvDir = path.join(__dirname, "..", "..", "venv");
-    const pythonPath = path.join(venvDir, "bin", "python3");
-    const scriptPath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "scripts",
-      "export_albums.py"
-    );
+    await ensureAlbumsExported();
+    exportStatus = await readExportStatus();
 
-    await fs.ensureDir(dataDir);
+    const albumsData = await readJsonWithRetry(albumsPaths.albumsPath);
 
-    if (!(await fs.pathExists(albumsPath))) {
-      console.log("albums.json not found. Exporting albums using osxphotos...");
-      await runPythonScript(pythonPath, scriptPath, [], albumsPath);
+    if (exportStatus?.status) {
+      res.set("X-PF-Export-Status", exportStatus.status);
+    } else {
+      res.set("X-PF-Export-Status", "ready");
+    }
+    if (exportStatus?.startedAt) {
+      res.set("X-PF-Export-Started-At", exportStatus.startedAt);
+    }
+    if (exportStatus?.finishedAt) {
+      res.set("X-PF-Export-Finished-At", exportStatus.finishedAt);
     }
 
-    const albumsData = await fs.readJson(albumsPath);
     const jsonApiData = AlbumSerializer.serialize(albumsData);
     res.json(jsonApiData);
   } catch (error) {
+    if (!exportStatus) {
+      exportStatus = await readExportStatus().catch(() => null);
+    }
+
+    if (exportStatus?.status) {
+      res.set("X-PF-Export-Status", exportStatus.status);
+      if (exportStatus.startedAt) {
+        res.set("X-PF-Export-Started-At", exportStatus.startedAt);
+      }
+      if (exportStatus.finishedAt) {
+        res.set("X-PF-Export-Finished-At", exportStatus.finishedAt);
+      }
+    }
+
+    if (isTransientJsonError(error)) {
+      res
+        .status(503)
+        .set("Retry-After", EXPORT_RETRY_AFTER_SECONDS.toString())
+        .set("X-PF-Exporting", "1");
+      if (!res.getHeader("X-PF-Export-Status")) {
+        res.set("X-PF-Export-Status", "running");
+      }
+      res.json({
+        errors: [
+          {
+            detail: "Albums export in progress. Please retry shortly.",
+          },
+        ],
+      });
+      return;
+    }
+
     console.error("Error fetching albums:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
@@ -61,12 +94,27 @@ export const getAlbumsData = async (req, res) => {
 export const getAlbumById = async (req, res) => {
   try {
     const albumUUID = req.params.albumUUID;
-    const dataDir = path.join(__dirname, "..", "..", "data");
-    const albumsPath = path.join(dataDir, "albums.json");
+    await ensureAlbumsExported();
+
+    const dataDir = albumsPaths.dataDir;
+    const albumsPath = albumsPaths.albumsPath;
     const photosDir = path.join(dataDir, "albums", albumUUID);
     const photosPath = path.join(photosDir, "photos.json");
 
-    const albumsData = await fs.readJson(albumsPath);
+    const exportStatus = await readExportStatus();
+    if (exportStatus?.status) {
+      res.set("X-PF-Export-Status", exportStatus.status);
+    } else {
+      res.set("X-PF-Export-Status", "ready");
+    }
+    if (exportStatus?.startedAt) {
+      res.set("X-PF-Export-Started-At", exportStatus.startedAt);
+    }
+    if (exportStatus?.finishedAt) {
+      res.set("X-PF-Export-Finished-At", exportStatus.finishedAt);
+    }
+
+    const albumsData = await readJsonWithRetry(albumsPath);
     const album = albumsData.find((a) => a.uuid === albumUUID);
 
     if (!album) {
@@ -111,6 +159,22 @@ export const getAlbumById = async (req, res) => {
 
     res.json(merged);
   } catch (error) {
+    if (isTransientJsonError(error)) {
+      res
+        .status(503)
+        .set("Retry-After", EXPORT_RETRY_AFTER_SECONDS.toString())
+        .set("X-PF-Exporting", "1")
+        .set("X-PF-Export-Status", "running")
+        .json({
+          errors: [
+            {
+              detail: "Albums export in progress. Please retry shortly.",
+            },
+          ],
+        });
+      return;
+    }
+
     console.error("Error fetching album:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
