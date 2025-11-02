@@ -25,7 +25,8 @@
     "watch:test:backend": "npm --prefix backend run test:watch || echo 'No watch test script for backend'",
     "watch:test:frontend": "npm --prefix frontend/photo-filter-frontend run test:ember -- --server",
     "watch:overview": "nodemon --delay 2000ms --watch backend --watch frontend/photo-filter-frontend/app --ext js,ts,hbs,md --ignore project-overview.txt --ignore '**/dist/**' --ignore '**/tmp/**' --ignore '**/node_modules/**' --exec \"npm run generate-overview\"",
-    "dev:be": "concurrently -n BACKEND,TEST-BE -c cyan,yellow \"npm run watch:backend\" \"npm run watch:test:backend\"",
+    "dev:be": "npm run watch:backend",
+    "dev:be:with-tests": "concurrently -n BACKEND,TEST-BE -c cyan,yellow \"npm run watch:backend\" \"npm run watch:test:backend\"",
     "dev:ui": "npm --prefix frontend/photo-filter-frontend run start",
     "dev:tests": "npm --prefix frontend/photo-filter-frontend run test:ember -- --server"
   },
