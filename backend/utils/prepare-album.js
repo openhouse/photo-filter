@@ -3,7 +3,10 @@
 import fs from "fs-extra";
 import path from "path";
 import { runPythonScript } from "./run-python-script.js";
-import { runOsxphotosExportImages } from "./export-images.js";
+import {
+  loadUuidsFromFile,
+  runOsxphotosExportImages,
+} from "./export-images.js";
 import { loadStatus, writeStatus, clearStatus } from "./export-status.js";
 import { ensureLegacySymlink } from "./symlinks.js";
 
@@ -88,18 +91,30 @@ async function prepareAlbumInternal(context) {
         appendLog: true,
       },
     );
-    logMessage(`Starting osxphotos export for album ${albumUUID}`);
-
-    await runOsxphotosExportImages(
-      osxphotos,
-      albumUUID,
-      imagesDir,
-      uuidsFile,
-      {
-        logStream,
-      },
-    );
-    logMessage(`Finished export for album ${albumUUID}`);
+    const uuids = await loadUuidsFromFile(uuidsFile);
+    let exportResult = null;
+    if (uuids.length === 0) {
+      const message = `Album ${albumUUID} empty; skipping osxphotos export`;
+      logMessage(message);
+      console.log(`[prepare-album] ${message}`);
+      await fs.ensureFile(path.join(imagesDir, ".skipped-empty"));
+    } else {
+      logMessage(`Starting osxphotos export for album ${albumUUID}`);
+      exportResult = await runOsxphotosExportImages(
+        osxphotos,
+        albumUUID,
+        imagesDir,
+        uuidsFile,
+        {
+          logStream,
+        },
+      );
+      if (exportResult?.skippedReason === "empty-album") {
+        logMessage(`Album ${albumUUID} empty; skipping osxphotos export`);
+      } else {
+        logMessage(`Finished export for album ${albumUUID}`);
+      }
+    }
     return await writeStatus(albumUUID, exportBase, {
       status: "ready",
       finishedAt: new Date().toISOString(),

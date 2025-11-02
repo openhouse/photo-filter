@@ -4,7 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import { runPythonScript } from "../utils/run-python-script.js";
-import { runOsxphotosExportImages } from "../utils/export-images.js";
+import {
+  loadUuidsFromFile,
+  runOsxphotosExportImages,
+} from "../utils/export-images.js";
 import plist from "plist";
 import { exec } from "child_process";
 import os from "os";
@@ -62,6 +65,7 @@ export const getPhotosByAlbum = async (req, res) => {
     const imagesDir = getAlbumImagesDir(albumUUID);
     const uuidsFilePath = path.join(imagesDir, "uuids.txt");
     const legacyImagesDir = path.join(photosDir, "images");
+    const skippedMarkerPath = path.join(imagesDir, ".skipped-empty");
     const venvDir = path.join(__dirname, "..", "venv");
     const pythonPath = path.join(venvDir, "bin", "python3");
     const scriptPath = path.join(
@@ -88,6 +92,8 @@ export const getPhotosByAlbum = async (req, res) => {
       });
     }
 
+    let exportStatus = null;
+
     if (!(await fs.pathExists(photosPath))) {
       // Export photos metadata
       await runPythonScript(
@@ -96,16 +102,40 @@ export const getPhotosByAlbum = async (req, res) => {
         [albumUUID, uuidsFilePath],
         photosPath,
       );
-      // Export images with osxphotos (directly uses date/time prefix)
-      await runOsxphotosExportImages(
-        osxphotosPath,
-        albumUUID,
-        imagesDir,
-        uuidsFilePath
-      );
+      const uuids = await loadUuidsFromFile(uuidsFilePath);
+      if (uuids.length === 0) {
+        await fs.ensureFile(skippedMarkerPath);
+        exportStatus = "skipped-empty";
+      } else {
+        const result = await runOsxphotosExportImages(
+          osxphotosPath,
+          albumUUID,
+          imagesDir,
+          uuidsFilePath,
+        );
+        if (result?.skippedReason === "empty-album") {
+          exportStatus = "skipped-empty";
+        }
+      }
+    } else if (await fs.pathExists(skippedMarkerPath)) {
+      exportStatus = "skipped-empty";
     }
 
     const photosData = await fs.readJson(photosPath);
+    const albumCount = Array.isArray(photosData) ? photosData.length : 0;
+
+    if (
+      !exportStatus &&
+      albumCount === 0 &&
+      (await fs.pathExists(skippedMarkerPath))
+    ) {
+      exportStatus = "skipped-empty";
+    }
+
+    res.set("X-PF-Album-Count", String(albumCount));
+    if (exportStatus) {
+      res.set("X-PF-Export-Status", exportStatus);
+    }
 
     // Add 'original_name' property
     photosData.forEach((photo) => {
@@ -167,7 +197,10 @@ export const getPhotosByAlbum = async (req, res) => {
       photo.tags = photoTags[photo.uuid] || [];
     });
 
-    const scoreAttributes = Object.keys(photosData[0].score);
+    const scoreAttributes =
+      photosData.length > 0 && photosData[0].score
+        ? Object.keys(photosData[0].score)
+        : [];
 
     // Sort the photos by requested attribute
     photosData.sort((a, b) => {
