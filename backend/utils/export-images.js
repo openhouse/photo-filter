@@ -17,6 +17,17 @@ import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
 
+export async function loadUuidsFromFile(filePath) {
+  const raw = await fs.readFile(filePath, "utf8").catch(() => "");
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 /**
  * Export JPEGs for the given album.
  *
@@ -41,6 +52,35 @@ export async function runOsxphotosExportImages(
       `UUID list not found for album ${albumUUID} at ${resolvedUuidsFile}`,
     );
   }
+
+  const uuids = await loadUuidsFromFile(resolvedUuidsFile);
+  const markerPath = path.join(imagesDir, ".skipped-empty");
+
+  const logMessage = (message) => {
+    if (
+      options.logStream &&
+      !options.logStream.destroyed &&
+      !options.logStream.writableEnded
+    ) {
+      options.logStream.write(
+        `[${new Date().toISOString()}] ${message}\n`,
+      );
+    }
+  };
+
+  if (uuids.length === 0) {
+    const message = `[export-images] ${albumUUID}: empty album; skipping osxphotos export`;
+    console.log(message);
+    logMessage(message);
+    await fs.ensureFile(markerPath);
+    return {
+      exported: 0,
+      skippedReason: "empty-album",
+      uuidsCount: 0,
+    };
+  }
+
+  await fs.remove(markerPath).catch(() => {});
 
   const filenameTemplate =
     "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
@@ -79,4 +119,10 @@ export async function runOsxphotosExportImages(
     "osxphotos image export failed:",
     options,
   );
+
+  return {
+    exported: uuids.length,
+    skippedReason: null,
+    uuidsCount: uuids.length,
+  };
 }
