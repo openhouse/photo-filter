@@ -31,14 +31,14 @@ export async function runOsxphotosExportImages(
   albumUUID,
   imagesDir,
   uuidsFile,
-  options = {},
+  options = {}
 ) {
   const resolvedUuidsFile = uuidsFile || path.join(imagesDir, "uuids.txt");
 
   await fs.ensureDir(imagesDir);
   if (!(await fs.pathExists(resolvedUuidsFile))) {
     throw new Error(
-      `UUID list not found for album ${albumUUID} at ${resolvedUuidsFile}`,
+      `UUID list not found for album ${albumUUID} at ${resolvedUuidsFile}`
     );
   }
 
@@ -52,7 +52,7 @@ export async function runOsxphotosExportImages(
     resolvedUuidsFile,
     "--download-missing",
     "--use-photokit",
-    "--ramdb",
+    // "--ramdb",
     "--update",
     "--only-photos",
     "--skip-live",
@@ -70,13 +70,13 @@ export async function runOsxphotosExportImages(
     !options.logStream.writableEnded
   ) {
     options.logStream.write(
-      `[${new Date().toISOString()}] Running osxphotos export for ${albumUUID}\n`,
+      `[${new Date().toISOString()}] Running osxphotos export for ${albumUUID}\n`
     );
   }
 
   await execCommand(
     [osxphotosPath, ...args],
     "osxphotos image export failed:",
-    options,
+    options
   );
 }

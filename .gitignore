@@ -48,3 +48,5 @@ backend/exports/
 # Local export roots (non-synced)
 /photo-filter-local/
 /photo-filter-exports/
+work
+backend/tests/__tmp-local__
