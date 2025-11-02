@@ -1,0 +1,95 @@
+openapi: 3.0.3
+info:
+  title: photo-filter API
+  version: 1.0.0
+paths:
+  /api/people/by-filename/{filename}:
+    get:
+      summary: Get recognized people for a given exported filename
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: URL-encoded exported name (e.g. 20221201T174242329834Z-IMG_5899.jpg)
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-PF-Resolve:
+              $ref: "#/components/headers/XPFResolve"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PeopleByFilenameResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/people/by-filename:
+    get:
+      summary: Query variant
+      parameters:
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/paths/~1api~1people~1by-filename~1{filename}/get/responses/200"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  schemas:
+    ErrorDetail:
+      type: object
+      properties:
+        detail:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+    PeopleByFilenameResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: string
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  headers:
+    XPFResolve:
+      description: Indicates where the people data was sourced from.
+      schema:
+        type: string
+        enum: [cache, disk, json, miss, invalid]

@@ -5,10 +5,16 @@ import { getPhotosByAlbumData } from "../../../controllers/api/photos-controller
 import httpMocks from "node-mocks-http";
 import fs from "fs-extra";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("getPhotosByAlbumData", () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    delete process.env.PF_LOCAL_ROOT;
+    delete process.env.PF_EXPORT_ROOT;
   });
 
   it("should return photos data in JSON:API format", async () => {
@@ -44,6 +50,9 @@ describe("getPhotosByAlbumData", () => {
     jest.spyOn(fs, "readJson").mockResolvedValue(samplePhotos);
     jest.spyOn(fs, "pathExists").mockResolvedValue(true);
 
+    const tempRoot = path.join(__dirname, '..', '..', '__tmp-local__');
+    process.env.PF_LOCAL_ROOT = tempRoot;
+    process.env.PF_EXPORT_ROOT = path.join(tempRoot, 'exports');
     await getPhotosByAlbumData(req, res);
 
     const data = res._getJSONData();

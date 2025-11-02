@@ -9,73 +9,163 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const FILENAME_TO_ALBUM = new Map();
-const FILENAME_TO_ALBUM_TTL_MS = 5 * 60 * 1000;
-const FILENAME_TO_ALBUM_MAX_ENTRIES = 10_000;
-
 const PERSONS_CACHE = new Map();
-const PERSONS_CACHE_TTL_MS = 10 * 60 * 1000;
-const PERSONS_CACHE_MAX_ENTRIES = 2_000;
+const MISS_CACHE = new Map();
+
+const DEFAULT_FILENAME_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_FILENAME_CACHE_MAX = 10_000;
+const DEFAULT_PERSONS_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_PERSONS_CACHE_MAX = 2_000;
+const MISS_CACHE_TTL_MS = 60 * 1000;
+const MISS_CACHE_MAX = 500;
+const DISK_PROBE_CONCURRENCY = Math.max(
+  1,
+  Number.parseInt(process.env.PF_DISK_PROBE_CONCURRENCY ?? "4", 10),
+);
+
+const FILENAME_TO_ALBUM_TTL_MS = readEnvDuration(
+  "PF_FILENAME_CACHE_TTL_MS",
+  DEFAULT_FILENAME_CACHE_TTL_MS,
+);
+const FILENAME_TO_ALBUM_MAX_ENTRIES = readEnvInt(
+  "PF_FILENAME_CACHE_MAX",
+  DEFAULT_FILENAME_CACHE_MAX,
+);
+const PERSONS_CACHE_TTL_MS = readEnvDuration(
+  "PF_PERSONS_CACHE_TTL_MS",
+  DEFAULT_PERSONS_CACHE_TTL_MS,
+);
+const PERSONS_CACHE_MAX_ENTRIES = readEnvInt(
+  "PF_PERSONS_CACHE_MAX",
+  DEFAULT_PERSONS_CACHE_MAX,
+);
 
 const ALBUM_LOCKS = new Map();
 
+const RESOLVE_SOURCES = {
+  CACHE: "cache",
+  DISK: "disk",
+  JSON: "json",
+  MISS: "miss",
+  INVALID: "invalid",
+};
+
+function readEnvInt(name, fallback) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readEnvDuration(name, fallback) {
+  return readEnvInt(name, fallback);
+}
+
 export async function getPeopleByFilename(req, res) {
   try {
-    const { filename } = req.params;
-    if (!filename) {
+    const rawFilename =
+      (req.params?.filename ?? req.query?.filename ?? "").toString();
+    const trimmed = rawFilename.trim();
+    if (!trimmed) {
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.INVALID);
       return res
         .status(400)
         .json({ errors: [{ detail: "Filename is required" }] });
+    }
+
+    const filename = sanitizeFilename(trimmed);
+    if (!filename) {
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.INVALID);
+      return res
+        .status(400)
+        .json({ errors: [{ detail: "Invalid filename" }] });
+    }
+
+    const cachedMiss = getCachedMiss(filename);
+    if (cachedMiss) {
+      res.set("X-PF-Resolve", cachedMiss);
+      return res
+        .status(404)
+        .json({ errors: [{ detail: "Photo not found" }] });
     }
 
     const dataDir = path.join(__dirname, "..", "..", "data");
     const albumsDir = path.join(dataDir, "albums");
 
     if (!(await fs.pathExists(albumsDir))) {
-      return res.status(404).json({ errors: [{ detail: "Photo not found" }] });
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.JSON);
+      return res
+        .status(404)
+        .json({ errors: [{ detail: "Photo not found" }] });
     }
 
     let albumUUID = getCachedAlbumUUID(filename);
+    let resolveSource = albumUUID ? RESOLVE_SOURCES.CACHE : null;
     if (!albumUUID) {
-      albumUUID = await findAlbumUUIDByFilename(albumsDir, filename);
-      if (!albumUUID) {
+      const lookupResult = await findAlbumUUIDByFilename(albumsDir, filename);
+      if (!lookupResult) {
+        cacheMiss(filename);
+        res.set("X-PF-Resolve", RESOLVE_SOURCES.JSON);
         return res
           .status(404)
           .json({ errors: [{ detail: "Photo not found" }] });
       }
+      albumUUID = lookupResult.uuid;
+      resolveSource = lookupResult.source;
       cacheAlbumUUID(filename, albumUUID);
     }
 
     const cacheKey = `${albumUUID}:${filename}`;
     const cachedPersons = getCachedPersons(cacheKey);
     if (cachedPersons) {
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.CACHE);
       return res.json({ data: cachedPersons });
     }
 
     const photosPath = path.join(albumsDir, albumUUID, "photos.json");
-    const persons = await runWithAlbumLock(albumUUID, async () => {
+    const { persons, source } = await runWithAlbumLock(albumUUID, async () => {
       const inLockCached = getCachedPersons(cacheKey);
       if (inLockCached) {
-        return inLockCached;
+        return { persons: inLockCached, source: RESOLVE_SOURCES.CACHE };
       }
 
       const result = await findPersonsByFilenameStreaming(photosPath, filename);
-      if (result !== null) {
-        cachePersons(cacheKey, result);
+      if (result.persons !== null) {
+        cachePersons(cacheKey, result.persons);
       }
       return result;
     });
 
     if (persons === null) {
+      cacheMiss(filename);
+      res.set("X-PF-Resolve", source ?? resolveSource ?? RESOLVE_SOURCES.JSON);
       return res.status(404).json({ errors: [{ detail: "Photo not found" }] });
     }
 
+    clearMiss(filename);
+    res.set("X-PF-Resolve", source ?? resolveSource ?? RESOLVE_SOURCES.JSON);
     return res.json({ data: persons });
   } catch (error) {
     console.error("Error looking up persons by filename:", error);
+    res.set("X-PF-Resolve", RESOLVE_SOURCES.JSON);
     return res
       .status(500)
       .json({ errors: [{ detail: "Internal Server Error" }] });
   }
+}
+
+function sanitizeFilename(input) {
+  const candidate = input.normalize("NFC");
+  if (!candidate || /[\\/]/.test(candidate)) {
+    return null;
+  }
+  if (/[\u0000-\u001F\u007F]/.test(candidate)) {
+    return null;
+  }
+  if (path.basename(candidate) !== candidate) {
+    return null;
+  }
+  return candidate;
 }
 
 function getCachedAlbumUUID(name) {
@@ -137,6 +227,33 @@ function cachePersons(key, persons) {
   }
 }
 
+function getCachedMiss(name) {
+  const entry = MISS_CACHE.get(name);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    MISS_CACHE.delete(name);
+    return null;
+  }
+  return entry.source;
+}
+
+function cacheMiss(name, source = RESOLVE_SOURCES.MISS) {
+  MISS_CACHE.set(name, {
+    source,
+    expiresAt: Date.now() + MISS_CACHE_TTL_MS,
+  });
+  if (MISS_CACHE.size > MISS_CACHE_MAX) {
+    const firstKey = MISS_CACHE.keys().next().value;
+    if (firstKey !== undefined) {
+      MISS_CACHE.delete(firstKey);
+    }
+  }
+}
+
+function clearMiss(name) {
+  MISS_CACHE.delete(name);
+}
+
 async function runWithAlbumLock(albumUUID, fn) {
   const previous = ALBUM_LOCKS.get(albumUUID) ?? Promise.resolve();
   const runPromise = previous.then(() => fn());
@@ -151,19 +268,54 @@ async function runWithAlbumLock(albumUUID, fn) {
 
 async function findAlbumUUIDByFilename(albumsDir, filename) {
   const entries = await fs.readdir(albumsDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const candidate = path.join(albumsDir, entry.name, "images", filename);
-    if (await fs.pathExists(candidate)) {
-      return entry.name;
+  const directories = entries.filter((entry) => entry.isDirectory());
+
+  for (let i = 0; i < directories.length; i += DISK_PROBE_CONCURRENCY) {
+    const batch = directories.slice(i, i + DISK_PROBE_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (entry) => {
+        const candidate = path.join(albumsDir, entry.name, "images", filename);
+        if (await fs.pathExists(candidate)) {
+          return entry.name;
+        }
+        return null;
+      }),
+    );
+    const match = results.find((value) => value !== null);
+    if (match) {
+      return { uuid: match, source: RESOLVE_SOURCES.DISK };
     }
   }
+
+  for (const entry of directories) {
+    const photosPath = path.join(albumsDir, entry.name, "photos.json");
+    if (!(await fs.pathExists(photosPath))) {
+      continue;
+    }
+    const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
+    try {
+      for await (const { value: photo } of stream) {
+        if (!photo) continue;
+        const exported = buildExportedName(photo);
+        if (exported && exported === filename) {
+          return { uuid: entry.name, source: RESOLVE_SOURCES.JSON };
+        }
+      }
+    } catch (error) {
+      throw error;
+    } finally {
+      if (typeof stream.destroy === "function") {
+        stream.destroy();
+      }
+    }
+  }
+
   return null;
 }
 
 async function findPersonsByFilenameStreaming(photosPath, targetFilename) {
   if (!(await fs.pathExists(photosPath))) {
-    return null;
+    return { persons: null, source: RESOLVE_SOURCES.JSON };
   }
 
   const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
@@ -174,15 +326,17 @@ async function findPersonsByFilenameStreaming(photosPath, targetFilename) {
       if (!exported || exported !== targetFilename) {
         continue;
       }
-      return extractPersons(photo);
+      return { persons: extractPersons(photo), source: RESOLVE_SOURCES.JSON };
     }
+  } catch (error) {
+    throw error;
   } finally {
     if (typeof stream.destroy === "function") {
       stream.destroy();
     }
   }
 
-  return null;
+  return { persons: null, source: RESOLVE_SOURCES.JSON };
 }
 
 function buildExportedName(photo) {
@@ -201,32 +355,18 @@ function buildExportedName(photo) {
 }
 
 function extractPersons(photo) {
-  const people = new Set();
-  if (Array.isArray(photo.persons)) {
-    for (const name of photo.persons) {
-      if (name) people.add(String(name));
-    }
-  }
-  if (Array.isArray(photo.persons_full)) {
-    for (const name of photo.persons_full) {
-      if (name) people.add(String(name));
-    }
-  }
-  if (Array.isArray(photo.face_names)) {
-    for (const name of photo.face_names) {
-      if (name) people.add(String(name));
-    }
-  }
-  if (Array.isArray(photo.faceInfo)) {
-    for (const info of photo.faceInfo) {
-      if (info && info.name) people.add(String(info.name));
-    }
-  }
-  if (Array.isArray(photo.labels)) {
-    for (const label of photo.labels) {
-      const value = label && typeof label === "object" ? label.name : label;
-      if (value) people.add(String(value));
-    }
-  }
-  return Array.from(people).sort((a, b) => a.localeCompare(b));
+  const names = [
+    ...(Array.isArray(photo.persons) ? photo.persons : []),
+    ...(Array.isArray(photo.persons_full) ? photo.persons_full : []),
+    ...(Array.isArray(photo.face_names) ? photo.face_names : []),
+    ...((Array.isArray(photo.faceInfo) ? photo.faceInfo : [])
+      .map((info) => info?.name)
+      .filter(Boolean)),
+  ]
+    .filter(Boolean)
+    .map((value) => value.toString());
+
+  const unique = Array.from(new Set(names));
+  unique.sort((a, b) => a.localeCompare(b));
+  return unique;
 }

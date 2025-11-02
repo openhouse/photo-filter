@@ -41,6 +41,10 @@ apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
 
+// People-by-filename route for exported filenames
+apiRouter.get("/people/by-filename/:filename", getPeopleByFilename);
+
+
 // ======================
 //   Export Endpoints
 // ======================
@@ -105,6 +109,11 @@ apiRouter.post("/albums/:albumUUID/refresh", async (req, res) => {
     console.error("Error in refresh endpoint:", error);
     res.status(500).json({ errors: [{ detail: error.message }] });
   }
+});
+
+// JSON-only 404 for unmatched /api routes
+apiRouter.use((req, res) => {
+  res.status(404).json({ errors: [{ detail: "Not Found" }] });
 });
 
 export default apiRouter;

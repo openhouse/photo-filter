@@ -1,0 +1,19 @@
+[
+  {
+    "original_filename": "IMG_5899.jpg",
+    "date": "2022-12-01T17:42:42.329834Z",
+    "persons": ["Bob"],
+    "persons_full": ["Alice"],
+    "face_names": ["Carol"],
+    "faceInfo": [{ "name": "Alice" }],
+    "labels": ["Outdoor", { "name": "Building" }]
+  },
+  {
+    "original_filename": "IMG_Señorita 1.jpg",
+    "date": "2023-02-05T08:09:10.000001Z",
+    "persons": ["Élodie"],
+    "persons_full": ["Álvaro"],
+    "face_names": [],
+    "faceInfo": [{ "name": "Renée" }]
+  }
+]
