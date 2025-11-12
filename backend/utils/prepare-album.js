@@ -8,7 +8,12 @@ import {
   loadUuidsFromFile,
   runOsxphotosExportImages,
 } from "./export-images.js";
-import { loadStatus, writeStatus, clearStatus } from "./export-status.js";
+import {
+  loadStatus,
+  writeStatus,
+  clearStatus,
+  recordHeartbeat,
+} from "./export-status.js";
 import { ensureLegacySymlink } from "./symlinks.js";
 import {
   getLibraryPathForExportedName,
@@ -66,10 +71,12 @@ async function prepareAlbumInternal(context) {
     finishedAt: null,
     errorMessage: null,
     logPath: path.join(exportBase, "logs", `export-${albumUUID}.log`),
+    lastHeartbeatAt: startedAt,
   });
 
   await fs.ensureDir(path.dirname(runningStatus.logPath));
   const logStream = fs.createWriteStream(runningStatus.logPath, { flags: "a" });
+  const stopHeartbeat = startStatusHeartbeat(albumUUID, exportBase);
 
   const closeLogStream = async () => {
     if (!logStream || logStream.destroyed || logStream.writableEnded) {
@@ -117,6 +124,11 @@ async function prepareAlbumInternal(context) {
         appendLog: true,
       },
     );
+    const progressTimestamp = new Date().toISOString();
+    await recordHeartbeat(albumUUID, exportBase, {
+      lastProgressAt: progressTimestamp,
+      lastHeartbeatAt: progressTimestamp,
+    });
     const photos = await fs.readJson(photosJSON);
     const uuids = await loadUuidsFromFile(uuidsFile);
     let exportResult = null;
@@ -126,6 +138,11 @@ async function prepareAlbumInternal(context) {
       logMessage(message);
       console.log(`[prepare-album] ${message}`);
       await fs.ensureFile(path.join(imagesDir, ".skipped-empty"));
+      const skippedTimestamp = new Date().toISOString();
+      await recordHeartbeat(albumUUID, exportBase, {
+        lastProgressAt: skippedTimestamp,
+        lastHeartbeatAt: skippedTimestamp,
+      });
       try {
         await fs.remove(path.join(libraryRoot, ".skipped-empty"));
       } catch (err) {
@@ -164,6 +181,11 @@ async function prepareAlbumInternal(context) {
       if (exportResult?.skippedReason === "empty-album") {
         logMessage(`Album ${albumUUID} empty; skipping osxphotos export`);
         await fs.ensureFile(path.join(imagesDir, ".skipped-empty"));
+        const emptyTimestamp = new Date().toISOString();
+        await recordHeartbeat(albumUUID, exportBase, {
+          lastProgressAt: emptyTimestamp,
+          lastHeartbeatAt: emptyTimestamp,
+        });
       } else {
         logMessage(`Finished library export for album ${albumUUID}`);
         const materialization = await syncAlbumImagesFromLibrary({
@@ -179,27 +201,41 @@ async function prepareAlbumInternal(context) {
           logMessage(
             `[prepare-album] ${albumUUID} materialization ${formatExtra(materialization)}`,
           );
-          await writeStatus(albumUUID, exportBase, {
+          const materializedAt = new Date().toISOString();
+          await recordHeartbeat(albumUUID, exportBase, {
             materialization,
-            lastMaterializedAt: new Date().toISOString(),
+            lastMaterializedAt: materializedAt,
+            lastProgressAt: materializedAt,
+            lastHeartbeatAt: materializedAt,
           });
         }
       }
     }
+    const completionTime = new Date().toISOString();
+    const isEmptyExport =
+      uuids.length === 0 ||
+      photos.length === 0 ||
+      exportResult?.skippedReason === "empty-album";
+    const finalStatus = isEmptyExport ? "skipped-empty" : "ready";
     return await writeStatus(albumUUID, exportBase, {
-      status: "ready",
-      finishedAt: new Date().toISOString(),
+      status: finalStatus,
+      finishedAt: completionTime,
       errorMessage: null,
       logPath: logPath || runningStatus.logPath,
       exportedCount: exportResult?.exported ?? 0,
+      lastProgressAt: completionTime,
+      lastHeartbeatAt: completionTime,
     });
   } catch (err) {
     logMessage(`Export failed for album ${albumUUID}: ${err.message}`);
+    const failureTime = new Date().toISOString();
     await writeStatus(albumUUID, exportBase, {
       status: "error",
-      finishedAt: new Date().toISOString(),
+      finishedAt: failureTime,
       errorMessage: err.message,
       logPath: runningStatus.logPath,
+      lastProgressAt: failureTime,
+      lastHeartbeatAt: failureTime,
     });
     await closeLogStream().catch((err) => {
       console.warn(`[prepare-album] ${albumUUID} failed to close log stream`, {
@@ -211,6 +247,11 @@ async function prepareAlbumInternal(context) {
   finally {
     await closeLogStream().catch((err) => {
       console.warn(`[prepare-album] ${albumUUID} failed to close log stream`, {
+        message: err?.message,
+      });
+    });
+    await stopHeartbeat().catch((err) => {
+      console.warn(`[prepare-album] ${albumUUID} failed to stop heartbeat`, {
         message: err?.message,
       });
     });
@@ -242,6 +283,42 @@ function formatExtra(extra) {
   } catch {
     return String(extra);
   }
+}
+
+function startStatusHeartbeat(albumUUID, exportBase, intervalMs = 15000) {
+  let stopped = false;
+  let running = false;
+
+  const tick = async () => {
+    if (stopped || running) {
+      return;
+    }
+    running = true;
+    try {
+      await recordHeartbeat(albumUUID, exportBase);
+    } catch (err) {
+      console.warn(`[prepare-album] ${albumUUID} heartbeat update failed`, {
+        message: err?.message,
+      });
+    } finally {
+      running = false;
+    }
+  };
+
+  const timer = setInterval(() => {
+    void tick();
+  }, intervalMs);
+  timer?.unref?.();
+
+  void tick();
+
+  return async () => {
+    stopped = true;
+    clearInterval(timer);
+    while (running) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
 }
 
 async function syncAlbumImagesFromLibrary({

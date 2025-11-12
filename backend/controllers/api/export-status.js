@@ -17,6 +17,10 @@ export async function getAlbumExportStatus(req, res) {
     const exportBase = getExportBase(albumUUID);
 
     const status = await loadStatus(albumUUID, { exportBase, photosJSON });
+    if (Number.isFinite(status?.retryAfterSeconds)) {
+      res.set("Retry-After", String(Math.max(1, Math.round(status.retryAfterSeconds))));
+    }
+    res.set("Cache-Control", "no-store");
     res.json(status);
   } catch (err) {
     console.error("getAlbumExportStatus error:", err);

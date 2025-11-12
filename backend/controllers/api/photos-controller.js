@@ -22,7 +22,7 @@ import {
   getLibraryRoot,
 } from "../../config/storage-paths.js";
 import { ensureAlbumPrepared } from "../../utils/prepare-album.js";
-import { loadStatus } from "../../utils/export-status.js";
+import { loadStatus, writeStatus } from "../../utils/export-status.js";
 import { buildExportedFilename } from "../../utils/exported-filename.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -92,11 +92,16 @@ export const getPhotosByAlbumData = async (req, res) => {
 
     if (!hasPhotos && !wantsPrepare) {
       const status = albumStatus?.status || "needs-prep";
+      const retryAfterSeconds = Number.isFinite(albumStatus?.retryAfterSeconds)
+        ? Math.max(1, Math.round(albumStatus.retryAfterSeconds))
+        : 2;
       res
         .status(202)
         .set("X-PF-Export-Status", status)
         .set("X-PF-Album-Count", "0")
         .set("Link", `</api/albums/${albumUUID}/status>; rel="status"`)
+        .set("Retry-After", String(retryAfterSeconds))
+        .set("Cache-Control", "no-store")
         .json({
           data: [],
           included: [],
@@ -281,17 +286,26 @@ export const prepareAlbumForExport = async (req, res) => {
       osxphotos,
     };
 
+    await writeStatus(albumUUID, exportBase, {
+      lastRequestedAt: new Date().toISOString(),
+    });
+
     const job = ensureAlbumPrepared(context);
     job.catch((err) => {
       console.error("prepareAlbumForExport error:", err);
     });
 
     const status = await loadStatus(albumUUID, { exportBase, photosJSON });
+    const retryAfterSeconds = Number.isFinite(status?.retryAfterSeconds)
+      ? Math.max(1, Math.round(status.retryAfterSeconds))
+      : 2;
     const httpStatus = status?.status === "ready" ? 200 : 202;
     res
       .status(httpStatus)
       .set("X-PF-Export-Status", status?.status || "running")
       .set("Link", `</api/albums/${albumUUID}/status>; rel="status"`)
+      .set("Retry-After", String(retryAfterSeconds))
+      .set("Cache-Control", "no-store")
       .json(status);
   } catch (err) {
     console.error("prepareAlbumForExport error", { albumUUID, err });
