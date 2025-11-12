@@ -17,6 +17,7 @@
     "lint:backend": "npm --prefix backend run lint || echo 'No lint script for backend'",
     "lint:frontend": "npm --prefix frontend/photo-filter-frontend run lint",
     "generate-overview": "bash generate-overview.sh",
+    "dev": "npm run super-dev",
     "super-dev": "concurrently -n BACKEND,FRONTEND,OVERVIEW -c cyan,green,blue \"npm run dev:be\" \"npm run dev:ui\" \"npm run watch:overview\"",
     "super-dev:lite": "concurrently -n BACKEND,FRONTEND -c cyan,green \"npm run dev:be\" \"npm run dev:ui\"",
     "browserslist:update": "npx update-browserslist-db@latest --no-update-notifier",

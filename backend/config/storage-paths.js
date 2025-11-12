@@ -30,8 +30,9 @@ export function isICloudPath(p) {
   return !rel || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
-function resolveSafeRoot(envVar, defaultAbs) {
-  const requested = path.resolve(process.env[envVar] || defaultAbs);
+function resolveSafeRoot(envVar, defaultAbs, explicitPath) {
+  const raw = explicitPath ?? process.env[envVar];
+  const requested = path.resolve(raw || defaultAbs);
   if (isICloudPath(requested) && process.env.PF_ALLOW_ICLOUD_PATH !== "1") {
     throw new Error(
       `${envVar} points inside iCloud Drive; choose a local, non-synced path: ${requested}`
@@ -48,6 +49,11 @@ const DEFAULT_LOCAL_ROOT = process.env.DEFAULT_LOCAL_ROOT
 export const LIBRARY_DIR_TEMPLATE_DEFAULT = "{created.utc.strftime,%Y/%m/%d}";
 
 export function getLocalRoot() {
+  for (const key of ["PF_LOCAL_ROOT", "PF_MEDIA_ROOT"]) {
+    if (process.env[key]) {
+      return resolveSafeRoot(key, DEFAULT_LOCAL_ROOT, process.env[key]);
+    }
+  }
   return resolveSafeRoot("PF_LOCAL_ROOT", DEFAULT_LOCAL_ROOT);
 }
 

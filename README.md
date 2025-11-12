@@ -19,12 +19,43 @@ Copy `.env.example` to `.env` in the repo root to configure storage paths and po
 machine:
 
 - `PF_LOCAL_ROOT` (default: `/Users/Shared/photo-filter-local`)
+- `PF_MEDIA_ROOT` may be used instead of `PF_LOCAL_ROOT` if you already have that env var in your shell profile (the backend treats them the same).
 - `PF_EXPORT_ROOT` (default: `<PF_LOCAL_ROOT>/exports`)
 - `PF_ALLOW_ICLOUD_PATH` (default: `0`, disallows iCloud locations unless set to `1`)
 
 The backend validates these directories on startup. If they do not exist or are not writable the
 server exits with a clear error. Choose a path outside iCloud Drive
 (`~/Library/Mobile Documents/com~apple~CloudDocs`) to avoid sync thrash.
+
+## Local (non-synced) setup
+
+Follow these steps to get a fresh checkout building album previews locally:
+
+1. **Install prerequisites** (macOS/Homebrew example):
+
+   ```bash
+   brew install python@3.11 exiftool ffmpeg imagemagick libheif
+   export PATH="$(brew --prefix python@3.11)/bin:$PATH"
+   ```
+
+2. **Verify tooling** — a quick sanity check before starting the app:
+
+   ```bash
+   node -v && python3.11 -V && exiftool -ver && ffmpeg -version
+   ```
+
+3. **Avoid spaces in media paths.** If your Photos library or export root lives on a volume with
+   spaces in its name (e.g., `/Volumes/16TB SSD`), create a symlink without spaces and point the
+   environment variable at it:
+
+   ```bash
+   ln -s "/Volumes/16TB SSD" /Volumes/16TB_SSD
+   export PF_LOCAL_ROOT=/Volumes/16TB_SSD/photo-filter-local
+   ```
+
+4. **Start all processes together.** `npm run dev` (alias for `npm run super-dev`) launches the
+   Express backend, Ember frontend, and the album-prep worker in one command so the album status
+   endpoint reports progress immediately.
 
 ## Features
 

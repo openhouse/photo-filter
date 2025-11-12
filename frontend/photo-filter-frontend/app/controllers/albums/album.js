@@ -8,6 +8,11 @@ import config from 'photo-filter-frontend/config/environment';
 
 export default class AlbumsAlbumController extends Controller {
   @service router;
+  @service albumPrep;
+
+  @tracked albumUUID = null;
+  @tracked photos = [];
+  @tracked availablePersons = [];
 
   // Sorting & Filtering
   @tracked sort = 'score.overall';
@@ -27,6 +32,37 @@ export default class AlbumsAlbumController extends Controller {
   @tracked page = 1;
   pageSize = 50;
 
+  initializeFromModel(model) {
+    this.albumUUID = model?.albumUUID ?? null;
+    this.photos = Array.isArray(model?.photos) ? model.photos : [];
+    this.availablePersons = Array.isArray(model?.persons) ? model.persons : [];
+    this.exportStatus = model?.exportStatus ?? null;
+    this.sort = model?.sortAttribute ?? this.sort;
+    this.order = model?.sortOrder ?? this.order;
+    this.persons = Array.isArray(model?.selectedPersons)
+      ? [...model.selectedPersons]
+      : [];
+    this.dates = Array.isArray(model?.selectedDates)
+      ? [...model.selectedDates]
+      : [];
+    this.page = 1;
+  }
+
+  applyPreparedData({ exportStatus, photos, persons } = {}) {
+    if (exportStatus) {
+      this.exportStatus = exportStatus;
+    }
+    if (Array.isArray(photos)) {
+      this.photos = Array.from(photos);
+    }
+    if (Array.isArray(persons)) {
+      this.availablePersons = persons;
+    }
+    if (this.isExportReady) {
+      this.page = 1;
+    }
+  }
+
   get isExportReady() {
     return this.exportStatus?.status === 'ready';
   }
@@ -35,24 +71,48 @@ export default class AlbumsAlbumController extends Controller {
     return this.exportStatus?.status === 'running';
   }
 
+  get isExportSkippedEmpty() {
+    return this.exportStatus?.status === 'skipped-empty';
+  }
+
+  get isExportStuck() {
+    return this.exportStatus?.status === 'stuck';
+  }
+
+  get workerStartCommand() {
+    return 'npm run dev';
+  }
+
   get exportStatusMessage() {
     if (!this.exportStatus) {
       return 'Preparing album…';
     }
-    if (this.isExportReady) {
-      return 'Album is ready.';
+    const status = this.exportStatus.status;
+    switch (status) {
+      case 'ready':
+        return 'Album is ready.';
+      case 'skipped-empty':
+        return 'No exportable photos were found in this album.';
+      case 'error':
+        return this.exportStatus.errorMessage || 'Album export failed.';
+      case 'stuck':
+        return 'Background worker is not running.';
+      case 'pending':
+        if (!this.exportStatus.startedAt) {
+          return 'Initializing export…';
+        }
+        return this.#preparingMessage();
+      case 'running':
+      default:
+        return this.#preparingMessage();
     }
-    if (this.exportStatus.status === 'error') {
-      return this.exportStatus.errorMessage || 'Album export failed.';
-    }
-    return 'Preparing album…';
   }
 
   get allPhotos() {
-    if (!this.isExportReady || !Array.isArray(this.model.photos)) {
+    if (!this.isExportReady || !Array.isArray(this.photos)) {
       return [];
     }
-    return this.model.photos;
+    return this.photos;
   }
 
   /**
@@ -213,6 +273,7 @@ export default class AlbumsAlbumController extends Controller {
   }
 
   startStatusWatcher(albumUUID, initialStatus = null) {
+    this.albumUUID = albumUUID;
     this.#statusAlbumUUID = albumUUID;
     this.stopStatusWatcher();
     this.exportStatus = initialStatus || null;
@@ -237,20 +298,9 @@ export default class AlbumsAlbumController extends Controller {
       return;
     }
 
-    const apiHost = config.APP.apiHost;
     try {
-      const response = await fetch(
-        `${apiHost}/api/albums/${this.#statusAlbumUUID}/status`,
-      );
-      if (response.ok) {
-        const json = await response.json();
-        this.exportStatus = json;
-      } else {
-        this.exportStatus = {
-          status: 'error',
-          errorMessage: `Status request failed (${response.status})`,
-        };
-      }
+      const json = await this.albumPrep.fetchStatus(this.#statusAlbumUUID);
+      this.exportStatus = json;
     } catch (error) {
       this.exportStatus = {
         status: 'error',
@@ -285,5 +335,43 @@ export default class AlbumsAlbumController extends Controller {
     };
 
     this.router.transitionTo(currentRoute, albumId, { queryParams });
+  }
+
+  get lastProgressLabel() {
+    return this.#lastProgressLabel();
+  }
+
+  #lastProgressLabel() {
+    const timestamps = [
+      this.exportStatus?.lastHeartbeatAt,
+      this.exportStatus?.lastProgressAt,
+      this.exportStatus?.finishedAt,
+      this.exportStatus?.startedAt,
+    ].filter(Boolean);
+    if (timestamps.length === 0) {
+      return null;
+    }
+    const mostRecent = timestamps
+      .map((iso) => ({ iso, value: Date.parse(iso) }))
+      .filter((entry) => Number.isFinite(entry.value))
+      .sort((a, b) => b.value - a.value)[0];
+    if (!mostRecent) {
+      return null;
+    }
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(mostRecent.value));
+    } catch {
+      return new Date(mostRecent.value).toLocaleString();
+    }
+  }
+
+  #preparingMessage() {
+    const last = this.#lastProgressLabel();
+    return last
+      ? `Preparing album… (last progress ${last})`
+      : 'Preparing album…';
   }
 }

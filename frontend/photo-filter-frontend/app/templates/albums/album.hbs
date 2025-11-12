@@ -1,5 +1,5 @@
 <div class="flex justify-center mb-4 flex-wrap gap-2">
-  {{#each this.model.persons as |person|}}
+  {{#each this.availablePersons as |person|}}
     <button
       type="button"
       class="btn btn-xs rounded-full normal-case
@@ -44,18 +44,42 @@
         </div>
       {{/if}}
     </div>
+  {{else if this.isExportSkippedEmpty}}
+    <div class="alert alert-info shadow-lg my-8 max-w-2xl mx-auto text-left">
+      <div>
+        <span>{{this.exportStatusMessage}}</span>
+      </div>
+    </div>
   {{else if this.isExportReady}}
     <PhotoGrid
       @photos={{this.visiblePhotos}}
-      @albumUUID={{this.model.albumUUID}}
+      @albumUUID={{this.albumUUID}}
       @sortAttribute={{this.sort}}
     />
   {{else}}
     <div
       class="flex flex-col items-center gap-4 py-16 text-center text-sm text-base-content/70"
     >
-      <span class="loading loading-spinner loading-lg text-primary"></span>
-      <span>{{this.exportStatusMessage}}</span>
+      {{#if this.isExportStuck}}
+        <span class="text-4xl">⚠️</span>
+        <span class="font-medium">{{this.exportStatusMessage}}</span>
+        <code class="rounded bg-base-200 px-2 py-1 text-xs font-mono">
+          {{this.workerStartCommand}}
+        </code>
+        {{#if this.lastProgressLabel}}
+          <p class="text-xs text-base-content/60">
+            Last progress reported {{this.lastProgressLabel}}.
+          </p>
+        {{/if}}
+      {{else}}
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+        <span>{{this.exportStatusMessage}}</span>
+        {{#if this.lastProgressLabel}}
+          <p class="text-xs text-base-content/60">
+            Last progress reported {{this.lastProgressLabel}}.
+          </p>
+        {{/if}}
+      {{/if}}
       {{#if (and this.exportStatus this.exportStatus.logPath)}}
         <p class="text-xs break-all text-base-content/60">
           Log: {{this.exportStatus.logPath}}
