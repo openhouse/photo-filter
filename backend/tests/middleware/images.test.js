@@ -19,7 +19,7 @@ describe("images middleware", () => {
     }
   });
 
-  function buildApp() {
+  function buildApp(overrides = {}) {
     const app = express();
     app.set("etag", "strong");
     const logger = {
@@ -32,6 +32,7 @@ describe("images middleware", () => {
       createImagesMiddleware({
         getImagesDir: (albumUUID) => path.join(tmpDir, albumUUID),
         logger,
+        ...overrides,
       }),
     );
     return { app, logger };
@@ -77,5 +78,37 @@ describe("images middleware", () => {
         resolved: "20240101T010203000000Z-My Photo (1).jpg",
       },
     );
+  });
+
+  test("materializes missing images from library", async () => {
+    const albumDir = path.join(tmpDir, "ALBUM1");
+    const exported = "20240101T010203000000Z-My Photo.jpg";
+    const destPath = path.join(albumDir, exported);
+    const materializeImage = jest.fn(async ({ imagesDir }) => {
+      await fs.ensureDir(imagesDir);
+      await fs.writeFile(destPath, "cloned-image");
+      return { path: destPath, method: "clone" };
+    });
+
+    const { app, logger } = buildApp({ materializeImage });
+
+    const res = await request(app)
+      .get(`/images/ALBUM1/${encodeURIComponent(exported)}`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.toString()).toBe("cloned-image");
+    expect(materializeImage).toHaveBeenCalledWith({
+      albumUUID: "ALBUM1",
+      exportedName: exported,
+      imagesDir: path.join(tmpDir, "ALBUM1"),
+      logger,
+    });
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });

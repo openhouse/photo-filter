@@ -44,5 +44,5 @@ backend/scripts/smoke-people-by-filename.sh "20100208T174405000000Z-005_3A.jpg"
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PF_LIBRARY_ROOT` | `<PF_LOCAL_ROOT>/library` | Override the shared library location (must point to a local, non-iCloud volume). |
-| `PF_LIBRARY_DIR_TEMPLATE` | `{created.utc.strftime,%Y/%m/%d}` | Directory layout passed to `osxphotos --directory` and used when resolving library paths. |
+| `PF_LIBRARY_DIR_TEMPLATE` | `{created.utc.year}/{created.utc.mm}/{created.utc.dd}` | Directory layout passed to `osxphotos --directory` and used when resolving library paths. Surround with quotes if your shell would otherwise expand braces. |
 | `PF_CLONE_CONCURRENCY` | `8` | Maximum concurrent clone/link/copy operations when materialising album images from the library. |

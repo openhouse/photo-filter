@@ -16,7 +16,10 @@
 import fs from "fs-extra";
 import path from "path";
 import { execCommand } from "./exec-command.js";
-import { getLibraryDirTemplate } from "../config/storage-paths.js";
+import {
+  getLibraryDirTemplate,
+  getLibraryExportDbPath,
+} from "../config/storage-paths.js";
 
 export async function loadUuidsFromFile(filePath) {
   const raw = await fs.readFile(filePath, "utf8").catch(() => "");
@@ -110,6 +113,11 @@ export async function runOsxphotosExportImages(
     options.directoryTemplate || getLibraryDirTemplate();
   if (directoryTemplate) {
     args.push("--directory", directoryTemplate);
+  }
+
+  const exportDbPath = options.exportDbPath || getLibraryExportDbPath();
+  if (exportDbPath) {
+    args.push("--export-db", exportDbPath);
   }
 
   if (
