@@ -46,7 +46,20 @@ const DEFAULT_LOCAL_ROOT = process.env.DEFAULT_LOCAL_ROOT
   ? path.resolve(process.env.DEFAULT_LOCAL_ROOT)
   : "/Users/Shared/photo-filter-local";
 
-export const LIBRARY_DIR_TEMPLATE_DEFAULT = "{created.utc.strftime,%Y/%m/%d}";
+export const LIBRARY_DIR_TEMPLATE_DEFAULT =
+  "{created.utc.year}/{created.utc.mm}/{created.utc.dd}";
+
+function stripEnclosingQuotes(value) {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return trimmed;
+  const starts = trimmed[0];
+  const ends = trimmed[trimmed.length - 1];
+  if ((starts === '"' && ends === '"') || (starts === "'" && ends === "'")) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
 
 export function getLocalRoot() {
   for (const key of ["PF_LOCAL_ROOT", "PF_MEDIA_ROOT"]) {
@@ -81,8 +94,12 @@ export function getLibraryRoot() {
 export function getLibraryDirTemplate() {
   const raw = process.env.PF_LIBRARY_DIR_TEMPLATE;
   if (!raw) return LIBRARY_DIR_TEMPLATE_DEFAULT;
-  const trimmed = raw.trim();
+  const trimmed = stripEnclosingQuotes(raw.trim());
   return trimmed || LIBRARY_DIR_TEMPLATE_DEFAULT;
+}
+
+export function getLibraryExportDbPath() {
+  return path.join(getLibraryRoot(), ".osxphotos_export.db");
 }
 
 export function getLibraryPathForExportedName(exportedName) {

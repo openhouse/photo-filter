@@ -20,7 +20,7 @@ async function statOptional(p) {
   }
 }
 
-export async function cloneFile(src, dest, { logger } = {}) {
+export async function cloneFile(src, dest, { logger, skipIfExists = false } = {}) {
   const log = (level, message, extra = {}) => {
     if (!logger) return;
     const fn = typeof logger[level] === "function" ? logger[level] : null;
@@ -28,6 +28,11 @@ export async function cloneFile(src, dest, { logger } = {}) {
   };
 
   await fs.ensureDir(path.dirname(dest));
+
+  if (skipIfExists && (await fs.pathExists(dest))) {
+    log("info", "cloneFile: destination already exists", { src, dest });
+    return "skip";
+  }
 
   const srcStat = await statOptional(src);
   if (!srcStat) {

@@ -2,6 +2,7 @@ import fs from "fs-extra";
 import path from "path";
 import { getAlbumImagesDir } from "../config/storage-paths.js";
 import { findExportedImageMatch } from "../utils/match-exported-image.js";
+import { ensureAlbumImageMaterialized } from "../utils/materialize-album-image.js";
 
 function isSafeAlbum(albumUUID) {
   return /^[A-Za-z0-9_-]+$/.test(albumUUID);
@@ -15,6 +16,7 @@ function isTraversalAttempt(root, candidate) {
 export function createImagesMiddleware({
   fsClient = fs,
   getImagesDir = getAlbumImagesDir,
+  materializeImage = ensureAlbumImageMaterialized,
   logger = console,
 } = {}) {
   return async function imagesMiddleware(req, res) {
@@ -41,6 +43,17 @@ export function createImagesMiddleware({
       if (exists) {
         await applyCachingHeaders(res, fsClient, candidatePath);
         return res.sendFile(candidatePath, { cacheControl: false });
+      }
+
+      const materialized = await materializeImage({
+        albumUUID,
+        exportedName: requestedName,
+        imagesDir,
+        logger,
+      });
+      if (materialized?.path) {
+        await applyCachingHeaders(res, fsClient, materialized.path);
+        return res.sendFile(materialized.path, { cacheControl: false });
       }
 
       const dirExists = await fsClient.pathExists(imagesDir);

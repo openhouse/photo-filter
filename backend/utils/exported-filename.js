@@ -16,6 +16,37 @@ const SUPPORTED_DIRECTIVES = new Map(
   }),
 );
 
+const TEMPLATE_TOKEN_MAP = new Map(
+  [
+    "created.utc.year",
+    "created.year",
+    "created.utc.yy",
+    "created.yy",
+  ].map((key) => [key, "year"]),
+);
+
+TEMPLATE_TOKEN_MAP.set("created.utc.mm", "month");
+TEMPLATE_TOKEN_MAP.set("created.mm", "month");
+TEMPLATE_TOKEN_MAP.set("created.utc.month", "month");
+TEMPLATE_TOKEN_MAP.set("created.month", "month");
+TEMPLATE_TOKEN_MAP.set("created.utc.dd", "day");
+TEMPLATE_TOKEN_MAP.set("created.dd", "day");
+TEMPLATE_TOKEN_MAP.set("created.utc.day", "day");
+TEMPLATE_TOKEN_MAP.set("created.day", "day");
+
+function stripTemplateQuotes(value) {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (trimmed.length < 2) return trimmed;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 export function buildExportedFilename(photo) {
   if (!photo) return null;
   const originalSource =
@@ -65,7 +96,7 @@ export function parseExportedTimestamp(exportedName) {
 
 export function extractStrftimeTemplate(template) {
   if (!template) return null;
-  const trimmed = template.trim();
+  const trimmed = stripTemplateQuotes(template.trim());
   if (!trimmed) return null;
   const match = trimmed.match(/\{[^}]*strftime,([^}]+)}/i);
   if (match) {
@@ -78,19 +109,43 @@ export function libraryRelativePath(exportedName, template) {
   const parts = parseExportedTimestamp(exportedName);
   if (!parts) return null;
 
-  const strftime = extractStrftimeTemplate(template) ?? "%Y/%m/%d";
-  const replaced = strftime.replace(/%[YmdHMSfj]/g, (directive) => {
-    const key = SUPPORTED_DIRECTIVES.get(directive);
-    const value = key ? parts[key] : null;
-    return value ?? directive;
+  const fallback = path.join(parts.year, parts.month, parts.day);
+  if (!template) {
+    return fallback;
+  }
+
+  const cleaned = stripTemplateQuotes(template);
+  if (!cleaned) {
+    return fallback;
+  }
+
+  if (/strftime/i.test(cleaned)) {
+    const strftime = extractStrftimeTemplate(cleaned) ?? "%Y/%m/%d";
+    const replaced = strftime.replace(/%[YmdHMSfj]/g, (directive) => {
+      const key = SUPPORTED_DIRECTIVES.get(directive);
+      const value = key ? parts[key] : null;
+      return value ?? directive;
+    });
+
+    const segments = replaced
+      .split(/[\\/]/)
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+    return segments.length === 0 ? fallback : path.join(...segments);
+  }
+
+  const replaced = cleaned.replace(/\{([^}]+)}/g, (match, body) => {
+    const normalized = body.trim().toLowerCase();
+    const key = TEMPLATE_TOKEN_MAP.get(normalized);
+    if (key && parts[key]) {
+      return parts[key];
+    }
+    return match;
   });
 
   const segments = replaced
     .split(/[\\/]/)
     .map((segment) => segment.trim())
     .filter(Boolean);
-  if (segments.length === 0) {
-    return path.join(parts.year, parts.month, parts.day);
-  }
-  return path.join(...segments);
+  return segments.length === 0 ? fallback : path.join(...segments);
 }

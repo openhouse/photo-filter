@@ -21,11 +21,10 @@ import {
 } from "../config/storage-paths.js";
 import { buildExportedFilename } from "./exported-filename.js";
 import { cloneFile } from "./clone-file.js";
+import { getCloneConcurrency } from "../config/concurrency.js";
+import { resolveLibraryCandidate } from "./library-files.js";
 
-const CLONE_CONCURRENCY = Math.max(
-  1,
-  Number.parseInt(process.env.PF_CLONE_CONCURRENCY ?? "8", 10),
-);
+const CLONE_CONCURRENCY = getCloneConcurrency();
 
 const inFlight = new Map();
 
@@ -192,9 +191,12 @@ async function prepareAlbumInternal(context) {
           albumUUID,
           photos,
           imagesDir,
+          libraryRoot,
           logger: {
-            info: (message, extra) => logMessage(`${message} ${formatExtra(extra)}`),
-            warn: (message, extra) => logMessage(`WARN: ${message} ${formatExtra(extra)}`),
+            info: (message, extra) =>
+              logMessage(`${message} ${formatExtra(extra)}`),
+            warn: (message, extra) =>
+              logMessage(`WARN: ${message} ${formatExtra(extra)}`),
           },
         });
         if (materialization) {
@@ -325,6 +327,7 @@ async function syncAlbumImagesFromLibrary({
   albumUUID,
   photos,
   imagesDir,
+  libraryRoot = getLibraryRoot(),
   logger = console,
 }) {
   const expected = new Map();
@@ -338,9 +341,13 @@ async function syncAlbumImagesFromLibrary({
   const counters = { clone: 0, link: 0, copy: 0, missing: 0, errors: 0 };
   const limit = pLimit(CLONE_CONCURRENCY);
   const tasks = [];
+  const manifestEntries = new Map();
 
   for (const [exportedName, libraryPath] of expected) {
     keepNames.add(exportedName);
+    const relative = path.relative(libraryRoot, libraryPath);
+    const manifestValue = relative ? toPosix(relative) : exportedName;
+    manifestEntries.set(exportedName, manifestValue);
     tasks.push(
       limit(async () => {
         try {
@@ -358,9 +365,14 @@ async function syncAlbumImagesFromLibrary({
             return;
           }
 
-          const method = await cloneFile(resolved, path.join(imagesDir, exportedName), {
-            logger,
-          });
+          const method = await cloneFile(
+            resolved,
+            path.join(imagesDir, exportedName),
+            {
+              logger,
+              skipIfExists: true,
+            },
+          );
           if (typeof counters[method] === "number") {
             counters[method] += 1;
           }
@@ -379,6 +391,8 @@ async function syncAlbumImagesFromLibrary({
 
   await Promise.all(tasks);
 
+  await writeManifest(imagesDir, manifestEntries, logger, albumUUID);
+
   let existing = [];
   try {
     existing = await fs.readdir(imagesDir);
@@ -393,6 +407,7 @@ async function syncAlbumImagesFromLibrary({
   for (const name of existing) {
     if (keepNames.has(name)) continue;
     if (name === ".skipped-empty") continue;
+    if (name === "manifest.json") continue;
     if (!/\.jpe?g$/i.test(name)) continue;
     const target = path.join(imagesDir, name);
     try {
@@ -409,31 +424,35 @@ async function syncAlbumImagesFromLibrary({
   return counters;
 }
 
-async function resolveLibraryCandidate(libraryPath, exportedName) {
-  if (await fs.pathExists(libraryPath)) {
-    return libraryPath;
+async function writeManifest(imagesDir, manifestEntries, logger, albumUUID) {
+  const manifestPath = path.join(imagesDir, "manifest.json");
+  if (!manifestEntries || manifestEntries.size === 0) {
+    await fs.remove(manifestPath).catch(() => {});
+    return;
   }
 
-  const dir = path.dirname(libraryPath);
-  const ext = path.extname(exportedName);
-  const base = path.basename(exportedName, ext);
-
-  const suffixes = buildCollisionSuffixes();
-  for (const suffix of suffixes) {
-    const candidate = path.join(dir, `${base}${suffix}${ext}`);
-    if (await fs.pathExists(candidate)) {
-      return candidate;
-    }
+  const ordered = {};
+  for (const name of Array.from(manifestEntries.keys()).sort()) {
+    ordered[name] = manifestEntries.get(name);
   }
 
-  return null;
+  try {
+    await fs.writeJson(manifestPath, ordered, { spaces: 2 });
+    logger.info?.("prepare-album: wrote manifest", {
+      albumUUID,
+      manifestPath,
+      entries: manifestEntries.size,
+    });
+  } catch (err) {
+    logger.warn?.("prepare-album: failed to write manifest", {
+      albumUUID,
+      manifestPath,
+      error: err?.message,
+    });
+  }
 }
 
-function buildCollisionSuffixes() {
-  const suffixes = [];
-  for (let i = 1; i <= 9; i += 1) {
-    suffixes.push(`-${i}`);
-    suffixes.push(` (${i})`);
-  }
-  return suffixes;
+function toPosix(value) {
+  if (!value) return value;
+  return value.split(path.sep).join(path.posix.sep);
 }

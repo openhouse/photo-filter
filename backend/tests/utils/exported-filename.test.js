@@ -36,19 +36,28 @@ describe("exported filename helpers", () => {
 
   it("derives library directories from templates", () => {
     const exported = "20240220T184233123000Z-IMG_0001.jpg";
-    const relative = libraryRelativePath(exported, "{created.utc.strftime,%Y/%m/%d}");
+    const relative = libraryRelativePath(
+      exported,
+      "{created.utc.strftime,%Y/%m/%d}",
+    );
     expect(relative).toBe(path.join("2024", "02", "20"));
+
+    const placeholderRelative = libraryRelativePath(
+      exported,
+      "{created.utc.year}/{created.utc.mm}/{created.utc.dd}",
+    );
+    expect(placeholderRelative).toBe(path.join("2024", "02", "20"));
 
     const customRelative = libraryRelativePath(
       exported,
-      "{created.utc.strftime,%Y/%m/pf-%d}",
+      "'{created.utc.year}/pf-{created.utc.dd}'",
     );
-    expect(customRelative).toBe(path.join("2024", "02", "pf-20"));
+    expect(customRelative).toBe(path.join("2024", "pf-20"));
   });
 
   it("aligns library paths with configured template", () => {
     process.env.PF_LIBRARY_ROOT = "/tmp/photo-filter-library";
-    process.env.PF_LIBRARY_DIR_TEMPLATE = "{created.utc.strftime,%Y/%j}";
+    process.env.PF_LIBRARY_DIR_TEMPLATE = '"{created.utc.strftime,%Y/%j}"';
     const exported = "20240220T184233123000Z-IMG_0001.jpg";
     const libraryPath = getLibraryPathForExportedName(exported);
     expect(libraryPath).toBe(
