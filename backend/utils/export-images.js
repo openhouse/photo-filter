@@ -117,7 +117,10 @@ export async function runOsxphotosExportImages(
 
   const exportDbPath = options.exportDbPath || getLibraryExportDbPath();
   if (exportDbPath) {
-    args.push("--export-db", exportDbPath);
+    // osxphotos expects `--exportdb` (no hyphen). Allow overriding in case we
+    // need to support future CLI changes while keeping compatibility.
+    const exportDbFlag = process.env.PF_OSXPHOTOS_EXPORTDB_FLAG || "--exportdb";
+    args.push(exportDbFlag, exportDbPath);
   }
 
   if (
