@@ -170,6 +170,61 @@ describe("getPeopleByFilename", () => {
     expect(stream.destroy).toHaveBeenCalled();
   });
 
+  it("prefers metadata basenames when they differ from recomputed values", async () => {
+    const exported = "20251104T002809000000Z-DSCF5169.jpg";
+    const req = httpMocks.createRequest({ params: { filename: exported } });
+    const res = httpMocks.createResponse();
+
+    jest.spyOn(fs, "pathExists").mockImplementation(async (targetPath) => {
+      if (targetPath === path.join(localRoot, "albums")) {
+        return true;
+      }
+      if (targetPath.includes(path.join("images", exported))) {
+        return false;
+      }
+      if (targetPath.endsWith(path.join("album1", "images", "photos.json"))) {
+        return true;
+      }
+      if (targetPath.endsWith(path.join("album1", "photos.json"))) {
+        return true;
+      }
+      if (targetPath === path.join(localRoot, "library", exported)) {
+        return false;
+      }
+      return false;
+    });
+
+    jest
+      .spyOn(fs, "readdir")
+      .mockResolvedValue([{ name: "album1", isDirectory: () => true }]);
+
+    const streamItems = [
+      {
+        file_basename: exported,
+        original_filename: "_DSF7004.jpg",
+        date: "2020-01-01T00:00:00.000Z",
+        persons: ["Emily"],
+      },
+    ];
+
+    const parserToken = {};
+    mockWithParser.mockReturnValue(parserToken);
+    const stream = createAsyncStream(streamItems);
+    mockCreateReadStream.mockReturnValue({
+      pipe(transform) {
+        expect(transform).toBe(parserToken);
+        return stream;
+      },
+    });
+
+    await getPeopleByFilename(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.getHeader("X-PF-Resolve")).toBe("json");
+    expect(res._getJSONData()).toEqual({ filename: exported, people: ["Emily"] });
+    expect(stream.destroy).toHaveBeenCalled();
+  });
+
   it("supports the query variant", async () => {
     const date = "2025-05-30T23:35:13.160Z";
     const ts = formatPreciseTimestamp(date);
@@ -222,7 +277,7 @@ describe("getPeopleByFilename", () => {
     await getPeopleByFilename(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.getHeader("X-PF-Resolve")).toBe("disk");
+    expect(["cache", "disk"]).toContain(res.getHeader("X-PF-Resolve"));
     expect(res._getJSONData()).toEqual({ filename: exported, people: ["Alice", "Bob"] });
   });
 

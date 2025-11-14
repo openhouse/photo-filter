@@ -5,5 +5,18 @@
     "persons": ["Charlie"],
     "face_names": ["Eve"],
     "faceInfo": [{ "name": "Mallory" }]
+  },
+  {
+    "file_basename": "20251104T002809000000Z-DSCF5169.jpg",
+    "original_filename": "DSCF5169.jpg",
+    "date": "2025-11-01T00:00:00.000000Z",
+    "persons": [
+      "AM Emily Gallagher (NY State Assembly Member, Greenpoint)",
+      "Community Member"
+    ],
+    "faceInfo": [
+      { "name": "Emily Gallagher" },
+      { "name": "Local Organizer" }
+    ]
   }
 ]
