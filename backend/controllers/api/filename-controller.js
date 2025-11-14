@@ -93,9 +93,7 @@ export async function getPeopleByFilename(req, res) {
       if (cachedMiss.reason) {
         res.set("X-PF-Miss-Reason", cachedMiss.reason);
       }
-      return res
-        .status(404)
-        .json({ errors: [{ detail: "Photo not found" }] });
+      return respondWithEmptyPeople(res, filename);
     }
 
     const albumsDir = path.join(getLocalRoot(), "albums");
@@ -104,9 +102,7 @@ export async function getPeopleByFilename(req, res) {
       cacheMiss(filename, "uninitialized");
       res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
       res.set("X-PF-Miss-Reason", "uninitialized");
-      return res
-        .status(404)
-        .json({ errors: [{ detail: "Photo not found" }] });
+      return respondWithEmptyPeople(res, filename);
     }
 
     let albumUUID = getCachedAlbumUUID(filename);
@@ -119,9 +115,7 @@ export async function getPeopleByFilename(req, res) {
         if (lookupResult?.missReason) {
           res.set("X-PF-Miss-Reason", lookupResult.missReason);
         }
-        return res
-          .status(404)
-          .json({ errors: [{ detail: "Photo not found" }] });
+        return respondWithEmptyPeople(res, filename);
       }
       albumUUID = lookupResult.match.uuid;
       resolveSource = lookupResult.match.source;
@@ -132,10 +126,16 @@ export async function getPeopleByFilename(req, res) {
     const cachedPersons = getCachedPersons(cacheKey);
     if (cachedPersons) {
       res.set("X-PF-Resolve", RESOLVE_SOURCES.CACHE);
-      return res.json({ data: cachedPersons });
+      return res.json({ filename, people: cachedPersons });
     }
 
-    const photosPath = path.join(albumsDir, albumUUID, "photos.json");
+    const photosPath = await getAlbumPhotosJsonPath(albumsDir, albumUUID);
+    if (!photosPath) {
+      cacheMiss(filename, RESOLVE_SOURCES.JSON);
+      res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
+      res.set("X-PF-Miss-Reason", RESOLVE_SOURCES.JSON);
+      return respondWithEmptyPeople(res, filename);
+    }
     const { persons, source } = await runWithAlbumLock(albumUUID, async () => {
       const inLockCached = getCachedPersons(cacheKey);
       if (inLockCached) {
@@ -155,12 +155,12 @@ export async function getPeopleByFilename(req, res) {
       cacheMiss(filename, RESOLVE_SOURCES.JSON);
       res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
       res.set("X-PF-Miss-Reason", RESOLVE_SOURCES.JSON);
-      return res.status(404).json({ errors: [{ detail: "Photo not found" }] });
+      return respondWithEmptyPeople(res, filename);
     }
 
     clearMiss(filename);
     res.set("X-PF-Resolve", source ?? resolveSource ?? RESOLVE_SOURCES.JSON);
-    return res.json({ data: persons });
+    return res.json({ filename, people: persons });
   } catch (error) {
     console.error("Error looking up persons by filename:", error);
     res.set("X-PF-Resolve", RESOLVE_SOURCES.ERROR);
@@ -168,6 +168,10 @@ export async function getPeopleByFilename(req, res) {
       .status(500)
       .json({ errors: [{ detail: "Internal Server Error" }] });
   }
+}
+
+function respondWithEmptyPeople(res, filename) {
+  return res.json({ filename, people: [] });
 }
 
 function sanitizeFilename(input) {
@@ -271,6 +275,18 @@ function clearMiss(name) {
   MISS_CACHE.delete(name);
 }
 
+async function getAlbumPhotosJsonPath(albumsDir, albumUUID) {
+  const imagesPath = path.join(albumsDir, albumUUID, "images", "photos.json");
+  if (await fs.pathExists(imagesPath)) {
+    return imagesPath;
+  }
+  const legacyPath = path.join(albumsDir, albumUUID, "photos.json");
+  if (await fs.pathExists(legacyPath)) {
+    return legacyPath;
+  }
+  return null;
+}
+
 async function runWithAlbumLock(albumUUID, fn) {
   const previous = ALBUM_LOCKS.get(albumUUID) ?? Promise.resolve();
   const runPromise = previous.then(() => fn());
@@ -311,8 +327,8 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
   }
 
   for (const entry of directories) {
-    const photosPath = path.join(albumsDir, entry.name, "photos.json");
-    if (!(await fs.pathExists(photosPath))) {
+    const photosPath = await getAlbumPhotosJsonPath(albumsDir, entry.name);
+    if (!photosPath) {
       continue;
     }
     missReason = RESOLVE_SOURCES.JSON;

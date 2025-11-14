@@ -18,10 +18,9 @@ The backend builds a filename → UUID index from the system Photos library:
 ## GET /api/people/by-filename/:filename
 
 - `:filename` — URL-encoded exported basename (e.g. `20100208T174405000000Z-005_3A.jpg`).
-- **200**: `{ "data": ["Alice", "Bob"] }`
+- **200**: `{ "filename": "...", "people": ["Alice", "Bob"] }` (unknown filenames still return HTTP 200 with `people: []`).
 - **400**: `{ "errors": [{ "detail": "Filename is required" }] }`
 - **400**: `{ "errors": [{ "detail": "Invalid filename" }] }`
-- **404**: `{ "errors": [{ "detail": "Photo not found" }] }`
 - **500**: `{ "errors": [{ "detail": "Internal Server Error" }] }`
 
 Notes:

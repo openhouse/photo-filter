@@ -212,9 +212,8 @@ These endpoints resolve people detected in a photo when only the exported filena
 
 The backend normalises and validates the filename, searches cached mappings, and scans album metadata as needed. Responses:
 
-- Success: HTTP 200 with `{ "data": ["Alice", "Bob"] }`. The `X-PF-Resolve` header reveals whether the value came from cache, disk, or JSON scanning.
+- Success: HTTP 200 with `{ "filename": "20221201...jpg", "people": ["Alice", "Bob"] }`. The `X-PF-Resolve` header reveals whether the value came from cache, disk, or JSON scanning. Unknown filenames return `{ "filename": "...", "people": [] }` with `X-PF-Resolve: miss` so clients do not treat them as transport failures.
 - Invalid or missing filename: HTTP 400 with `X-PF-Resolve: invalid`.
-- Filename not present in any album: HTTP 404 with `X-PF-Resolve: miss`. `X-PF-Miss-Reason` describes the miss (`uninitialized`, `json`, etc.).
 - Errors: HTTP 500 with `X-PF-Resolve: error`.
 
 _Source: [`backend/controllers/api/filename-controller.js`](../backend/controllers/api/filename-controller.js), [`backend/app.js`](../backend/app.js)_

@@ -15,7 +15,7 @@ paths:
           description: URL-encoded exported name (e.g. 20221201T174242329834Z-IMG_5899.jpg)
       responses:
         "200":
-          description: OK
+          description: OK (returns an empty `people` array if the filename cannot be resolved)
           headers:
             X-PF-Resolve:
               $ref: "#/components/headers/XPFResolve"
@@ -27,8 +27,6 @@ paths:
                 $ref: "#/components/schemas/PeopleByFilenameResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
   /api/people/by-filename:
@@ -45,8 +43,6 @@ paths:
           $ref: "#/paths/~1api~1people~1by-filename~1{filename}/get/responses/200"
         "400":
           $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
 components:
@@ -65,9 +61,16 @@ components:
             $ref: "#/components/schemas/ErrorDetail"
     PeopleByFilenameResponse:
       type: object
+      required:
+        - filename
+        - people
       properties:
-        data:
+        filename:
+          type: string
+          description: Normalized exported basename that was looked up.
+        people:
           type: array
+          description: Sorted list of detected person names (empty when no metadata is available).
           items:
             type: string
   responses:
