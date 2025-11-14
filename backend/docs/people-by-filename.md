@@ -11,10 +11,10 @@ Both routes expect URL-encoded filenames. The server decodes path and query para
 
 ## Responses
 
-- **200 OK** – `{ "data": ["Alice", "Bob"] }`
+- **200 OK** – `{ "filename": "20221201...jpg", "people": ["Alice", "Bob"] }`
+  - Unknown filenames still return HTTP 200 with `people: []` so downstream callers are not forced to treat missing metadata as an error.
 - **400 Bad Request** – `{ "errors": [{ "detail": "Filename is required" }] }`
 - **400 Bad Request** – `{ "errors": [{ "detail": "Invalid filename" }] }`
-- **404 Not Found** – `{ "errors": [{ "detail": "Photo not found" }] }`
 - **500 Internal Server Error** – `{ "errors": [{ "detail": "Internal Server Error" }] }`
 
 All `/api/*` responses are JSON and include `Content-Type: application/json`.
@@ -23,7 +23,7 @@ All `/api/*` responses are JSON and include `Content-Type: application/json`.
 
 - During long exports the physical image may not exist yet. The controller falls back to streaming each album’s `photos.json` to rebuild the exported filename and still resolve people.
 - Person names come exclusively from Apple Photos metadata (`persons`, `persons_full`, `face_names`, `faceInfo[].name`). Scene labels such as “Outdoor” or “Building” are excluded.
-- Responses include an `X-PF-Resolve` header describing where the result came from (`cache`, `disk`, `json`, `miss`, `invalid`, or `error`). On `404 Not Found` the response also includes `X-PF-Miss-Reason` to indicate which lookup path failed (`cache`, `disk`, `json`, or `uninitialized`).
+- Responses include an `X-PF-Resolve` header describing where the result came from (`cache`, `disk`, `json`, `miss`, `invalid`, or `error`). On cache misses the response also includes `X-PF-Miss-Reason` to indicate which lookup path failed (`cache`, `disk`, `json`, or `uninitialized`).
 - The controller streams `photos.json` to keep memory use bounded and relies on lightweight caches, per-album locks, and a short-lived negative cache for misses.
 - Cache TTLs and sizes can be tuned with the `PF_FILENAME_CACHE_TTL_MS`, `PF_FILENAME_CACHE_MAX`, `PF_PERSONS_CACHE_TTL_MS`, and `PF_PERSONS_CACHE_MAX` environment variables.
 - Run `./scripts/smoke-people-by-filename.sh "<filename>"` to exercise both path and query variants locally.
@@ -43,4 +43,4 @@ curl -sS -H 'Accept: application/json' \
   "http://localhost:3000/api/people/by-filename?filename=$ENC" | jq .
 ```
 
-Expect `{ "data": [...] }` when the photo exists and `{ "errors": [{ "detail": "Photo not found" }] }` when it does not.
+Expect `{ "filename": "...", "people": [...] }` when the photo exists and `{ "filename": "...", "people": [] }` when it does not.

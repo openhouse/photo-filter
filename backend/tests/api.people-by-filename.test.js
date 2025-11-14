@@ -60,11 +60,12 @@ describe("people-by-filename endpoint", () => {
     expect(first.status).toBe(200);
     expect(first.type).toMatch(/application\/json/);
     expect(["disk", "json"]).toContain(first.headers["x-pf-resolve"]);
-    expect(first.body.data).toEqual(
+    expect(first.body.filename).toBe(exportedDisk);
+    expect(first.body.people).toEqual(
       ["Alice", "Bob", "Carol"].sort((a, b) => a.localeCompare(b)),
     );
-    expect(first.body.data).not.toContain("Outdoor");
-    expect(first.body.data).not.toContain("Building");
+    expect(first.body.people).not.toContain("Outdoor");
+    expect(first.body.people).not.toContain("Building");
 
     const second = await request(app)
       .get(`/api/people/by-filename/${encodeURIComponent(exportedDisk)}`)
@@ -72,7 +73,7 @@ describe("people-by-filename endpoint", () => {
 
     expect(second.status).toBe(200);
     expect(second.headers["x-pf-resolve"]).toBe("cache");
-    expect(second.body.data).toEqual(first.body.data);
+    expect(second.body.people).toEqual(first.body.people);
   });
 
   it("supports the query variant with encoded characters", async () => {
@@ -87,7 +88,8 @@ describe("people-by-filename endpoint", () => {
 
     expect(res.status).toBe(200);
     expect(["disk", "json"]).toContain(res.headers["x-pf-resolve"]);
-    expect(res.body.data).toEqual(expectedNames);
+    expect(res.body.filename).toBe(exportedUnicode);
+    expect(res.body.people).toEqual(expectedNames);
   });
 
   it("serves the legacy alias path", async () => {
@@ -110,7 +112,8 @@ describe("people-by-filename endpoint", () => {
 
     expect(res.status).toBe(200);
     expect(["disk", "json"]).toContain(res.headers["x-pf-resolve"]);
-    expect(res.body.data).toEqual(expected);
+    expect(res.body.filename).toBe(exportedJsonOnly);
+    expect(res.body.people).toEqual(expected);
   });
 
   it("returns 400 for missing filename in query variant", async () => {
@@ -138,14 +141,16 @@ describe("people-by-filename endpoint", () => {
     const first = await request(app)
       .get(`/api/people/by-filename/${missing}`)
       .set("Accept", "application/json");
-    expect(first.status).toBe(404);
+    expect(first.status).toBe(200);
     expect(first.headers["x-pf-resolve"]).toBe("miss");
+    expect(first.body).toEqual({ filename: missing, people: [] });
 
     const second = await request(app)
       .get(`/api/people/by-filename/${missing}`)
       .set("Accept", "application/json");
-    expect(second.status).toBe(404);
+    expect(second.status).toBe(200);
     expect(second.headers["x-pf-resolve"]).toBe("miss");
+    expect(second.body).toEqual({ filename: missing, people: [] });
   });
 
   it("handles concurrent requests without deadlock", async () => {
@@ -164,8 +169,8 @@ describe("people-by-filename endpoint", () => {
 
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
-    expect(a.body.data).toEqual(payload);
-    expect(b.body.data).toEqual(payload);
+    expect(a.body.people).toEqual(payload);
+    expect(b.body.people).toEqual(payload);
     const headerValues = [a.headers["x-pf-resolve"], b.headers["x-pf-resolve"]];
     headerValues.forEach((value) =>
       expect(["cache", "json", "disk"]).toContain(value),

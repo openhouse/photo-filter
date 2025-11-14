@@ -67,6 +67,9 @@ describe("getPeopleByFilename", () => {
       if (targetPath.includes(path.join("images", exported))) {
         return true;
       }
+      if (targetPath.endsWith(path.join("album1", "images", "photos.json"))) {
+        return true;
+      }
       if (targetPath.endsWith(path.join("album1", "photos.json"))) {
         return true;
       }
@@ -103,7 +106,8 @@ describe("getPeopleByFilename", () => {
     expect(res.statusCode).toBe(200);
     expect(["disk", "cache"]).toContain(res.getHeader("X-PF-Resolve"));
     const data = res._getJSONData();
-    expect(data.data).toEqual(["Alice", "Bob"]);
+    expect(data.filename).toBe(exported);
+    expect(data.people).toEqual(["Alice", "Bob"]);
     expect(stream.destroy).toHaveBeenCalled();
   });
 
@@ -121,6 +125,9 @@ describe("getPeopleByFilename", () => {
       }
       if (targetPath.includes(path.join("images", exported))) {
         return false;
+      }
+      if (targetPath.endsWith(path.join("album1", "images", "photos.json"))) {
+        return true;
       }
       if (targetPath.endsWith(path.join("album1", "photos.json"))) {
         return true;
@@ -158,7 +165,8 @@ describe("getPeopleByFilename", () => {
     expect(res.statusCode).toBe(200);
     expect(res.getHeader("X-PF-Resolve")).toBe("json");
     const data = res._getJSONData();
-    expect(data.data).toEqual(["Alice", "Bob"]);
+    expect(data.filename).toBe(exported);
+    expect(data.people).toEqual(["Alice", "Bob"]);
     expect(stream.destroy).toHaveBeenCalled();
   });
 
@@ -175,6 +183,9 @@ describe("getPeopleByFilename", () => {
         return true;
       }
       if (targetPath.includes(path.join("images", exported))) {
+        return true;
+      }
+      if (targetPath.endsWith(path.join("album1", "images", "photos.json"))) {
         return true;
       }
       if (targetPath.endsWith(path.join("album1", "photos.json"))) {
@@ -212,15 +223,18 @@ describe("getPeopleByFilename", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.getHeader("X-PF-Resolve")).toBe("disk");
-    expect(res._getJSONData().data).toEqual(["Alice", "Bob"]);
+    expect(res._getJSONData()).toEqual({ filename: exported, people: ["Alice", "Bob"] });
   });
 
-  it("returns 404 when no photo matches", async () => {
+  it("returns empty metadata when no photo matches", async () => {
     const req = httpMocks.createRequest({ params: { filename: "notfound.jpg" } });
     const res = httpMocks.createResponse();
 
     jest.spyOn(fs, "pathExists").mockImplementation(async (targetPath) => {
       if (targetPath === path.join(localRoot, "albums")) {
+        return true;
+      }
+      if (targetPath.endsWith(path.join("album1", "images", "photos.json"))) {
         return true;
       }
       if (targetPath.endsWith(path.join("album1", "photos.json"))) {
@@ -245,9 +259,10 @@ describe("getPeopleByFilename", () => {
 
     await getPeopleByFilename(req, res);
 
-    expect(res.statusCode).toBe(404);
+    expect(res.statusCode).toBe(200);
     expect(res.getHeader("X-PF-Resolve")).toBe("miss");
     expect(res.getHeader("X-PF-Miss-Reason")).toBe("json");
+    expect(res._getJSONData()).toEqual({ filename: "notfound.jpg", people: [] });
     expect(stream.destroy).toHaveBeenCalled();
   });
 
