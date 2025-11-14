@@ -42,6 +42,7 @@ const exportedJsonOnly = `${formatPreciseTimestamp(
 const exportedUnicode = `${formatPreciseTimestamp(
   "2023-02-05T08:09:10.000001Z",
 )}-IMG_Señorita 1.jpg`;
+const exportedMetadataOnly = "20251104T002809000000Z-DSCF5169.jpg";
 
 describe("people-by-filename endpoint", () => {
   afterAll(async () => {
@@ -113,6 +114,24 @@ describe("people-by-filename endpoint", () => {
     expect(res.status).toBe(200);
     expect(["disk", "json"]).toContain(res.headers["x-pf-resolve"]);
     expect(res.body.filename).toBe(exportedJsonOnly);
+    expect(res.body.people).toEqual(expected);
+  });
+
+  it("resolves people using metadata-provided basenames", async () => {
+    const res = await request(app)
+      .get(`/api/people/by-filename/${encodeURIComponent(exportedMetadataOnly)}`)
+      .set("Accept", "application/json");
+
+    const expected = [
+      "AM Emily Gallagher (NY State Assembly Member, Greenpoint)",
+      "Community Member",
+      "Emily Gallagher",
+      "Local Organizer",
+    ].sort((a, b) => a.localeCompare(b));
+
+    expect(res.status).toBe(200);
+    expect(["disk", "json"]).toContain(res.headers["x-pf-resolve"]);
+    expect(res.body.filename).toBe(exportedMetadataOnly);
     expect(res.body.people).toEqual(expected);
   });
 
