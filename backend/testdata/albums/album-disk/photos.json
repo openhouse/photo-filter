@@ -2,6 +2,7 @@
   {
     "original_filename": "IMG_5899.jpg",
     "date": "2022-12-01T17:42:42.329834Z",
+    "file_basename": "20221201T174242329834Z-IMG_5899.jpg",
     "persons": ["Bob"],
     "persons_full": ["Alice"],
     "face_names": ["Carol"],
@@ -11,9 +12,24 @@
   {
     "original_filename": "IMG_Señorita 1.jpg",
     "date": "2023-02-05T08:09:10.000001Z",
+    "file_basename": "20230205T080910000001Z-IMG_Señorita 1.jpg",
     "persons": ["Élodie"],
     "persons_full": ["Álvaro"],
     "face_names": [],
     "faceInfo": [{ "name": "Renée" }]
+  },
+  {
+    "file_basename": "20251104T002809000000Z-DSCF5169.jpg",
+    "original_filename": "DSCF5169.RAF",
+    "date": "2024-01-01T00:00:00.000000Z",
+    "persons": [
+      "AM Emily Gallagher (NY State Assembly Member, Greenpoint)",
+      "Small Business Community"
+    ],
+    "faceInfo": [
+      {
+        "name": "Emily Gallagher"
+      }
+    ]
   }
 ]

@@ -2,6 +2,7 @@
   {
     "original_filename": "IMG_1001.jpg",
     "date": "2021-08-15T05:04:03.123456Z",
+    "file_basename": "20210815T050403123456Z-IMG_1001.jpg",
     "persons": ["Charlie"],
     "face_names": ["Eve"],
     "faceInfo": [{ "name": "Mallory" }]

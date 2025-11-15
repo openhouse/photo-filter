@@ -276,4 +276,62 @@ describe("getPeopleByFilename", () => {
     expect(res._getJSONData().errors[0].detail).toBe("Invalid filename");
     expect(res.getHeader("X-PF-Resolve")).toBe("invalid");
   });
+
+  it("uses metadata basenames when rebuild would differ", async () => {
+    const exported = "20251104T002809000000Z-DSCF5169.jpg";
+    const req = httpMocks.createRequest({ params: { filename: exported } });
+    const res = httpMocks.createResponse();
+
+    jest.spyOn(fs, "pathExists").mockImplementation(async (targetPath) => {
+      if (targetPath === path.join(localRoot, "albums")) {
+        return true;
+      }
+      if (targetPath.includes(path.join("images", exported))) {
+        return false;
+      }
+      if (targetPath.endsWith(path.join("album1", "images", "photos.json"))) {
+        return true;
+      }
+      if (targetPath.endsWith(path.join("album1", "photos.json"))) {
+        return false;
+      }
+      if (targetPath === path.join(localRoot, "library", exported)) {
+        return false;
+      }
+      return false;
+    });
+
+    jest
+      .spyOn(fs, "readdir")
+      .mockResolvedValue([{ name: "album1", isDirectory: () => true }]);
+
+    const streamItems = [
+      {
+        file_basename: exported,
+        original_filename: "DSCF5169.RAF",
+        date: "2020-01-01T00:00:00.000Z",
+        persons: ["Emily Gallagher"],
+      },
+    ];
+
+    const parserToken = {};
+    mockWithParser.mockReturnValue(parserToken);
+    const stream = createAsyncStream(streamItems);
+    mockCreateReadStream.mockReturnValue({
+      pipe(transform) {
+        expect(transform).toBe(parserToken);
+        return stream;
+      },
+    });
+
+    await getPeopleByFilename(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.getHeader("X-PF-Resolve")).toBe("json");
+    expect(res._getJSONData()).toEqual({
+      filename: exported,
+      people: ["Emily Gallagher"],
+    });
+    expect(stream.destroy).toHaveBeenCalled();
+  });
 });

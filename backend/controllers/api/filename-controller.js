@@ -69,25 +69,25 @@ function readEnvDuration(name, fallback) {
 
 export async function getPeopleByFilename(req, res) {
   try {
-    const rawFilename =
-      (req.params?.filename ?? req.query?.filename ?? "").toString();
-    const trimmed = rawFilename.trim();
-    if (!trimmed) {
+    const rawFilename = req.params?.filename ?? req.query?.filename ?? "";
+    const normalized = normalizeLookupFilename(rawFilename);
+    if (normalized.error === "missing") {
       res.set("X-PF-Resolve", RESOLVE_SOURCES.INVALID);
       return res
         .status(400)
         .json({ errors: [{ detail: "Filename is required" }] });
     }
 
-    const filename = sanitizeFilename(trimmed);
-    if (!filename) {
+    if (normalized.error === "invalid") {
       res.set("X-PF-Resolve", RESOLVE_SOURCES.INVALID);
       return res
         .status(400)
         .json({ errors: [{ detail: "Invalid filename" }] });
     }
 
-    const cachedMiss = getCachedMiss(filename);
+    const { filename, lookupKey } = normalized;
+
+    const cachedMiss = getCachedMiss(lookupKey);
     if (cachedMiss) {
       res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
       if (cachedMiss.reason) {
@@ -99,18 +99,21 @@ export async function getPeopleByFilename(req, res) {
     const albumsDir = path.join(getLocalRoot(), "albums");
 
     if (!(await fs.pathExists(albumsDir))) {
-      cacheMiss(filename, "uninitialized");
+      cacheMiss(lookupKey, "uninitialized");
       res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
       res.set("X-PF-Miss-Reason", "uninitialized");
       return respondWithEmptyPeople(res, filename);
     }
 
-    let albumUUID = getCachedAlbumUUID(filename);
+    let albumUUID = getCachedAlbumUUID(lookupKey);
     let resolveSource = albumUUID ? RESOLVE_SOURCES.CACHE : null;
     if (!albumUUID) {
-      const lookupResult = await findAlbumUUIDByFilename(albumsDir, filename);
+      const lookupResult = await findAlbumUUIDByFilename(albumsDir, {
+        filename,
+        lookupKey,
+      });
       if (!lookupResult?.match) {
-        cacheMiss(filename, lookupResult?.missReason ?? RESOLVE_SOURCES.JSON);
+        cacheMiss(lookupKey, lookupResult?.missReason ?? RESOLVE_SOURCES.JSON);
         res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
         if (lookupResult?.missReason) {
           res.set("X-PF-Miss-Reason", lookupResult.missReason);
@@ -119,19 +122,19 @@ export async function getPeopleByFilename(req, res) {
       }
       albumUUID = lookupResult.match.uuid;
       resolveSource = lookupResult.match.source;
-      cacheAlbumUUID(filename, albumUUID);
+      cacheAlbumUUID(lookupKey, albumUUID);
     }
 
-    const cacheKey = `${albumUUID}:${filename}`;
+    const cacheKey = `${albumUUID}:${lookupKey}`;
     const cachedPersons = getCachedPersons(cacheKey);
     if (cachedPersons) {
       res.set("X-PF-Resolve", RESOLVE_SOURCES.CACHE);
       return res.json({ filename, people: cachedPersons });
     }
 
-    const photosPath = await getAlbumPhotosJsonPath(albumsDir, albumUUID);
+    const photosPath = await getAlbumPhotosJsonPath(albumUUID);
     if (!photosPath) {
-      cacheMiss(filename, RESOLVE_SOURCES.JSON);
+      cacheMiss(lookupKey, RESOLVE_SOURCES.JSON);
       res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
       res.set("X-PF-Miss-Reason", RESOLVE_SOURCES.JSON);
       return respondWithEmptyPeople(res, filename);
@@ -142,9 +145,13 @@ export async function getPeopleByFilename(req, res) {
         return { persons: inLockCached, source: RESOLVE_SOURCES.CACHE };
       }
 
-      const result = await findPersonsByFilenameStreaming(photosPath, filename, {
-        preferDisk: resolveSource === RESOLVE_SOURCES.DISK,
-      });
+      const result = await findPersonsByFilenameStreaming(
+        photosPath,
+        { filename, lookupKey },
+        {
+          preferDisk: resolveSource === RESOLVE_SOURCES.DISK,
+        },
+      );
       if (result.persons !== null) {
         cachePersons(cacheKey, result.persons);
       }
@@ -152,13 +159,13 @@ export async function getPeopleByFilename(req, res) {
     });
 
     if (persons === null) {
-      cacheMiss(filename, RESOLVE_SOURCES.JSON);
+      cacheMiss(lookupKey, RESOLVE_SOURCES.JSON);
       res.set("X-PF-Resolve", RESOLVE_SOURCES.MISS);
       res.set("X-PF-Miss-Reason", RESOLVE_SOURCES.JSON);
       return respondWithEmptyPeople(res, filename);
     }
 
-    clearMiss(filename);
+    clearMiss(lookupKey);
     res.set("X-PF-Resolve", source ?? resolveSource ?? RESOLVE_SOURCES.JSON);
     return res.json({ filename, people: persons });
   } catch (error) {
@@ -174,38 +181,24 @@ function respondWithEmptyPeople(res, filename) {
   return res.json({ filename, people: [] });
 }
 
-function sanitizeFilename(input) {
-  const candidate = input.normalize("NFC");
-  if (!candidate || /[\\/]/.test(candidate)) {
-    return null;
-  }
-  if (/[\u0000-\u001F\u007F]/.test(candidate)) {
-    return null;
-  }
-  if (path.basename(candidate) !== candidate) {
-    return null;
-  }
-  return candidate;
-}
-
-function getCachedAlbumUUID(name) {
-  const entry = FILENAME_TO_ALBUM.get(name);
+function getCachedAlbumUUID(key) {
+  const entry = FILENAME_TO_ALBUM.get(key);
   if (!entry) return null;
   if (entry.expiresAt <= Date.now()) {
-    FILENAME_TO_ALBUM.delete(name);
+    FILENAME_TO_ALBUM.delete(key);
     return null;
   }
   // refresh recency for simple LRU behaviour
-  FILENAME_TO_ALBUM.delete(name);
-  FILENAME_TO_ALBUM.set(name, entry);
+  FILENAME_TO_ALBUM.delete(key);
+  FILENAME_TO_ALBUM.set(key, entry);
   return entry.uuid;
 }
 
-function cacheAlbumUUID(name, uuid) {
-  if (FILENAME_TO_ALBUM.has(name)) {
-    FILENAME_TO_ALBUM.delete(name);
+function cacheAlbumUUID(key, uuid) {
+  if (FILENAME_TO_ALBUM.has(key)) {
+    FILENAME_TO_ALBUM.delete(key);
   }
-  FILENAME_TO_ALBUM.set(name, {
+  FILENAME_TO_ALBUM.set(key, {
     uuid,
     expiresAt: Date.now() + FILENAME_TO_ALBUM_TTL_MS,
   });
@@ -247,18 +240,18 @@ function cachePersons(key, persons) {
   }
 }
 
-function getCachedMiss(name) {
-  const entry = MISS_CACHE.get(name);
+function getCachedMiss(key) {
+  const entry = MISS_CACHE.get(key);
   if (!entry) return null;
   if (entry.expiresAt <= Date.now()) {
-    MISS_CACHE.delete(name);
+    MISS_CACHE.delete(key);
     return null;
   }
   return entry;
 }
 
-function cacheMiss(name, reason = RESOLVE_SOURCES.MISS) {
-  MISS_CACHE.set(name, {
+function cacheMiss(key, reason = RESOLVE_SOURCES.MISS) {
+  MISS_CACHE.set(key, {
     source: RESOLVE_SOURCES.MISS,
     reason,
     expiresAt: Date.now() + MISS_CACHE_TTL_MS,
@@ -271,16 +264,17 @@ function cacheMiss(name, reason = RESOLVE_SOURCES.MISS) {
   }
 }
 
-function clearMiss(name) {
-  MISS_CACHE.delete(name);
+function clearMiss(key) {
+  MISS_CACHE.delete(key);
 }
 
-async function getAlbumPhotosJsonPath(albumsDir, albumUUID) {
-  const imagesPath = path.join(albumsDir, albumUUID, "images", "photos.json");
+async function getAlbumPhotosJsonPath(albumUUID) {
+  if (!albumUUID) return null;
+  const imagesPath = path.join(getAlbumImagesDir(albumUUID), "photos.json");
   if (await fs.pathExists(imagesPath)) {
     return imagesPath;
   }
-  const legacyPath = path.join(albumsDir, albumUUID, "photos.json");
+  const legacyPath = path.join(getLocalRoot(), "albums", albumUUID, "photos.json");
   if (await fs.pathExists(legacyPath)) {
     return legacyPath;
   }
@@ -299,7 +293,8 @@ async function runWithAlbumLock(albumUUID, fn) {
   return runPromise;
 }
 
-async function findAlbumUUIDByFilename(albumsDir, filename) {
+async function findAlbumUUIDByFilename(albumsDir, lookup) {
+  const { filename, lookupKey } = lookup;
   const entries = await fs.readdir(albumsDir, { withFileTypes: true });
   const directories = entries.filter((entry) => entry.isDirectory());
   const libraryCandidate = getLibraryPathForExportedName(filename);
@@ -327,7 +322,7 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
   }
 
   for (const entry of directories) {
-    const photosPath = await getAlbumPhotosJsonPath(albumsDir, entry.name);
+    const photosPath = await getAlbumPhotosJsonPath(entry.name);
     if (!photosPath) {
       continue;
     }
@@ -336,8 +331,8 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
     try {
       for await (const { value: photo } of stream) {
         if (!photo) continue;
-        const exported = buildExportedFilename(photo);
-        if (exported && exported === filename) {
+        const exported = resolvePhotoBasename(photo);
+        if (exported && exported.key === lookupKey) {
           const source = libraryExists
             ? RESOLVE_SOURCES.DISK
             : RESOLVE_SOURCES.JSON;
@@ -359,9 +354,10 @@ async function findAlbumUUIDByFilename(albumsDir, filename) {
 
 async function findPersonsByFilenameStreaming(
   photosPath,
-  targetFilename,
+  lookup,
   { preferDisk = false } = {},
 ) {
+  const { lookupKey } = lookup;
   if (!(await fs.pathExists(photosPath))) {
     const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
     return { persons: null, source };
@@ -371,8 +367,8 @@ async function findPersonsByFilenameStreaming(
   try {
     for await (const { value: photo } of stream) {
       if (!photo) continue;
-      const exported = buildExportedFilename(photo);
-      if (!exported || exported !== targetFilename) {
+      const exported = resolvePhotoBasename(photo);
+      if (!exported || exported.key !== lookupKey) {
         continue;
       }
       const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
@@ -405,4 +401,63 @@ function extractPersons(photo) {
   const unique = Array.from(new Set(names));
   unique.sort((a, b) => a.localeCompare(b));
   return unique;
+}
+
+function normalizeLookupFilename(rawInput) {
+  const str =
+    typeof rawInput === "string" ? rawInput : rawInput?.toString() ?? "";
+  const trimmed = str.trim();
+  if (!trimmed) {
+    return { error: "missing" };
+  }
+  if (/[\\/]/.test(trimmed) || path.basename(trimmed) !== trimmed) {
+    return { error: "invalid" };
+  }
+
+  const basename = path.basename(trimmed);
+  const candidate = basename.normalize("NFC");
+  if (!candidate || /[\u0000-\u001F\u007F]/.test(candidate)) {
+    return { error: "invalid" };
+  }
+
+  return { filename: candidate, lookupKey: candidate.toLowerCase() };
+}
+
+function resolvePhotoBasename(photo) {
+  const candidate = getPhotoFilenameCandidate(photo);
+  if (!candidate) return null;
+  const sanitized = sanitizeMetadataFilename(candidate);
+  if (!sanitized) return null;
+  return { filename: sanitized, key: sanitized.toLowerCase() };
+}
+
+function getPhotoFilenameCandidate(photo) {
+  if (!photo) return null;
+  const candidates = [
+    photo.file_basename,
+    photo.fileBasename,
+    photo.file_base_name,
+    photo.fileBaseName,
+    photo.exported_filename,
+    photo.exportedFilename,
+    photo.export_filename,
+    photo.exportFilename,
+  ];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return buildExportedFilename(photo);
+}
+
+function sanitizeMetadataFilename(value) {
+  if (!value) return null;
+  const asString = value.toString().trim();
+  if (!asString) return null;
+  const basename = path.basename(asString);
+  if (!basename) return null;
+  const normalized = basename.normalize("NFC");
+  if (!normalized || /[\u0000-\u001F\u007F]/.test(normalized)) return null;
+  return normalized;
 }
