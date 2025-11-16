@@ -305,6 +305,7 @@ async function findAlbumUUIDByFilename(albumsDir, filename, lookupKey) {
   const libraryExists = libraryCandidate
     ? await fs.pathExists(libraryCandidate)
     : false;
+  const originalLookup = createOriginalLookup(filename);
   let missReason = RESOLVE_SOURCES.DISK;
 
   for (let i = 0; i < directories.length; i += DISK_PROBE_CONCURRENCY) {
@@ -342,6 +343,13 @@ async function findAlbumUUIDByFilename(albumsDir, filename, lookupKey) {
             : RESOLVE_SOURCES.JSON;
           return { match: { uuid: entry.name, source } };
         }
+        const originalMatch = getOriginalMatch(photo, originalLookup);
+        if (originalMatch) {
+          const source = libraryExists
+            ? RESOLVE_SOURCES.DISK
+            : RESOLVE_SOURCES.JSON;
+          return { match: { uuid: entry.name, source } };
+        }
       }
     } catch (error) {
       throw error;
@@ -368,19 +376,32 @@ async function findPersonsByFilenameStreaming(
   }
 
   const stream = createReadStream(photosPath).pipe(StreamArray.withParser());
+  const lookupOriginal = createOriginalLookup(targetFilename);
+  let fallbackMatch = null;
+  let fallbackMatchExported = null;
+  let fallbackMatchOriginal = null;
+  let fallbackMatches = 0;
   try {
     for await (const { value: photo } of stream) {
       if (!photo) continue;
       const exported = resolvePhotoBasename(photo);
-      if (!exported || exported.key !== lookupKey) {
-        continue;
+      if (exported && exported.key === lookupKey) {
+        const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
+        return {
+          persons: extractPersons(photo),
+          source,
+          resolvedFilename: exported.filename ?? targetFilename,
+        };
       }
-      const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
-      return {
-        persons: extractPersons(photo),
-        source,
-        resolvedFilename: exported.filename ?? targetFilename,
-      };
+      const originalMatch = getOriginalMatch(photo, lookupOriginal);
+      if (originalMatch) {
+        fallbackMatches += 1;
+        if (fallbackMatches === 1) {
+          fallbackMatch = photo;
+          fallbackMatchExported = exported;
+          fallbackMatchOriginal = originalMatch;
+        }
+      }
     }
   } catch (error) {
     throw error;
@@ -388,6 +409,19 @@ async function findPersonsByFilenameStreaming(
     if (typeof stream.destroy === "function") {
       stream.destroy();
     }
+  }
+
+  if (fallbackMatches === 1 && fallbackMatch) {
+    const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
+    const resolvedFilename =
+      fallbackMatchExported?.filename ??
+      fallbackMatchOriginal?.filename ??
+      targetFilename;
+    return {
+      persons: extractPersons(fallbackMatch),
+      source,
+      resolvedFilename,
+    };
   }
 
   const source = preferDisk ? RESOLVE_SOURCES.DISK : RESOLVE_SOURCES.JSON;
@@ -412,7 +446,11 @@ function normalizeLookupFilename(rawInput) {
   if (!candidate || /[\u0000-\u001F\u007F]/.test(candidate)) {
     return { error: "invalid" };
   }
-  return { filename: candidate, lookupKey: candidate.toLowerCase() };
+  const lookupKey = toLookupKey(candidate);
+  if (!lookupKey) {
+    return { error: "invalid" };
+  }
+  return { filename: candidate, lookupKey };
 }
 
 function resolvePhotoBasename(photo) {
@@ -420,7 +458,9 @@ function resolvePhotoBasename(photo) {
   if (!candidate) return null;
   const sanitized = sanitizeMetadataFilename(candidate);
   if (!sanitized) return null;
-  return { filename: sanitized, key: sanitized.toLowerCase() };
+  const key = toLookupKey(sanitized);
+  if (!key) return null;
+  return { filename: sanitized, key };
 }
 
 function getPhotoFilenameCandidate(photo) {
@@ -434,6 +474,14 @@ function getPhotoFilenameCandidate(photo) {
     photo.exportedFilename,
     photo.export_filename,
     photo.exportFilename,
+    photo.filename,
+    photo.fileName,
+    photo.basename,
+    photo.base_name,
+    photo.baseName,
+    photo.name,
+    photo.asset_filename,
+    photo.assetFilename,
   ];
   for (const value of candidates) {
     if (typeof value === "string" && value.trim()) {
@@ -471,4 +519,75 @@ function extractPersons(photo) {
   const unique = Array.from(new Set(names));
   unique.sort((a, b) => a.localeCompare(b));
   return unique;
+}
+
+function toLookupKey(value) {
+  if (!value) return null;
+  const asString = value.toString();
+  if (!asString) return null;
+  const trimmed = asString.trim();
+  if (!trimmed) return null;
+  const dotIndex = trimmed.lastIndexOf(".");
+  const withoutExtension = dotIndex > 0 ? trimmed.slice(0, dotIndex) : trimmed;
+  const normalized = withoutExtension.normalize("NFC").toLowerCase();
+  return normalized || null;
+}
+
+function extractOriginalChunkFromExported(filename) {
+  if (!filename) return null;
+  const base = path.basename(filename);
+  const dashIndex = base.indexOf("-");
+  if (dashIndex === -1) return null;
+  const chunk = base.slice(dashIndex + 1);
+  return chunk || null;
+}
+
+function getOriginalFilenameCandidate(photo) {
+  if (!photo) return null;
+  const candidates = [
+    photo.original_filename,
+    photo.originalFilename,
+    photo.original_name,
+    photo.originalName,
+    photo.asset_filename,
+    photo.assetFilename,
+    photo.filename,
+    photo.fileName,
+    photo.name,
+  ];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function normalizeOriginalName(value) {
+  if (!value) return null;
+  const sanitized = sanitizeMetadataFilename(value);
+  if (!sanitized) return null;
+  const normalized = sanitized.toLowerCase();
+  const key = toLookupKey(sanitized);
+  if (!key) return null;
+  return { filename: sanitized, normalized, key };
+}
+
+function createOriginalLookup(filename) {
+  const chunk = extractOriginalChunkFromExported(filename);
+  if (!chunk) {
+    return null;
+  }
+  return normalizeOriginalName(chunk);
+}
+
+function getOriginalMatch(photo, lookupOriginal) {
+  if (!lookupOriginal) return null;
+  const candidate = getOriginalFilenameCandidate(photo);
+  if (!candidate) return null;
+  const normalized = normalizeOriginalName(candidate);
+  if (!normalized) return null;
+  const fullMatch = normalized.normalized === lookupOriginal.normalized;
+  const stemMatch = normalized.key === lookupOriginal.key;
+  return fullMatch || stemMatch ? normalized : null;
 }
