@@ -72,6 +72,18 @@
       {{! Time navigation }}
       <TimeNav />
 
+      <h3 class="text-lg font-semibold mb-2 mt-4">Browse</h3>
+      <ul class="menu p-0 w-full mb-4">
+        <li class="mb-1">
+          <LinkTo
+            @route="people"
+            class="rounded hover:bg-gray-200 px-2 py-1"
+          >
+            People &amp; Pets
+          </LinkTo>
+        </li>
+      </ul>
+
       {{! Albums list: from application route model }}
       <h3 class="text-lg font-semibold mb-2 mt-4">Albums</h3>
       <ul class="menu p-0 w-full mb-4">

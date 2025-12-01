@@ -21,6 +21,7 @@ import {
 import {
   getPeopleInAlbum,
   getPhotosByPerson,
+  getLibraryPeople,
 } from "../controllers/api/people-controller.js";
 import { ensureAlbumPrepared } from "../utils/prepare-album.js";
 
@@ -46,6 +47,7 @@ apiRouter.post("/albums/:albumUUID/prepare", prepareAlbumForExport);
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
+apiRouter.get("/library/people", getLibraryPeople);
 
 // People-by-filename route for exported filenames
 apiRouter.get("/people/by-filename/:filename", getPeopleByFilename);
