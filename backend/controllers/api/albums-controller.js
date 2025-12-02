@@ -11,6 +11,7 @@ import {
   readExportStatus,
   readJsonWithRetry,
 } from "../../utils/albums-store.js";
+import { slugifyName } from "../../utils/slugify-name.js";
 
 const PersonSerializer = new Serializer("person", {
   id: "id",
@@ -179,10 +180,3 @@ export const getAlbumById = async (req, res) => {
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
   }
 };
-
-function slugifyName(name) {
-  return name
-    .toLowerCase()
-    .replace(/[\s+]/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}

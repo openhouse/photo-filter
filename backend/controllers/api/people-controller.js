@@ -3,10 +3,13 @@
 import path from "path";
 import fs from "fs-extra";
 import { fileURLToPath } from "url";
-import { runPythonScript } from "../../utils/run-python-script.js";
-import { execCommand } from "../../utils/exec-command.js";
 import { Serializer } from "jsonapi-serializer";
 import { getNestedProperty } from "../../utils/helpers.js";
+import {
+  ensurePeopleIndexUpToDate,
+  getPeopleSummary,
+} from "../../utils/people-index.js";
+import { slugifyName } from "../../utils/slugify-name.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +30,20 @@ const PhotoSerializer = new Serializer("photo", {
       type: "album",
     },
   },
+  pluralizeType: false,
+});
+
+const PersonSerializer = new Serializer("person", {
+  id: "id",
+  attributes: [
+    "name",
+    "photoCount",
+    "earliestPhotoAt",
+    "latestPhotoAt",
+    "medianPhotoAt",
+    "heroUuid",
+  ],
+  keyForAttribute: "camelCase",
   pluralizeType: false,
 });
 
@@ -136,5 +153,32 @@ export const getPhotosByPerson = async (req, res) => {
   } catch (error) {
     console.error("Error fetching photos for person:", error);
     res.status(500).json({ errors: [{ detail: "Internal Server Error" }] });
+  }
+};
+
+export const getLibraryPeople = async (req, res) => {
+  try {
+    const sort = req.query.sort || "medianPhotoAt";
+    const order = req.query.order || "asc";
+
+    await ensurePeopleIndexUpToDate();
+    const people = await getPeopleSummary({ sort, order });
+
+    const mapped = people.map((person) => ({
+      ...person,
+      id: slugifyName(person.name),
+    }));
+
+    const payload = PersonSerializer.serialize(mapped);
+
+    return res.json({
+      ...payload,
+      meta: { sort, order },
+    });
+  } catch (error) {
+    console.error("Error fetching library people:", error);
+    return res.status(500).json({
+      errors: [{ detail: "Internal Server Error" }],
+    });
   }
 };

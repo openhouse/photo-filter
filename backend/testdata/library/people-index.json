@@ -1,0 +1,29 @@
+[
+  {
+    "id": "person:alice",
+    "name": "Alice",
+    "photoCount": 3,
+    "earliestPhotoAt": "2020-01-01T00:00:00Z",
+    "latestPhotoAt": "2020-01-03T00:00:00Z",
+    "medianPhotoAt": "2020-01-02T00:00:00Z",
+    "heroUuid": "hero-a"
+  },
+  {
+    "id": "person:bob",
+    "name": "Bob",
+    "photoCount": 2,
+    "earliestPhotoAt": "2021-01-01T00:00:00Z",
+    "latestPhotoAt": "2021-01-02T00:00:00Z",
+    "medianPhotoAt": "2021-01-01T12:00:00Z",
+    "heroUuid": "hero-b"
+  },
+  {
+    "id": "person:carol",
+    "name": "Carol",
+    "photoCount": 4,
+    "earliestPhotoAt": "2019-05-01T00:00:00Z",
+    "latestPhotoAt": "2019-05-04T00:00:00Z",
+    "medianPhotoAt": "2019-05-02T00:00:00Z",
+    "heroUuid": "hero-c"
+  }
+]

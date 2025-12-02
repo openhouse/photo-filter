@@ -14,6 +14,7 @@ import {
   formatPreciseTimestamp,
   getNestedProperty,
 } from "../../utils/helpers.js";
+import { slugifyName } from "../../utils/slugify-name.js";
 import { Serializer } from "jsonapi-serializer";
 import {
   getAlbumImagesDir,
@@ -192,7 +193,7 @@ export const getPhotosByAlbumData = async (req, res) => {
       p.persons = Array.isArray(p.persons) ? p.persons : [];
 
       p.personsData = p.persons.map((name) => {
-        const slug = slugify(name);
+        const slug = slugifyName(name);
         if (!personsMap.has(slug)) personsMap.set(slug, { id: slug, name });
         return { type: "person", id: slug };
       });
@@ -313,10 +314,3 @@ export const prepareAlbumForExport = async (req, res) => {
   }
 };
 
-/* ---------- util ---------- */
-function slugify(str) {
-  return str
-    .toLowerCase()
-    .replace(/[\s+]/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}
