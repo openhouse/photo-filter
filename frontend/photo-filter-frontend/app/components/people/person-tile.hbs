@@ -1,0 +1,29 @@
+<article class="person-tile card bg-base-100 shadow">
+  <div class="card-body gap-3">
+    {{#if this.heroUrl}}
+      <img
+        src={{this.heroUrl}}
+        alt={{this.displayName}}
+        class="w-full rounded-xl object-cover aspect-square bg-base-300"
+        loading="lazy"
+      />
+    {{else}}
+      <div
+        class="w-full rounded-xl aspect-square bg-base-200 flex items-center justify-center text-sm text-base-content/60"
+      >
+        No image available
+      </div>
+    {{/if}}
+
+    <div class="person-meta space-y-1">
+      <h2 class="text-lg font-semibold person-name">{{this.displayName}}</h2>
+      <p class="text-sm opacity-80">{{@person.photoCount}} photos</p>
+
+      {{#if this.primaryDateValue}}
+        <p class="text-xs opacity-70">
+          {{this.primaryDateLabel}}: {{this.primaryDateValue}}
+        </p>
+      {{/if}}
+    </div>
+  </div>
+</article>

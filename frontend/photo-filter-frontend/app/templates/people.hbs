@@ -13,9 +13,12 @@
       {{on "change" this.updateSort}}
       value={{this.sort}}
     >
-      {{#each this.sortOptions as |option|}}
-        <option value={{option.value}} selected={{eq option.value this.sort}}>
-          {{option.label}}
+      {{#each this.sortOptions as |sortOption|}}
+        <option
+          value={{sortOption.value}}
+          selected={{eq sortOption.value this.sort}}
+        >
+          {{sortOption.label}}
         </option>
       {{/each}}
     </select>
@@ -33,37 +36,6 @@
 
 <section class="people-grid grid gap-4 md:grid-cols-2 lg:grid-cols-3">
   {{#each @model as |person|}}
-    <article class="person-tile card bg-base-100 shadow">
-      <div class="card-body gap-3">
-        {{#let (library-image-url (this.heroFilenameFor person)) as |heroUrl|}}
-          {{#if heroUrl}}
-            <img
-              src={{heroUrl}}
-              alt={{this.displayNameFor person}}
-              class="w-full rounded-xl object-cover aspect-square bg-base-300"
-              loading="lazy"
-            />
-          {{else}}
-            <div class="w-full rounded-xl aspect-square bg-base-200 flex items-center justify-center text-sm text-base-content/60">
-              No image available
-            </div>
-          {{/if}}
-        {{/let}}
-
-        <div class="person-meta space-y-1">
-          <h2 class="text-lg font-semibold person-name">{{this.displayNameFor person}}</h2>
-          <p class="text-sm opacity-80">{{person.photoCount}} photos</p>
-          <p class="text-xs opacity-70">
-            {{#if (eq this.sort "earliestPhotoAt")}}
-              Earliest: {{person.earliestPhotoAt}}
-            {{else if (eq this.sort "latestPhotoAt")}}
-              Latest: {{person.latestPhotoAt}}
-            {{else}}
-              Median: {{person.medianPhotoAt}}
-            {{/if}}
-          </p>
-        </div>
-      </div>
-    </article>
+    <People::PersonTile @person={{person}} @sort={{this.sort}} />
   {{/each}}
 </section>
