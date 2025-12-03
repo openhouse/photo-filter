@@ -92,7 +92,7 @@ export function createImagesMiddleware({
 
 export default createImagesMiddleware;
 
-async function applyCachingHeaders(res, fsClient, filePath) {
+export async function applyCachingHeaders(res, fsClient, filePath) {
   let stats;
   try {
     stats = await fsClient.stat(filePath);

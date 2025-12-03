@@ -5,21 +5,28 @@
   </div>
 
   <div class="sort-controls flex items-center gap-3">
-    <button
-      type="button"
-      class="btn btn-sm"
-      data-test-sort-median
-      {{on "click" (fn this.sortBy "medianPhotoAt")}}
+    <label class="text-sm font-semibold" for="people-sort-select">Sort</label>
+    <select
+      id="people-sort-select"
+      data-test-people-sort-select
+      class="select select-bordered select-sm"
+      {{on "change" this.updateSort}}
+      value={{this.sort}}
     >
-      Sort by median date
-    </button>
+      {{#each this.sortOptions as |option|}}
+        <option value={{option.value}} selected={{eq option.value this.sort}}>
+          {{option.label}}
+        </option>
+      {{/each}}
+    </select>
+
     <button
       type="button"
       class="btn btn-sm"
       data-test-toggle-order
       {{on "click" this.toggleOrder}}
     >
-      {{if (eq this.order "asc") "Oldest → Newest" "Newest → Oldest"}}
+      {{this.orderLabel}}
     </button>
   </div>
 </section>
@@ -27,14 +34,34 @@
 <section class="people-grid grid gap-4 md:grid-cols-2 lg:grid-cols-3">
   {{#each @model as |person|}}
     <article class="person-tile card bg-base-100 shadow">
-      <div class="card-body">
-        <div class="avatar-placeholder mb-2 text-sm font-semibold">
-          {{person.name}}
-        </div>
+      <div class="card-body gap-3">
+        {{#let (library-image-url (this.heroFilenameFor person)) as |heroUrl|}}
+          {{#if heroUrl}}
+            <img
+              src={{heroUrl}}
+              alt={{this.displayNameFor person}}
+              class="w-full rounded-xl object-cover aspect-square bg-base-300"
+              loading="lazy"
+            />
+          {{else}}
+            <div class="w-full rounded-xl aspect-square bg-base-200 flex items-center justify-center text-sm text-base-content/60">
+              No image available
+            </div>
+          {{/if}}
+        {{/let}}
+
         <div class="person-meta space-y-1">
-          <h2 class="text-lg font-semibold person-name">{{person.name}}</h2>
+          <h2 class="text-lg font-semibold person-name">{{this.displayNameFor person}}</h2>
           <p class="text-sm opacity-80">{{person.photoCount}} photos</p>
-          <p class="text-xs opacity-70">Median: {{person.medianPhotoAt}}</p>
+          <p class="text-xs opacity-70">
+            {{#if (eq this.sort "earliestPhotoAt")}}
+              Earliest: {{person.earliestPhotoAt}}
+            {{else if (eq this.sort "latestPhotoAt")}}
+              Latest: {{person.latestPhotoAt}}
+            {{else}}
+              Median: {{person.medianPhotoAt}}
+            {{/if}}
+          </p>
         </div>
       </div>
     </article>

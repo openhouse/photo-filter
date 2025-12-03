@@ -38,6 +38,7 @@ export async function runPythonScript(
     logStream: providedLogStream,
     appendLog = true,
     streamStdout = true,
+    env: envOverrides = {},
   } = options;
 
   if (streamStdout && !outputPath) {
@@ -88,7 +89,7 @@ export async function runPythonScript(
 
   const child = spawn(pythonPath, spawnArgs, {
     stdio: ["ignore", "pipe", "pipe"],
-    env: process.env,
+    env: { ...process.env, ...envOverrides },
   });
 
   const printableCommand = [pythonPath, ...spawnArgs]

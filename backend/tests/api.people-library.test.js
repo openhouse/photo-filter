@@ -59,4 +59,63 @@ describe("GET /api/library/people", () => {
       "2019-05-02T00:00:00Z",
     ]);
   });
+
+  it("selects heroes based on sort mode", async () => {
+    const { app } = await import("../app.js");
+
+    const scenarios = [
+      {
+        sort: "earliestPhotoAt",
+        expected: [
+          "carol-earliest.jpg",
+          "alice-earliest.jpg",
+          "bob-earliest.jpg",
+        ],
+      },
+      {
+        sort: "medianPhotoAt",
+        expected: [
+          "carol-median.jpg",
+          "alice-median.jpg",
+          "bob-median.jpg",
+        ],
+      },
+      {
+        sort: "latestPhotoAt",
+        expected: [
+          "carol-latest.jpg",
+          "alice-latest.jpg",
+          "bob-latest.jpg",
+        ],
+      },
+      {
+        sort: "name",
+        expected: [
+          "alice-highlight.jpg",
+          "bob-highlight.jpg",
+          "carol-highlight.jpg",
+        ],
+      },
+      {
+        sort: "photoCount",
+        expected: [
+          "bob-highlight.jpg",
+          "alice-highlight.jpg",
+          "carol-highlight.jpg",
+        ],
+      },
+    ];
+
+    for (const scenario of scenarios) {
+      const res = await request(app)
+        .get(`/api/library/people?sort=${scenario.sort}`)
+        .set("Accept", "application/json");
+
+      expect(res.status).toBe(200);
+      const heroes = res.body.data.map(
+        (entry) => entry.attributes.heroExportedName,
+      );
+      expect(heroes).toEqual(scenario.expected);
+    }
+  });
 });
