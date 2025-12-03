@@ -11,6 +11,7 @@ import {
 } from "./config/storage-paths.js";
 import { getPeopleByFilename } from "./controllers/api/filename-controller.js";
 import { createImagesMiddleware } from "./middleware/images.js";
+import { createLibraryImagesMiddleware } from "./middleware/library-images.js";
 
 const app = express();
 
@@ -70,6 +71,7 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/data/albums", express.static(path.join(getLocalRoot(), "albums")));
 
 app.get("/images/:albumUUID/:imageName", createImagesMiddleware());
+app.get("/library/images/:exportedName", createLibraryImagesMiddleware());
 
 // Query variant forwards to the same controller
 app.get("/api/people/by-filename", (req, res) => {

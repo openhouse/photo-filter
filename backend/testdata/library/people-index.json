@@ -1,29 +1,53 @@
 [
   {
-    "id": "person:alice",
+    "id": "person:1111-2222",
     "name": "Alice",
     "photoCount": 3,
     "earliestPhotoAt": "2020-01-01T00:00:00Z",
     "latestPhotoAt": "2020-01-03T00:00:00Z",
     "medianPhotoAt": "2020-01-02T00:00:00Z",
-    "heroUuid": "hero-a"
+    "heroUuid": "hero-a",
+    "heroUuidEarliest": "alice-earliest-uuid",
+    "heroUuidMedian": "alice-median-uuid",
+    "heroUuidLatest": "alice-latest-uuid",
+    "heroUuidHighlight": "alice-highlight-uuid",
+    "earliestExportedName": "alice-earliest.jpg",
+    "medianExportedName": "alice-median.jpg",
+    "latestExportedName": "alice-latest.jpg",
+    "highlightExportedName": "alice-highlight.jpg"
   },
   {
-    "id": "person:bob",
+    "id": "person:3333-4444",
     "name": "Bob",
     "photoCount": 2,
     "earliestPhotoAt": "2021-01-01T00:00:00Z",
     "latestPhotoAt": "2021-01-02T00:00:00Z",
     "medianPhotoAt": "2021-01-01T12:00:00Z",
-    "heroUuid": "hero-b"
+    "heroUuid": "hero-b",
+    "heroUuidEarliest": "bob-earliest-uuid",
+    "heroUuidMedian": "bob-median-uuid",
+    "heroUuidLatest": "bob-latest-uuid",
+    "heroUuidHighlight": "bob-highlight-uuid",
+    "earliestExportedName": "bob-earliest.jpg",
+    "medianExportedName": "bob-median.jpg",
+    "latestExportedName": "bob-latest.jpg",
+    "highlightExportedName": "bob-highlight.jpg"
   },
   {
-    "id": "person:carol",
+    "id": "person:5555-6666",
     "name": "Carol",
     "photoCount": 4,
     "earliestPhotoAt": "2019-05-01T00:00:00Z",
     "latestPhotoAt": "2019-05-04T00:00:00Z",
     "medianPhotoAt": "2019-05-02T00:00:00Z",
-    "heroUuid": "hero-c"
+    "heroUuid": "hero-c",
+    "heroUuidEarliest": "carol-earliest-uuid",
+    "heroUuidMedian": "carol-median-uuid",
+    "heroUuidLatest": "carol-latest-uuid",
+    "heroUuidHighlight": "carol-highlight-uuid",
+    "earliestExportedName": "carol-earliest.jpg",
+    "medianExportedName": "carol-median.jpg",
+    "latestExportedName": "carol-latest.jpg",
+    "highlightExportedName": "carol-highlight.jpg"
   }
 ]

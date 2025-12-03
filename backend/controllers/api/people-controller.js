@@ -9,7 +9,6 @@ import {
   ensurePeopleIndexUpToDate,
   getPeopleSummary,
 } from "../../utils/people-index.js";
-import { slugifyName } from "../../utils/slugify-name.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,11 +36,21 @@ const PersonSerializer = new Serializer("person", {
   id: "id",
   attributes: [
     "name",
+    "displayName",
     "photoCount",
     "earliestPhotoAt",
     "latestPhotoAt",
     "medianPhotoAt",
     "heroUuid",
+    "heroExportedName",
+    "heroUuidEarliest",
+    "heroUuidMedian",
+    "heroUuidLatest",
+    "heroUuidHighlight",
+    "earliestExportedName",
+    "medianExportedName",
+    "latestExportedName",
+    "highlightExportedName",
   ],
   keyForAttribute: "camelCase",
   pluralizeType: false,
@@ -164,12 +173,7 @@ export const getLibraryPeople = async (req, res) => {
     await ensurePeopleIndexUpToDate();
     const people = await getPeopleSummary({ sort, order });
 
-    const mapped = people.map((person) => ({
-      ...person,
-      id: slugifyName(person.name),
-    }));
-
-    const payload = PersonSerializer.serialize(mapped);
+    const payload = PersonSerializer.serialize(people);
 
     return res.json({
       ...payload,

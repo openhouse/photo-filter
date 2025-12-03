@@ -15,6 +15,9 @@ const PEOPLE_INDEX_PATH = path.join(DATA_DIR, "people-index.json");
 const VENV_DIR = path.join(__dirname, "..", "venv");
 const PYTHON_PATH = path.join(VENV_DIR, "bin", "python3");
 const SCRIPT_PATH = path.join(__dirname, "..", "scripts", "export_people_index.py");
+const FILENAME_TEMPLATE_DEFAULT =
+  "{created.utc.strftime,%Y%m%dT%H%M%S%fZ}-{original_name}";
+const JPEG_EXT_DEFAULT = "jpg";
 
 let exportInFlight = null;
 let cachedPeople = null;
@@ -47,7 +50,16 @@ async function buildIndex() {
     SCRIPT_PATH,
     ["--out", PEOPLE_INDEX_PATH],
     undefined,
-    { streamStdout: false },
+    {
+      streamStdout: false,
+      // Keep the exporter aligned with the osxphotos image export pipeline so
+      // hero filenames resolve correctly against PF_LIBRARY_ROOT.
+      env: {
+        FILENAME_TEMPLATE:
+          process.env.FILENAME_TEMPLATE || FILENAME_TEMPLATE_DEFAULT,
+        JPEG_EXT: process.env.JPEG_EXT || JPEG_EXT_DEFAULT,
+      },
+    },
   );
   cachedPeople = null;
   cachedMtime = null;
@@ -88,6 +100,62 @@ function compareValues(a, b, direction) {
   return 0;
 }
 
+function normalizedName(person) {
+  return (person.displayName || person.name || "").trim();
+}
+
+function compareNames(a, b, direction) {
+  const nameA = normalizedName(a);
+  const nameB = normalizedName(b);
+
+  if (!nameA && !nameB) return 0;
+  if (!nameA) return 1;
+  if (!nameB) return -1;
+
+  return nameA.localeCompare(nameB, undefined, { sensitivity: "base" }) * direction;
+}
+
+function selectHero(person, sortKey) {
+  // Backend prefers sort-aware hero selection when the richer fields are
+  // present; fall back to legacy hero fields for older people-index files.
+  const heroFallbackExported = [
+    person.heroExportedName,
+    person.highlightExportedName,
+    person.medianExportedName,
+    person.latestExportedName,
+    person.earliestExportedName,
+  ];
+  const heroFallbackUuid = [
+    person.heroUuidHighlight,
+    person.heroUuidMedian,
+    person.heroUuidLatest,
+    person.heroUuidEarliest,
+    person.heroUuid,
+  ];
+
+  function buildSelection(exported, uuid) {
+    return {
+      heroExportedName: exported ?? heroFallbackExported.find(Boolean) ?? null,
+      heroUuid: uuid ?? heroFallbackUuid.find(Boolean) ?? null,
+    };
+  }
+
+  if (sortKey === "earliestPhotoAt") {
+    return buildSelection(person.earliestExportedName, person.heroUuidEarliest);
+  }
+
+  if (sortKey === "latestPhotoAt") {
+    return buildSelection(person.latestExportedName, person.heroUuidLatest);
+  }
+
+  if (sortKey === "medianPhotoAt") {
+    return buildSelection(person.medianExportedName, person.heroUuidMedian);
+  }
+
+  // Aggregate sorts (name, photoCount, or unknown)
+  return buildSelection(person.highlightExportedName, person.heroUuidHighlight);
+}
+
 export async function getPeopleSummary({ sort = "medianPhotoAt", order = "asc" } = {}) {
   const people = await loadPeopleIndex();
   const direction = order === "desc" ? -1 : 1;
@@ -95,11 +163,13 @@ export async function getPeopleSummary({ sort = "medianPhotoAt", order = "asc" }
 
   const sorted = [...people].sort((a, b) => {
     if (key === "name") {
-      return (a.name || "").localeCompare(b.name || "") * direction;
+      return compareNames(a, b, direction);
     }
 
     if (key === "photoCount") {
-      return compareValues(a.photoCount, b.photoCount, direction);
+      const cmp = compareValues(a.photoCount, b.photoCount, direction);
+      if (cmp !== 0) return cmp;
+      return compareNames(a, b, 1);
     }
 
     if (["medianPhotoAt", "earliestPhotoAt", "latestPhotoAt"].includes(key)) {
@@ -107,13 +177,16 @@ export async function getPeopleSummary({ sort = "medianPhotoAt", order = "asc" }
       const bTime = b[key] ? Date.parse(b[key]) : null;
       const cmp = compareValues(aTime, bTime, direction);
       if (cmp !== 0) return cmp;
-      return a.name?.localeCompare(b.name || "") || 0;
+      return compareNames(a, b, 1);
     }
 
-    return 0;
+    return compareNames(a, b, direction);
   });
 
-  return sorted;
+  return sorted.map((person) => ({
+    ...person,
+    ...selectHero(person, key),
+  }));
 }
 
 export const peopleIndexPaths = {
