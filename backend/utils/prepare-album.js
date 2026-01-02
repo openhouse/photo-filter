@@ -52,15 +52,16 @@ async function prepareAlbumInternal(context) {
   const status = await loadStatus(albumUUID, { exportBase, photosJSON });
   const hasPhotos = await fs.pathExists(photosJSON);
 
-  if (hasPhotos && status.status === "ready") {
-    return status;
-  }
-
-  if (hasPhotos && status.status !== "ready") {
-    return await writeStatus(albumUUID, exportBase, {
-      status: "ready",
-      finishedAt: status.finishedAt || new Date().toISOString(),
-    });
+  if (hasPhotos) {
+    if (status.status === "ready" || status.status === "skipped-empty") {
+      return status;
+    }
+    if (status.status && status.status !== "error") {
+      return await writeStatus(albumUUID, exportBase, {
+        status: "ready",
+        finishedAt: status.finishedAt || new Date().toISOString(),
+      });
+    }
   }
 
   const startedAt = new Date().toISOString();
@@ -128,6 +129,12 @@ async function prepareAlbumInternal(context) {
       lastProgressAt: progressTimestamp,
       lastHeartbeatAt: progressTimestamp,
     });
+    const { size: photosSize } = await fs.stat(photosJSON);
+    if (photosSize > 512 * 1024 * 1024) {
+      const message = `photos.json too large to process (${formatBytes(photosSize)})`;
+      logMessage(message);
+      throw new Error(message);
+    }
     const photos = await fs.readJson(photosJSON);
     const uuids = await loadUuidsFromFile(uuidsFile);
     let exportResult = null;
@@ -285,6 +292,20 @@ function formatExtra(extra) {
   } catch {
     return String(extra);
   }
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return String(bytes);
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const formatted =
+    value >= 10 || value % 1 === 0 ? value.toFixed(0) : value.toFixed(1);
+  return `${formatted} ${units[unitIndex]}`;
 }
 
 function startStatusHeartbeat(albumUUID, exportBase, intervalMs = 15000) {
