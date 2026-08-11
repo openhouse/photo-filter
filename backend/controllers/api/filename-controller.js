@@ -66,7 +66,9 @@ function getBackendRootDir() {
 }
 
 function getBackendDataDir() {
-  return path.join(getBackendRootDir(), "data");
+  return process.env.PF_PEOPLE_METADATA_ROOT
+    ? path.resolve(process.env.PF_PEOPLE_METADATA_ROOT)
+    : path.join(getBackendRootDir(), "data");
 }
 
 function readEnvInt(name, fallback) {
@@ -182,7 +184,7 @@ export async function getPeopleByFilename(req, res) {
       return respondWithEmptyPeople(res, filename);
     }
 
-    const { persons, source, resolvedFilename } = await runWithAlbumLock(
+    const { persons, source } = await runWithAlbumLock(
       albumUUID,
       async () => {
         const inLockCached = getCachedPersons(cacheKey);
@@ -220,7 +222,7 @@ export async function getPeopleByFilename(req, res) {
 
     clearMiss(lookupKey);
     res.set("X-PF-Resolve", source ?? resolveSource ?? RESOLVE_SOURCES.JSON);
-    return res.json({ filename: resolvedFilename ?? filename, people: persons });
+    return res.json({ filename, people: persons });
   } catch (error) {
     console.error("Error looking up persons by filename:", error);
     res.set("X-PF-Resolve", RESOLVE_SOURCES.ERROR);
@@ -611,7 +613,7 @@ async function findPersonsByFilenameStreaming(
   return { persons: null, source, resolvedFilename: null };
 }
 
-function normalizeLookupFilename(rawInput) {
+export function normalizeLookupFilename(rawInput) {
   log(`JB: normalizeLookupFilename rawInput=${rawInput}`);
 
   const str =
@@ -652,7 +654,7 @@ function normalizeLookupFilename(rawInput) {
   return { filename: candidate, lookupKey };
 }
 
-function resolvePhotoBasename(photo) {
+export function resolvePhotoBasename(photo) {
   const candidate = getPhotoFilenameCandidate(photo);
   if (!candidate) return null;
   const sanitized = sanitizeMetadataFilename(candidate);
@@ -664,7 +666,7 @@ function resolvePhotoBasename(photo) {
 
 function getPhotoFilenameCandidate(photo) {
   if (!photo) return null;
-  const candidates = [
+  const explicitExportCandidates = [
     photo.file_basename,
     photo.fileBasename,
     photo.file_base_name,
@@ -673,6 +675,17 @@ function getPhotoFilenameCandidate(photo) {
     photo.exportedFilename,
     photo.export_filename,
     photo.exportFilename,
+  ];
+  for (const value of explicitExportCandidates) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  const generated = buildExportedFilename(photo);
+  if (generated) return generated;
+
+  const genericCandidates = [
     photo.filename,
     photo.fileName,
     photo.basename,
@@ -682,12 +695,12 @@ function getPhotoFilenameCandidate(photo) {
     photo.asset_filename,
     photo.assetFilename,
   ];
-  for (const value of candidates) {
+  for (const value of genericCandidates) {
     if (typeof value === "string" && value.trim()) {
       return value;
     }
   }
-  return buildExportedFilename(photo);
+  return null;
 }
 
 function sanitizeMetadataFilename(value) {
@@ -703,7 +716,7 @@ function sanitizeMetadataFilename(value) {
   return normalized;
 }
 
-function extractPersons(photo) {
+export function extractPersons(photo) {
   const names = [
     ...(Array.isArray(photo.persons) ? photo.persons : []),
     ...(Array.isArray(photo.persons_full) ? photo.persons_full : []),
@@ -741,7 +754,7 @@ function extractOriginalChunkFromExported(filename) {
   return chunk || null;
 }
 
-function getOriginalFilenameCandidate(photo) {
+export function getOriginalFilenameCandidate(photo) {
   if (!photo) return null;
 
   const candidates = [
@@ -763,7 +776,7 @@ function getOriginalFilenameCandidate(photo) {
   return null;
 }
 
-function normalizeOriginalName(value) {
+export function normalizeOriginalName(value) {
   if (!value) return null;
   const sanitized = sanitizeMetadataFilename(value);
   if (!sanitized) return null;
@@ -773,7 +786,7 @@ function normalizeOriginalName(value) {
   return { filename: sanitized, normalized, key };
 }
 
-function createOriginalLookup(filename) {
+export function createOriginalLookup(filename) {
   const chunk = extractOriginalChunkFromExported(filename);
   if (!chunk) {
     return null;

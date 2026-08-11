@@ -30,6 +30,7 @@
     "dev": "nodemon --delay 500ms --watch ./ --ignore './data/**' --ignore '../frontend/**/tmp/**' --ignore '../frontend/**/dist/**' --ignore '../**/photo-filter-local/**' --ext js,mjs,cjs,json,hbs --exec \"node server.js\"",
     "test": "node --experimental-vm-modules --no-warnings ./node_modules/jest/bin/jest.js --config jest.config.js || node --experimental-vm-modules --no-warnings ../node_modules/jest/bin/jest.js --config jest.config.js",
     "test:watch": "node --experimental-vm-modules --no-warnings ./node_modules/jest/bin/jest.js --config jest.config.js --watch || node --experimental-vm-modules --no-warnings ../node_modules/jest/bin/jest.js --config jest.config.js --watch",
+    "evals:people-index": "node --experimental-vm-modules --no-warnings ../node_modules/jest/bin/jest.js --config jest.config.js --watchman=false tests/services/people-index.test.js tests/api.people-by-filename.test.js",
     "generate-overview": "../generate-overview.sh",
     "postinstall": "node ./scripts/setup.js",
     "smoke:people-by-filename": "bash ./scripts/smoke-people-by-filename.sh"
