@@ -7,7 +7,7 @@
 | **Author** | Jamie Burkart with collaborators |
 | **Created** | 2026-08-11 |
 | **Related** | RFC 0007 — Incremental Library Sync & Contextual Reload |
-| **Companion** | `openhouse/photo-select` RFC 0010 |
+| **Companion** | [`openhouse/photo-select` RFC 0010](https://github.com/openhouse/photo-select/pull/231) |
 
 ---
 
@@ -53,6 +53,10 @@ For every active album, resolve the canonical `photos.json` using the same
 precedence as the existing filename controller. Sort sources by normalized
 relative path. Compute:
 
+An isolated worktree or deployment may set `PF_PEOPLE_METADATA_ROOT` to the
+existing local metadata root; the logical relative paths, not that machine-
+specific absolute prefix, participate in the corpus identity.
+
 ```text
 source_sha256 = SHA256(exact file bytes)
 corpus_sha256 = SHA256(
@@ -78,6 +82,10 @@ Refresh constructs a complete candidate snapshot, then swaps it into service
 atomically. Readers see either the old complete snapshot or the new complete
 snapshot—never a partial index.
 
+An empty active source set is an error, not a valid empty corpus. The server
+returns `503 PEOPLE_INDEX_NO_SOURCES` so a missing mount or misconfigured root
+cannot silently erase all people enrichment.
+
 ## 4 — Index semantics
 
 Each record contains:
@@ -97,6 +105,19 @@ The builder indexes:
 - the normalized original/semantic filename key used by the existing
   fallback resolver;
 - all person fields already recognized by `extractPersons`.
+
+When metadata supplies only a generic camera filename, the timestamped
+semantic export name derived from the creation date takes precedence. This
+prevents an original name reused by the camera from shadowing the photograph's
+actual identity. Explicit exported basenames still take first priority.
+
+The same semantic photograph may occur in several album exports. Those
+memberships collapse to one identity (precise creation timestamp plus original
+filename), and their person labels are sorted and unioned deterministically.
+This intentionally repairs a legacy false miss in which whichever album was
+encountered first could erase labels present on another membership. Two
+genuinely different photographs that share an original camera filename remain
+separate.
 
 An original-name alias is usable only when it resolves to exactly one photo.
 Ambiguous aliases remain unresolved, matching the existing safety behavior.
@@ -158,8 +179,12 @@ only after its `corpus_sha256` matches the active sources.
 
 ## 7 — Compatibility
 
-- Existing `GET /api/photos/by-filename/:filename/persons` behavior remains.
-- Existing filenames, person ordering, and empty-result semantics remain.
+- Existing `GET /api/photos/by-filename/:filename/persons` remains available
+  and now honors the same timestamped semantic identity precedence.
+- Existing requested filenames and empty-result semantics remain. Person
+  ordering is deterministic. When duplicate album exports disagree, all known
+  labels are retained instead of inheriting the legacy endpoint's first-album
+  omission.
 - No photo or Photos-library data is mutated.
 - Clients without bulk support continue using the legacy endpoint.
 
@@ -184,11 +209,17 @@ Code-based evals must establish:
 2. A byte change, source addition, source deletion, or source rename changes
    the hash.
 3. A 500-filename lookup scans each source once, not once per filename.
-4. Bulk and legacy lookups return identical people for exact, semantic-alias,
-   missing, and ambiguous fixtures.
+4. Bulk and legacy lookups return identical people for consistent exact,
+   semantic-alias, missing, and ambiguous fixtures.
 5. A stale expected hash receives `409` and never mixed-revision output.
 6. Refresh failure leaves the previous complete snapshot available and marks
    the refresh failure explicitly.
+7. Duplicate album memberships collapse by semantic photo identity and union
+   conflicting people labels, while a different exposure with the same
+   original filename remains ambiguous.
+8. Both legacy and bulk resolution prefer the timestamped semantic identity
+   over a generic metadata filename.
+9. No active sources fails loudly and never publishes an empty snapshot.
 
 ## 10 — Rollout
 

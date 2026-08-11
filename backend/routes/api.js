@@ -25,6 +25,11 @@ import {
 import { ensureAlbumPrepared } from "../utils/prepare-album.js";
 
 import { getPeopleByFilename } from "../controllers/api/filename-controller.js";
+import {
+  getPeopleByFilenames,
+  getPeopleIndexStatus,
+  refreshPeopleIndex,
+} from "../controllers/api/people-index-controller.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +51,9 @@ apiRouter.post("/albums/:albumUUID/prepare", prepareAlbumForExport);
 apiRouter.get("/albums/:albumUUID/persons", getPeopleInAlbum);
 apiRouter.get("/albums/:albumUUID/person/:personName", getPhotosByPerson);
 apiRouter.get("/photos/by-filename/:filename/persons", getPeopleByFilename);
+apiRouter.post("/photos/by-filenames/persons", getPeopleByFilenames);
+apiRouter.get("/photos/people-index/status", getPeopleIndexStatus);
+apiRouter.post("/photos/people-index/refresh", refreshPeopleIndex);
 
 // People-by-filename route for exported filenames
 apiRouter.get("/people/by-filename/:filename", getPeopleByFilename);
